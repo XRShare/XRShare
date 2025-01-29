@@ -1,0 +1,6 @@
+Getting errors when trying to run this in the simulator (for iOS at least)? These shouldn't occur if you run it on an actual device, as the simulator doesn't play nice with all of AR's features... could be wrong here, but that's what "the internet" says. Try running it on your actual phone/iPad and it should be fine... this code as-is has ran on a few of our team's devices.
+
+Models: remember that the models aren't included in the repo. Place them in the "models" folder. If you add new ones from Shane, edit the Model.swift file... add those new models to the list in there, so they rotate about the correct axis.
+
+
+One more note: this app is far from perfect in its current state. It has bugs. Several of them. We can try to sort them out over the remaining days.
