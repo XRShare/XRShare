@@ -32,6 +32,15 @@
 			);
 			target = 0D64C65B2CE003FE00D34085 /* XR Anatomy */;
 		};
+		6654C75A2D5D3CC700225F65 /* Exceptions for "XR Anatomy" folder in "XR Anatomy Vision" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				DataType.swift,
+				ModelTransformPayload.swift,
+				ModelType.swift,
+			);
+			target = 87B974472D09106D00168B98 /* XR Anatomy Vision */;
+		};
 		87B9745A2D09106E00168B98 /* Exceptions for "XR Anatomy Vision" folder in "XR Anatomy Vision" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -46,6 +55,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				0DE709142CE1BBE200762D5F /* Exceptions for "XR Anatomy" folder in "XR Anatomy" target */,
+				6654C75A2D5D3CC700225F65 /* Exceptions for "XR Anatomy" folder in "XR Anatomy Vision" target */,
 			);
 			path = "XR Anatomy";
 			sourceTree = "<group>";
@@ -378,7 +388,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"XR Anatomy/Preview Content\"";
-				DEVELOPMENT_TEAM = R8K428CDZ8;
+				DEVELOPMENT_TEAM = GB5R6DTC6N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "XR Anatomy/Info.plist";
@@ -396,7 +406,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "XR-Anatomy-team.XRAnatomySamer";
+				PRODUCT_BUNDLE_IDENTIFIER = "XR-Anatomy-team.XRAnatomyAli";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -412,7 +422,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"XR Anatomy/Preview Content\"";
-				DEVELOPMENT_TEAM = R8K428CDZ8;
+				DEVELOPMENT_TEAM = GB5R6DTC6N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "XR Anatomy/Info.plist";
@@ -430,7 +440,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "XR-Anatomy-team.XRAnatomySamer";
+				PRODUCT_BUNDLE_IDENTIFIER = "XR-Anatomy-team.XRAnatomyAli";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -446,7 +456,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"XR Anatomy Vision/Preview Content\"";
-				DEVELOPMENT_TEAM = R8K428CDZ8;
+				DEVELOPMENT_TEAM = GB5R6DTC6N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "$(TARGET_NAME)/Info.plist";
@@ -474,7 +484,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"XR Anatomy Vision/Preview Content\"";
-				DEVELOPMENT_TEAM = R8K428CDZ8;
+				DEVELOPMENT_TEAM = GB5R6DTC6N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "$(TARGET_NAME)/Info.plist";
@@ -504,7 +514,7 @@
 				0D64C6692CE003FF00D34085 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		0D64C66A2CE003FF00D34085 /* Build configuration list for PBXNativeTarget "XR Anatomy" */ = {
 			isa = XCConfigurationList;
@@ -513,7 +523,7 @@
 				0D64C66C2CE003FF00D34085 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		87B9745B2D09106E00168B98 /* Build configuration list for PBXNativeTarget "XR Anatomy Vision" */ = {
 			isa = XCConfigurationList;
@@ -522,7 +532,7 @@
 				87B974592D09106E00168B98 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
 

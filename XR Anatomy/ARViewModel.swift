@@ -1,5 +1,3 @@
-// Kind of the main file. There's a lot going on in here...
-
 import SwiftUI
 import RealityKit
 import ARKit
@@ -9,32 +7,31 @@ import MultipeerConnectivity
 enum UserRole {
     case host
     case viewer
-    case openSession  // for pure collaboration sessions (disabled atm)
+    case openSession
 }
 
 class ARViewModel: NSObject, ObservableObject {
-    // MARK: Published Properties
-    @Published var selectedModel: Model? = nil 
+    // MARK: - Published
+    @Published var selectedModel: Model? = nil
     @Published var alertItem: AlertItem?
     @Published var connectedPeers: [MCPeerID] = []
-    @Published var isPlaneVisualizationEnabled: Bool = false
-    @Published var loadingProgress: Float = 0.0  // Track loading progress
+    @Published var isPlaneVisualizationEnabled = false
+    @Published var loadingProgress: Float = 0.0
     @Published var userRole: UserRole = .openSession
-    @Published var isHostPermissionGranted: Bool = false
-    
-    // Debug feature toggle properties with didSet observers
+    @Published var isHostPermissionGranted = false
+
+    // Debug toggles
     @Published var areFeaturePointsEnabled = false { didSet { updateDebugOptions() }}
     @Published var isWorldOriginEnabled = false { didSet { updateDebugOptions() }}
     @Published var areAnchorOriginsEnabled = false { didSet { updateDebugOptions() }}
     @Published var isAnchorGeometryEnabled = false { didSet { updateDebugOptions() }}
     @Published var isSceneUnderstandingEnabled = false { didSet { updateDebugOptions() }}
 
-    // Used for session management
+    // Session management (for Join UI)
     @Published var availableSessions: [(peerID: MCPeerID, sessionID: String, sessionName: String)] = []
     @Published var selectedSession: (peerID: MCPeerID, sessionID: String, sessionName: String)?
     
-    
-    // MARK: Properties
+    // MARK: - AR references
     var arView: ARView? {
         didSet {
             if arView != nil && deferredStartMultipeerServices {
@@ -43,6 +40,7 @@ class ARViewModel: NSObject, ObservableObject {
             }
         }
     }
+
     var models: [Model] = []
     var placedAnchors: [ARAnchor] = []
     var anchorEntities: [UUID: AnchorEntity] = [:]
@@ -50,53 +48,38 @@ class ARViewModel: NSObject, ObservableObject {
     var processedAnchorIDs: Set<UUID> = []
     var anchorsAddedLocally: Set<UUID> = []
     var pendingAnchors: [UUID: ARAnchor] = [:]
-    
+
     var multipeerSession: MultipeerSession!
-    var pendingPeerToConnect: MCPeerID? // was private...
+    var pendingPeerToConnect: MCPeerID?
     var sessionName: String = ""
-    var sessionID: String = UUID().uuidString {
-        didSet {
-            print("Session ID set to: \(sessionID)")
-        }
-    }
-    private var receivedWorldMap: ARWorldMap?  // Store received world map
-    private let minimumFeaturePointThreshold = 100  // Threshold for feature points
+    var sessionID: String = UUID().uuidString
+    private var receivedWorldMap: ARWorldMap?
+    private let minimumFeaturePointThreshold = 100
     private var subscriptions = Set<AnyCancellable>()
     private var deferredStartMultipeerServices = false
-    private var shouldStartMultipeerSession = false // Defer multipeer services
-    
-    // Gesture tracking properties
+    private var shouldStartMultipeerSession = false
+
+    // Gestures
     private var activeEntity: ModelEntity?
     private var initialScale: SIMD3<Float> = SIMD3<Float>(repeating: 1.0)
-    private var initialRotation: simd_quatf = simd_quatf(angle: 0, axis: SIMD3<Float>(0, 1, 0))
-    private var initialTouchWorldPosition: SIMD3<Float> = SIMD3<Float>(0, 0, 0)
-    private var initialEntityWorldPosition: SIMD3<Float> = SIMD3<Float>(0, 0, 0)
-    private var touchToEntityOffset: SIMD3<Float> = SIMD3<Float>(0, 0, 0)
-    
-    // For moving the model with pan gesture
-    private var initialPanLocation: CGPoint?
-    private var initialModelPosition: SIMD3<Float>?
-    
-    
-    
+    private var initialRotation: simd_quatf = simd_quatf(angle: 0, axis: [0, 1, 0])
+    private var initialTouchWorldPosition = SIMD3<Float>(0,0,0)
+    private var initialEntityWorldPosition = SIMD3<Float>(0,0,0)
+    private var touchToEntityOffset = SIMD3<Float>(0,0,0)
 
-
-    // MARK: - Initializer
     override init() {
         super.init()
-        // loadModels() <-- is now called by ContentView.swift
     }
-
-    // MARK: Load Models
+    
+    // MARK: - Load Models
     func loadModels() {
         guard models.isEmpty else { return }
-
         let modelTypes = ModelType.allCases()
         let totalModels = modelTypes.count
         var loadedModels = 0
 
-        for modelType in modelTypes {
-            let model = Model(modelType: modelType)
+        for mt in modelTypes {
+            let model = Model(modelType: mt)
             models.append(model)
 
             model.$loadingState
@@ -107,47 +90,42 @@ class ARViewModel: NSObject, ObservableObject {
                     case .loaded:
                         loadedModels += 1
                         self.loadingProgress = Float(loadedModels) / Float(totalModels)
-
                         if loadedModels == totalModels {
-                            print("All models loaded successfully.")
+                            print("All models loaded.")
                             self.enableMultipeerServicesIfDeferred()
-                            // Now safe to process received anchors
-                            // self.processPendingAnchors()  <-- used to do this here, now is called from in ContentView
                         }
                     case .failed(let error):
                         self.alertItem = AlertItem(
                             title: "Failed to Load Model",
-                            message: "Model \(modelType.rawValue.capitalized): \(error.localizedDescription)"
+                            message: "\(mt.rawValue.capitalized): \(error.localizedDescription)"
                         )
-                    default: break
+                    default:
+                        break
                     }
                 }
                 .store(in: &subscriptions)
         }
     }
-    
-    // MARK: - AR View Setup
+
+    // MARK: - Setup AR
     func setupARView(_ arView: ARView) {
         self.arView = arView
         arView.session.delegate = self
         updateDebugOptions()
 
-        // Set up AR session configuration
         let config = ARWorldTrackingConfiguration()
         config.planeDetection = [.horizontal, .vertical]
-        // Will crash if not supported, but helps iPhone 12+ devices (with LiDAR) read the scene
         if ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) {
-            config.sceneReconstruction = .meshWithClassification  // Enable scene reconstruction
+            config.sceneReconstruction = .meshWithClassification
         }
-        config.environmentTexturing = .automatic // Helps detect the environment
-        config.isCollaborationEnabled = true // Enable collaboration
-        arView.session.run(config) // Run AR session
-        // Reapply scene understanding options
+        config.environmentTexturing = .automatic
+        config.isCollaborationEnabled = true
+        arView.session.run(config)
+
         arView.environment.sceneUnderstanding.options = .default
-        // Print the options to confirm
         printSceneUnderstandingOptions(for: arView)
 
-        // Add Gesture Recognizers
+        // Add gesture recognizers
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
         let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
         panGesture.maximumNumberOfTouches = 1
@@ -159,76 +137,49 @@ class ARViewModel: NSObject, ObservableObject {
         arView.addGestureRecognizer(pinchGesture)
         arView.addGestureRecognizer(rotationGesture)
 
-        // Start MultipeerSession if it was deferred
         if shouldStartMultipeerSession {
-            print("arView is now initialized. Starting deferred MultipeerSession.")
             startMultipeerServices()
         }
     }
 
     func printSceneUnderstandingOptions(for arView: ARView) {
         let options = arView.environment.sceneUnderstanding.options
-
-        print("\n\nScene Understanding Options:")
-
-        if options.contains(.physics) {
-            print("- Physics enabled")
-        }
-        if options.contains(.receivesLighting) {
-            print("- Receives lighting enabled")
-        }
-        if options.contains(.occlusion) {
-            print("- Occlusion enabled")
-        }
-        if options.contains(.collision) {
-            print("- Collision enabled")
-        }
-
-        if options.isEmpty {
-            print("- No scene understanding options are enabled")
-        }
-        print("\n\n")
+        print("\nScene Understanding Options:")
+        if options.contains(.physics)           { print("- Physics") }
+        if options.contains(.receivesLighting)  { print("- Receives lighting") }
+        if options.contains(.occlusion)         { print("- Occlusion") }
+        if options.contains(.collision)         { print("- Collision") }
+        if options.isEmpty                      { print("- None") }
     }
-    
-    // MARK: Multipeer Control
-    func startMultipeerServices() {
-        guard multipeerSession == nil else {
-            print("MultipeerSession is already initialized.")
-            return
-        }
 
-        // For hosts and open sessions, ensure arView is initialized
+    // MARK: - Multipeer
+    func startMultipeerServices() {
+        guard multipeerSession == nil else { return }
         if userRole == .host || userRole == .openSession {
             guard arView != nil else {
-                print("arView is not initialized yet. Deferring MultipeerSession start.")
                 deferredStartMultipeerServices = true
                 return
             }
         }
-
-        print("Starting MultipeerSession with role: \(userRole)")
         multipeerSession = MultipeerSession(sessionID: sessionID, sessionName: sessionName, userRole: userRole)
-        multipeerSession?.delegate = self
-        print("Multipeer services initialized with session ID \(sessionID ?? "Unknown").")
-        multipeerSession?.start()
-        print("Multipeer services started.")
+        multipeerSession.delegate = self
+        multipeerSession.start()
+        print("MultipeerSession started with ID \(sessionID).")
 
-        // If we have a pending peer to connect to, invite them
-        if let peerID = pendingPeerToConnect {
-            multipeerSession?.invitePeer(peerID, sessionID: sessionID ?? "Unknown")
+        if let peer = pendingPeerToConnect {
+            multipeerSession.invitePeer(peer, sessionID: sessionID)
             pendingPeerToConnect = nil
         }
     }
-    
+
     func connectToSession(peerID: MCPeerID) {
-        if let multipeerSession = multipeerSession {
-            multipeerSession.invitePeer(peerID, sessionID: sessionID ?? "Unknown")
+        if let m = multipeerSession {
+            m.invitePeer(peerID, sessionID: sessionID)
         } else {
-            print("MultipeerSession is not initialized yet. Storing pending peer.")
             pendingPeerToConnect = peerID
         }
     }
-    
+
     func deferMultipeerServicesUntilModelsLoad() {
         shouldStartMultipeerSession = true
     }
@@ -240,15 +191,14 @@ class ARViewModel: NSObject, ObservableObject {
     }
 
     func invitePeer(_ peerID: MCPeerID, sessionID: String) {
-        multipeerSession.invitePeer(peerID, sessionID: sessionID)
+        multipeerSession?.invitePeer(peerID, sessionID: sessionID)
     }
-    
+
     func toggleHostPermissions() {
         isHostPermissionGranted.toggle()
         sendPermissionUpdateToPeers(isGranted: isHostPermissionGranted)
-        print("Host permission toggled: \(isHostPermissionGranted)")
         if isHostPermissionGranted {
-            syncSceneData() // Synchronize the scene after granting permissions
+            syncSceneData()
         }
     }
 
@@ -256,108 +206,83 @@ class ARViewModel: NSObject, ObservableObject {
         do {
             let data = try JSONEncoder().encode(isGranted)
             multipeerSession?.sendToAllPeers(data, dataType: .permissionUpdate)
-            print("Sent permission update to peers: \(isGranted)")
         } catch {
-            print("Failed to encode permission update: \(error.localizedDescription)")
+            print("Failed to encode permission update: \(error)")
         }
     }
 
-
-
-    // MARK: GESTURE handling  ---------------------------------------------------------------------
-    // Tap Gesture
+    // MARK: - GESTURES
     @objc func handleTap(_ sender: UITapGestureRecognizer) {
-        guard userRole != .viewer || isHostPermissionGranted else { return } // Disable for viewers
+        guard userRole != .viewer || isHostPermissionGranted else { return }
+        guard let arView = arView else { return }
 
         let location = sender.location(in: arView)
-        guard let arView = arView else {
-            print("arView could not be unwrapped for some reason - top of @objc func handleTap()")
-            return
-        }
         let results = arView.raycast(from: location, allowing: .estimatedPlane, alignment: .any)
 
-        if let result = results.first, let model = selectedModel, let modelEntity = model.modelEntity {
-            // Generate a unique identifier for this model instance
+        if let result = results.first,
+           let model = selectedModel,
+           let _ = model.modelEntity {
+
+            // Create a unique anchor name and ARAnchor
             let uniqueID = UUID().uuidString
-            // Set the anchor name to include both the model type and the unique ID
             let anchorName = "\(model.modelType.rawValue)_\(uniqueID)"
             let anchor = ARAnchor(name: anchorName, transform: result.worldTransform)
             arView.session.add(anchor: anchor)
 
-            // Add to placedAnchors
             placedAnchors.append(anchor)
-
-            // **Add to anchorsAddedLocally**
             anchorsAddedLocally.insert(anchor.identifier)
 
-            // Propagate the new anchor
+            // Optionally send the anchor transform
             sendAnchorWithTransform(anchor: anchor)
         }
         printSceneUnderstandingOptions(for: arView)
     }
 
-    // Pan Gesture with "Advanced Functionality"
     @objc func handlePan(_ sender: UIPanGestureRecognizer) {
-        guard userRole != .viewer || isHostPermissionGranted else { return } // Disable for viewers
-        guard let arView = arView else {
-            print("arView could not be unwrapped for some reason - top of @objc func handlePan()")
-            return
-        }
+        guard userRole != .viewer || isHostPermissionGranted else { return }
+        guard let arView = arView else { return }
 
         let location = sender.location(in: arView)
-
         if sender.state == .began {
-            activeEntity = findClosestModelEntity(to: location)
+            activeEntity = findClosestModelEntity(to: location, in: arView)
             if let entity = activeEntity {
-                // Perform a raycast to find the world position under the finger
-                if let raycastResult = arView.raycast(from: location, allowing: .estimatedPlane, alignment: .any).first {
-                    initialTouchWorldPosition = raycastResult.worldTransform.translation
+                if let raycast = arView.raycast(from: location, allowing: .estimatedPlane, alignment: .any).first {
+                    initialTouchWorldPosition = raycast.worldTransform.position
                     initialEntityWorldPosition = entity.transform.translation
-                    // Calculate the offset between the entity's position and the touch position
                     touchToEntityOffset = initialEntityWorldPosition - initialTouchWorldPosition
                 }
             }
         }
-
         guard let entity = activeEntity else { return }
 
         if sender.state == .changed {
-            // Perform a raycast from the current finger location
-            if let raycastResult = arView.raycast(from: location, allowing: .estimatedPlane, alignment: .any).first {
-                let currentTouchWorldPosition = raycastResult.worldTransform.translation
-                // Update the entity's position to maintain the offset from the touch position
-                let newEntityWorldPosition = currentTouchWorldPosition + touchToEntityOffset
-
+            if let raycast = arView.raycast(from: location, allowing: .estimatedPlane, alignment: .any).first {
+                let currentTouchPos = raycast.worldTransform.position
+                let newPos = currentTouchPos + touchToEntityOffset
                 var newTransform = entity.transform
-                newTransform.translation = newEntityWorldPosition
+                newTransform.translation = newPos
                 entity.transform = newTransform
             }
         }
-
         if sender.state == .ended {
             sendModelTransform(entity)
             activeEntity = nil
         }
     }
 
-    // Pinch Gesture (Scale)
     @objc func handlePinch(_ sender: UIPinchGestureRecognizer) {
-        guard userRole != .viewer || isHostPermissionGranted else { return } // Disable for viewers
-
+        guard userRole != .viewer || isHostPermissionGranted else { return }
         let location = sender.location(in: arView)
-
         if sender.state == .began {
-            activeEntity = findClosestModelEntity(to: location)
+            activeEntity = findClosestModelEntity(to: location, in: arView)
             initialScale = activeEntity?.transform.scale ?? SIMD3<Float>(repeating: 1.0)
         }
-
         guard let entity = activeEntity else { return }
 
         if sender.state == .changed {
             let scaleFactor = Float(sender.scale)
             entity.transform.scale = initialScale * SIMD3<Float>(repeating: scaleFactor)
         }
-
         if sender.state == .ended {
             sender.scale = 1.0
             sendModelTransform(entity)
@@ -365,87 +290,66 @@ class ARViewModel: NSObject, ObservableObject {
         }
     }
 
-    // Rotation Gesture
     @objc func handleRotation(_ sender: UIRotationGestureRecognizer) {
-        guard userRole != .viewer || isHostPermissionGranted else { return } // Disable for viewers
-
+        guard userRole != .viewer || isHostPermissionGranted else { return }
         let location = sender.location(in: arView)
 
         if sender.state == .began {
-            activeEntity = findClosestModelEntity(to: location)
-            // Determine the rotation axis based on the model's type
-            if let modelType = selectedModel?.modelType, modelType.shouldRotateAroundZAxis {
-                initialRotation = activeEntity?.transform.rotation ?? simd_quatf(angle: 0, axis: SIMD3<Float>(0, 0, 1)) // Z-axis
+            activeEntity = findClosestModelEntity(to: location, in: arView)
+            if let modelType = selectedModel?.modelType,
+               modelType.shouldRotateAroundZAxis {
+                initialRotation = activeEntity?.transform.rotation
+                    ?? simd_quatf(angle: 0, axis: [0,0,1])
             } else {
-                initialRotation = activeEntity?.transform.rotation ?? simd_quatf(angle: 0, axis: SIMD3<Float>(0, 1, 0)) // Y-axis
+                initialRotation = activeEntity?.transform.rotation
+                    ?? simd_quatf(angle: 0, axis: [0,1,0])
             }
         }
-
         guard let entity = activeEntity else { return }
 
         if sender.state == .changed {
-            let rotationAngle = Float(sender.rotation) * -1.0 // x -1 inverts the direction, which feels more intuitive
-            let rotationAxis = (selectedModel?.modelType.shouldRotateAroundZAxis ?? false) ? SIMD3<Float>(0, 0, 1) : SIMD3<Float>(0, 1, 0)
-            let rotationDelta = simd_quatf(angle: rotationAngle, axis: rotationAxis)
-            entity.transform.rotation = initialRotation * rotationDelta
+            let rotationAngle = Float(sender.rotation) * -1.0
+            let axis = (selectedModel?.modelType.shouldRotateAroundZAxis ?? false)
+                ? SIMD3<Float>(0,0,1)
+                : SIMD3<Float>(0,1,0)
+            let delta = simd_quatf(angle: rotationAngle, axis: axis)
+            entity.transform.rotation = initialRotation * delta
         }
-
         if sender.state == .ended {
-            sender.rotation = 0.0
+            sender.rotation = 0
             sendModelTransform(entity)
             activeEntity = nil
         }
     }
 
-    // (helper function) Find Closest Model Entity
-    private func findClosestModelEntity(to location: CGPoint) -> ModelEntity? {
-        guard let arView = arView else {
-            print("arView could not be unwrapped for some reason - top of findClosestModelEntity() - returning null... ")
-            return nil
-        }
+    private func findClosestModelEntity(to location: CGPoint, in arView: ARView?) -> ModelEntity? {
+        guard let arView = arView else { return nil }
         return arView.entity(at: location) as? ModelEntity
     }
-    // MARK: --- end of GESTURES ------------------------------------------------------------------
 
-    
     func sendModelTransform(_ modelEntity: ModelEntity) {
         let modelID = modelEntity.name
-        guard !modelID.isEmpty else {
-            print("Model entity has no ID")
-            return
-        }
-
-        // Get the model's transform matrix
+        guard !modelID.isEmpty else { return }
         let transformMatrix = modelEntity.transform.matrix
-
-        // Convert the matrix to an array of Floats
         let transformArray = transformMatrix.toArray()
 
-        // Package the data
         do {
-            // Encode the modelID and transform
             let payload = ModelTransformPayload(modelID: modelID, transform: transformArray)
             let data = try JSONEncoder().encode(payload)
-
-            // Send the data
             multipeerSession?.sendToAllPeers(data, dataType: .modelTransform)
         } catch {
-            print("Failed to encode model transform: \(error.localizedDescription)")
+            print("Failed to encode model transform: \(error)")
         }
     }
 
-    // MARK: - Sync Scene Data
+    // MARK: - Scene Sync
     func syncSceneData() {
-        // No need to manually sync ARWorldMap or anchors (for now...)
-        print("Sync initiated: Collaboration data will be shared automatically.")
+        print("Sync initiated (collaboration data also auto-shares).")
     }
 
-    // MARK: - Clear All Models
+    // Clear local anchors
     func clearAllModels() {
-        guard let arView = arView else {
-            print("Couldn't unwrap arView in clearAllModels(), in ARViewModel.swift, for some reason...")
-            return
-        }
+        guard let arView = arView else { return }
         let anchorIDs = placedAnchors.map { $0.identifier }
         for anchor in placedAnchors {
             arView.session.remove(anchor: anchor)
@@ -455,281 +359,220 @@ class ARViewModel: NSObject, ObservableObject {
             }
         }
         placedAnchors.removeAll()
-        print("All models this user contributed have been cleared from the scene.")
 
-        // Send the anchor IDs to peers to remove these anchors
         do {
             let ids = anchorIDs.map { $0.uuidString }
             let data = try JSONEncoder().encode(ids)
             multipeerSession?.sendToAllPeers(data, dataType: .removeAnchors)
         } catch {
-            print("Failed to encode anchor IDs for removal: \(error.localizedDescription)")
+            print("Failed to encode anchor IDs for removal: \(error)")
         }
     }
 
-    // MARK: - Place Model in Scene
     func placeModel(for anchor: ARAnchor, modelID: String? = nil, transformArray: [Float]? = nil) {
-        print("Attempting to place model for anchor: \(anchor.name ?? "Unnamed")")
-        
-        guard let anchorName = anchor.name else {
-            print("Anchor has no name")
-            return
-        }
+        guard let anchorName = anchor.name else { return }
 
-        let modelID = modelID ?? {
-            let components = anchorName.split(separator: "_", maxSplits: 1)
-            return components.count == 2 ? String(components[1]) : UUID().uuidString
+        // figure out the final model ID
+        let finalModelID = modelID ?? {
+            let comps = anchorName.split(separator: "_", maxSplits: 1)
+            return comps.count == 2 ? String(comps[1]) : UUID().uuidString
         }()
-        
+
         let modelTypeName = String(anchorName.split(separator: "_").first ?? "")
-        print("Extracted modelTypeName: \(modelTypeName)")
-        print("Available models: \(models.map { $0.modelType.rawValue })")
-
-        // Case-insensitive comparison
-        guard let model = models.first(where: { $0.modelType.rawValue.lowercased() == modelTypeName.lowercased() }), let modelEntity = model.modelEntity else {
-            print("Model not found for anchor with type \(modelTypeName)")
+        guard let model = models.first(where: {
+            $0.modelType.rawValue.lowercased() == modelTypeName.lowercased()
+        }),
+        let modelEntity = model.modelEntity
+        else {
+            print("Model not found for anchor type \(modelTypeName)")
             return
         }
 
-        let anchorEntity = AnchorEntity(anchor: anchor)
-        let modelClone = modelEntity.clone(recursive: true)
-        modelClone.name = modelID // Assign the unique ID to the model entity
+        // We can't pass a RealityKit Transform to AnchorEntity(...) directly,
+        // so we create an empty anchor and set its transform manually:
+        let anchorEntity = AnchorEntity()
 
-        // Apply the transform if provided
-        if let transformArray = transformArray {
-            let transformMatrix = simd_float4x4.fromArray(transformArray)
-            print("Applying transform matrix: \(transformMatrix)")
-            modelClone.transform.matrix = transformMatrix
+        // Convert ARAnchor's transform (simd_float4x4) into a RealityKit Transform
+        let transformMatrix = anchor.transform
+        let realityTransform = Transform(matrix: transformMatrix)
+        anchorEntity.transform = realityTransform
+
+        // Clone the model entity
+        let clone = modelEntity.clone(recursive: true)
+        clone.name = finalModelID
+
+        if let tarr = transformArray {
+            let newMatrix = simd_float4x4.fromArray(tarr)
+            clone.transform.matrix = newMatrix
         } else {
-            modelClone.scale *= SIMD3<Float>(repeating: 0.8) // Adjust model scale if necessary
+            // default scale if no transform specified
+            clone.scale *= SIMD3<Float>(repeating: 0.8)
         }
+        clone.generateCollisionShapes(recursive: true)
+        anchorEntity.addChild(clone)
 
-        // Add collision component to model entity for interaction
-        modelClone.generateCollisionShapes(recursive: true)
-
-        anchorEntity.addChild(modelClone)
-        
-        guard let arView = arView else {
-            print("Couldn't unwrap arView in placeModel()")
-            return
-        }
-        
-        arView.scene.addAnchor(anchorEntity)
-        print("Model added to scene with unique ID \(modelID)")
-        
-        // Log model's world position
-        let modelWorldPosition = modelClone.position(relativeTo: nil)
-        print("Model \(modelID) world position: \(modelWorldPosition)")
-
-        // Store the AnchorEntity
+        arView?.scene.addAnchor(anchorEntity)
         anchorEntities[anchor.identifier] = anchorEntity
-        // Mark the anchor as processed
         processedAnchorIDs.insert(anchor.identifier)
     }
-    
-    // Function to process any anchors that were received before models loaded
+
     func processPendingAnchors() {
         for (anchorID, payload) in pendingAnchorPayloads {
             if let anchor = arView?.session.currentFrame?.anchors.first(where: { $0.identifier == anchorID }) {
-                // Proceed with placing the model
                 placeModel(for: anchor, modelID: payload.modelID, transformArray: payload.transform)
                 processedAnchorIDs.insert(anchor.identifier)
-                print("Placed model for anchor \(anchor.identifier) with transform.")
-            } else {
-                print("Anchor not found for ID: \(anchorID)")
             }
         }
         pendingAnchorPayloads.removeAll()
     }
 
     func updateDebugOptions() {
-        arView?.debugOptions = []
-
-        if areFeaturePointsEnabled { arView?.debugOptions.insert(.showFeaturePoints) }
-        if isWorldOriginEnabled { arView?.debugOptions.insert(.showWorldOrigin) }
-        if areAnchorOriginsEnabled { arView?.debugOptions.insert(.showAnchorOrigins) }
-        if isAnchorGeometryEnabled { arView?.debugOptions.insert(.showAnchorGeometry) }
-        if isSceneUnderstandingEnabled { arView?.debugOptions.insert(.showSceneUnderstanding) }
+        var opts: ARView.DebugOptions = []
+        if areFeaturePointsEnabled       { opts.insert(.showFeaturePoints) }
+        if isWorldOriginEnabled          { opts.insert(.showWorldOrigin) }
+        if areAnchorOriginsEnabled       { opts.insert(.showAnchorOrigins) }
+        if isAnchorGeometryEnabled       { opts.insert(.showAnchorGeometry) }
+        if isSceneUnderstandingEnabled   { opts.insert(.showSceneUnderstanding) }
+        arView?.debugOptions = opts
     }
 
-    // Function to toggle plane visualization
     func togglePlaneVisualization(isEnabled: Bool) {
+        guard let arView = arView else { return }
         if isEnabled {
-            // Enable visualization; add back any new planes as they're detected
-            guard let arView = arView else {
-                print("Couldn't unwrap arView in togglePlaneVisualization()")
-                return
+            if let config = arView.session.configuration {
+                arView.session.run(config, options: [.removeExistingAnchors])
             }
-            arView.session.run(arView.session.configuration!, options: [.removeExistingAnchors])
         } else {
-            // Disable visualization; remove all plane entities from the scene
             removeAllPlaneEntities()
         }
     }
 
-    // Function to remove all plane entities
     func removeAllPlaneEntities() {
-        guard let arView = arView else {
-            print("Couldn't unwrap arView in removeAllPlaneEntities()")
-            return
-        }
+        guard let arView = arView else { return }
         arView.scene.anchors.forEach { anchor in
-            anchor.children.forEach { entity in
-                if let planeEntity = entity as? ModelEntity, planeEntity.name == "plane" {
+            anchor.children.forEach { ent in
+                if let planeEntity = ent as? ModelEntity, planeEntity.name == "plane" {
                     anchor.removeChild(planeEntity)
                 }
             }
         }
     }
-    
-    func validateWorldMap(_ worldMap: ARWorldMap) -> Bool {
-        let minimumAnchorCount = 5
-        let minimumFeaturePointCount = 100
 
-        // Directly access rawFeaturePoints since it's non-optional
-        let featurePointCount = worldMap.rawFeaturePoints.points.count
-        return worldMap.anchors.count >= minimumAnchorCount && featurePointCount >= minimumFeaturePointCount
+    func validateWorldMap(_ wm: ARWorldMap) -> Bool {
+        let minAnchorCount = 5
+        let minFPCount = 100
+        // ARWorldMap.rawFeaturePoints => ARPointCloud
+        // There's no .count property, so use .points.count:
+        let fpCount = wm.rawFeaturePoints.points.count
+
+        return wm.anchors.count >= minAnchorCount && fpCount >= minFPCount
     }
-    
+
     func stopMultipeerServices() {
         multipeerSession?.disconnect()
         multipeerSession?.delegate = nil
         multipeerSession = nil
         print("Multipeer services stopped.")
     }
-    
+
     func resetARSession() {
-    // used when user backs out of a session to the main menu
-        guard let arView = arView else {
-            print("ARView is not initialized`.")
-            return
-        }
-        // Cancel subscriptions
+        guard let arView = arView else { return }
         subscriptions.forEach { $0.cancel() }
         subscriptions.removeAll()
-        
-        // Clear other delegates or observers
         multipeerSession?.delegate = nil
         NotificationCenter.default.removeObserver(self)
-        print("ARViewModel deinitialized and cleaned up.")
-        
-        // Remove ARSession delegate
         arView.session.delegate = nil
-        
-        // Pause and reset the session
+
         arView.session.pause()
         arView.scene.anchors.removeAll()
+
         if let configuration = arView.session.configuration {
             arView.session.run(configuration, options: [.resetTracking, .removeExistingAnchors])
-            print("AR session reset.")
-        } else {
-            print("AR session configuration not found.")
         }
-        
-        // clear all variables
         reinitializeState()
-        
-        // Reassign the delegate
+
+        // Reassign delegate
         arView.session.delegate = self
-        
-        // loadModels()  <-- you'd likely want to do this once inside the session, in the real world, and have the Join users DL the models from the Host (or each other, P2P style)
     }
-    
+
     func reinitializeState() {
-    // used by ^ resetARSession()
         selectedModel = nil
         alertItem = nil
         connectedPeers = []
         isPlaneVisualizationEnabled = false
-        loadingProgress = 0.0
+        loadingProgress = 0
         userRole = .openSession
         isHostPermissionGranted = false
         deferredStartMultipeerServices = false
         pendingPeerToConnect = nil
         availableSessions = []
         selectedSession = nil
-        sessionID  = ""
+        sessionID = ""
         sessionName = ""
-        subscriptions = Set<AnyCancellable>()
+        subscriptions.removeAll()
         multipeerSession = nil
         shouldStartMultipeerSession = false
-        arView = nil
-        //models = []     // <----- just keep them for now. If really ramping this app up, you'd want to unload the models properly.
-        placedAnchors = []
-        anchorEntities = [:]
-        pendingAnchorPayloads = [:]
-        processedAnchorIDs = []
-        anchorsAddedLocally = []
-        pendingAnchors = [:]
+
+        // Keep ARView as is or nil out
+        placedAnchors.removeAll()
+        anchorEntities.removeAll()
+        pendingAnchorPayloads.removeAll()
+        processedAnchorIDs.removeAll()
+        anchorsAddedLocally.removeAll()
+        pendingAnchors.removeAll()
         receivedWorldMap = nil
         activeEntity = nil
-        initialScale = SIMD3<Float>(repeating: 1.0)
-        initialRotation = simd_quatf(angle: 0, axis: SIMD3<Float>(0, 1, 0))
-        initialTouchWorldPosition = SIMD3<Float>(0, 0, 0)
-        initialEntityWorldPosition = SIMD3<Float>(0, 0, 0)
-        touchToEntityOffset = SIMD3<Float>(0, 0, 0)
-        initialPanLocation = nil
-        initialModelPosition = nil
+        initialScale = SIMD3<Float>(repeating: 1)
+        initialRotation = simd_quatf(angle: 0, axis: [0,1,0])
+        initialTouchWorldPosition = .zero
+        initialEntityWorldPosition = .zero
+        touchToEntityOffset = .zero
     }
 }
 
-
-
+// MARK: - ARSessionDelegate
 extension ARViewModel: ARSessionDelegate {
     func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
-        print("session didAdd anchors: \(anchors.count)")
         for anchor in anchors {
-            if processedAnchorIDs.contains(anchor.identifier) {
-                print("Anchor \(anchor.identifier) already processed, skipping.")
-                continue
-            }
+            if processedAnchorIDs.contains(anchor.identifier) { continue }
 
+            // If plane anchor
             if let planeAnchor = anchor as? ARPlaneAnchor, isPlaneVisualizationEnabled {
-                if isPlaneVisualizationEnabled {
-                    let planeEntity = makePlaneEntity(for: planeAnchor)
-                    let anchorEntity = AnchorEntity(anchor: planeAnchor)
-                    anchorEntity.addChild(planeEntity)
-                    guard let arView = arView else {
-                        print("Couldn't unwrap arView in func session(_ session: ARSession, didAdd anchors: [ARAnchor])")
-                        return
-                    }
-                    arView.scene.addAnchor(anchorEntity)
-                }
+                // Make a plane entity
+                let planeEntity = makePlaneEntity(for: planeAnchor)
+
+                // Instead of AnchorEntity(world: ...), create empty anchor, set transform
+                let anchorEntity = AnchorEntity()
+                let anchorTransform = Transform(matrix: planeAnchor.transform)
+                anchorEntity.transform = anchorTransform
+
+                anchorEntity.addChild(planeEntity)
+                arView?.scene.addAnchor(anchorEntity)
+
             } else if anchor.name != nil {
                 if anchorsAddedLocally.contains(anchor.identifier) {
-                    // Place the model immediately for locally added anchors
                     placeModel(for: anchor)
-                    // Mark the anchor as processed
                     processedAnchorIDs.insert(anchor.identifier)
-                    // Remove from anchorsAddedLocally since we've processed it
                     anchorsAddedLocally.remove(anchor.identifier)
-                    
-                    // If Host, send anchor with transform to peers
+
                     if userRole == .host || isHostPermissionGranted {
-                        // Ensure that the anchor and transform are sent after the model is placed
                         sendAnchorWithTransform(anchor: anchor)
                     }
                 } else if let payload = pendingAnchorPayloads[anchor.identifier] {
-                    // Place the model with the provided transform
                     placeModel(for: anchor, modelID: payload.modelID, transformArray: payload.transform)
                     pendingAnchorPayloads.removeValue(forKey: anchor.identifier)
-                    // Mark the anchor as processed
                     processedAnchorIDs.insert(anchor.identifier)
-                    print("Placed model for anchor \(anchor.identifier) with transform.")
                 } else {
-                    // Store the anchor for later processing
+                    // store for later
                     pendingAnchors[anchor.identifier] = anchor
-                    print("Stored anchor \(anchor.identifier) for later processing.")
                 }
-            } else {
-                print("Received an anonymous anchor; ignoring.")
             }
         }
     }
 
     func sendAnchorWithTransform(anchor: ARAnchor) {
         if let anchorData = try? NSKeyedArchiver.archivedData(withRootObject: anchor, requiringSecureCoding: true),
-           let anchorEntity = self.anchorEntities[anchor.identifier],
+           let anchorEntity = anchorEntities[anchor.identifier],
            let modelEntity = anchorEntity.children.first as? ModelEntity {
             let modelID = modelEntity.name
             let transformArray = modelEntity.transform.matrix.toArray()
@@ -737,211 +580,168 @@ extension ARViewModel: ARSessionDelegate {
             do {
                 let data = try JSONEncoder().encode(payload)
                 multipeerSession?.sendToAllPeers(data, dataType: .anchorWithTransform)
-                print("Sent anchor and transform for model \(modelID) to peers")
             } catch {
-                print("Failed to encode AnchorTransformPayload: \(error.localizedDescription)")
+                print("Failed to encode AnchorTransformPayload: \(error)")
             }
-        } else {
-            print("Failed to prepare anchor and transform for sending.")
         }
     }
 
     private func makePlaneEntity(for planeAnchor: ARPlaneAnchor) -> ModelEntity {
+        // We can't pass a SwiftUI Color, but we can pass a SimpleMaterial.Color that wraps a UIColor
         let mesh = MeshResource.generatePlane(width: 0.5, depth: 0.5)
-        let material = SimpleMaterial(color: .blue.withAlphaComponent(0.2), isMetallic: false)
-        let planeModel = ModelEntity(mesh: mesh, materials: [material])
-        planeModel.name = "plane" // Set the name for easy removal
-        return planeModel
+        let uiColor = Color.blue
+        let matColor = SimpleMaterial.Color(uiColor)
+        let material = SimpleMaterial(color: matColor, isMetallic: false)
+
+        let plane = ModelEntity(mesh: mesh, materials: [material])
+        plane.name = "plane"
+        return plane
     }
 
     func session(_ session: ARSession, didOutputCollaborationData data: ARSession.CollaborationData) {
-        // Safely unwrap multipeerSession and connectedPeers count
-        guard let multipeerSession = multipeerSession,
-              !((multipeerSession.session?.connectedPeers.isEmpty) != nil) else { return }
-
+        guard let m = multipeerSession, !(m.session?.connectedPeers.isEmpty ?? true) else { return }
         do {
-            let encodedData = try NSKeyedArchiver.archivedData(withRootObject: data, requiringSecureCoding: true)
-            multipeerSession.sendToAllPeers(encodedData, dataType: .collaborationData)
+            let encoded = try NSKeyedArchiver.archivedData(withRootObject: data, requiringSecureCoding: true)
+            m.sendToAllPeers(encoded, dataType: .collaborationData)
         } catch {
-            print("Failed to encode collaboration data: \(error.localizedDescription)")
+            print("Failed to encode collab data: \(error)")
         }
     }
 
-    // ARSessionDelegate method to observe feature points and apply received world map
     func session(_ session: ARSession, didUpdate frame: ARFrame) {
-        if hasSufficientFeaturePoints(), let worldMap = self.receivedWorldMap {
-            applyReceivedWorldMap(worldMap)
-            self.processPendingAnchors()
-            self.receivedWorldMap = nil  // Clear the stored world map
+        if hasSufficientFeaturePoints(), let wm = receivedWorldMap {
+            applyReceivedWorldMap(wm)
+            processPendingAnchors()
+            receivedWorldMap = nil
         }
     }
 
-    // Helper function to check if sufficient feature points have been detected
     func hasSufficientFeaturePoints() -> Bool {
-        guard let arView = arView else {
-            print("Couldn't unwrap arView in func hasSufficientFeaturePoints()")
-            return false
-        }
-        guard let currentFrame = arView.session.currentFrame else { return false }
-        let featurePointCount = currentFrame.rawFeaturePoints?.points.count ?? 0
-        //print("Current feature point count: \(featurePointCount)")
-        return featurePointCount >= minimumFeaturePointThreshold
+        guard let frame = arView?.session.currentFrame,
+              let featurePoints = frame.rawFeaturePoints else { return false }
+        let count = featurePoints.points.count
+        return count >= minimumFeaturePointThreshold
     }
 
-    // Function to apply the received world map after sufficient scanning
-    func applyReceivedWorldMap(_ worldMap: ARWorldMap) {
-        let configuration = ARWorldTrackingConfiguration()
-        configuration.initialWorldMap = worldMap
-        configuration.planeDetection = [.horizontal, .vertical]
+    func applyReceivedWorldMap(_ wm: ARWorldMap) {
+        let config = ARWorldTrackingConfiguration()
+        config.initialWorldMap = wm
+        config.planeDetection = [.horizontal, .vertical]
         if ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) {
-            configuration.sceneReconstruction = .meshWithClassification
+            config.sceneReconstruction = .meshWithClassification
         }
-        configuration.environmentTexturing = .automatic
-        configuration.isCollaborationEnabled = true
-        guard let arView = arView else {
-            print("Couldn't unwrap arView in func applyReceivedWorldMap()")
-            return
-        }
-        arView.session.run(configuration, options: [.resetTracking, .removeExistingAnchors])
-        print("Applied received ARWorldMap after sufficient scanning.")
+        config.environmentTexturing = .automatic
+        config.isCollaborationEnabled = true
+
+        arView?.session.run(config, options: [.resetTracking, .removeExistingAnchors])
+        print("Applied received ARWorldMap")
     }
 }
 
-
-
+// MARK: - MultipeerSessionDelegate
 extension ARViewModel: MultipeerSessionDelegate {
     func receivedData(_ data: Data, from peerID: MCPeerID) {
         guard data.count > 1 else { return }
-        guard arView != nil else {
-            print("arView is not initialized yet.")
-            return
-        }
-        guard let arView = arView else {
-            print("arView could not be unwrapped in func func receivedData(_ data: Data, from peerID: MCPeerID) ")
-            return
-        }
+        guard let arView = arView else { return }
+
         let dataTypeByte = data.first!
-        let receivedData = data.advanced(by: 1)
-        if let dataType = DataType(rawValue: dataTypeByte) {
-            switch dataType {
+        let rest = data.advanced(by: 1)
+        if let dt = DataType(rawValue: dataTypeByte) {
+            switch dt {
             case .collaborationData:
                 do {
-                    if let collaborationData = try NSKeyedUnarchiver.unarchivedObject(ofClass: ARSession.CollaborationData.self, from: receivedData) {
-                        arView.session.update(with: collaborationData)
+                    if let c = try NSKeyedUnarchiver.unarchivedObject(ofClass: ARSession.CollaborationData.self, from: rest) {
+                        arView.session.update(with: c)
                     }
                 } catch {
-                    print("Failed to decode collaboration data: \(error.localizedDescription)")
+                    print("Failed to decode collab data: \(error)")
                 }
             case .modelTransform:
                 do {
-                    let payload = try JSONDecoder().decode(ModelTransformPayload.self, from: receivedData)
-                    // Find the model entity with the matching modelID
-                    if let modelEntity = findModelEntity(by: payload.modelID) {
-                        // Reconstruct the simd_float4x4 from the array
-                        let transformMatrix = simd_float4x4.fromArray(payload.transform)
-                        modelEntity.transform.matrix = transformMatrix
-                        print("Applied transform to model with ID \(payload.modelID)")
-                    } else {
-                        print("Model entity with ID \(payload.modelID) not found")
+                    let p = try JSONDecoder().decode(ModelTransformPayload.self, from: rest)
+                    if let me = findModelEntity(by: p.modelID) {
+                        let mat = simd_float4x4.fromArray(p.transform)
+                        me.transform.matrix = mat
                     }
                 } catch {
-                    print("Failed to decode model transform: \(error.localizedDescription)")
+                    print("Failed to decode model transform: \(error)")
                 }
             case .anchorWithTransform:
                 do {
-                    let payload = try JSONDecoder().decode(AnchorTransformPayload.self, from: receivedData)
-                    print("Received AnchorTransformPayload from \(peerID.displayName)")
-                    if let anchor = try NSKeyedUnarchiver.unarchivedObject(ofClass: ARAnchor.self, from: payload.anchorData) {
+                    let pl = try JSONDecoder().decode(AnchorTransformPayload.self, from: rest)
+                    if let anchor = try NSKeyedUnarchiver.unarchivedObject(ofClass: ARAnchor.self, from: pl.anchorData) {
                         if processedAnchorIDs.contains(anchor.identifier) {
-                            print("Anchor \(anchor.identifier) already processed, updating model transform.")
-                            if let anchorEntity = self.anchorEntities[anchor.identifier],
-                               let modelEntity = anchorEntity.children.first(where: { $0.name == payload.modelID }) as? ModelEntity {
-                                let transformMatrix = simd_float4x4.fromArray(payload.transform)
-                                modelEntity.transform.matrix = transformMatrix
-                                print("Updated model transform for \(payload.modelID)")
+                            if let ae = anchorEntities[anchor.identifier],
+                               let me = ae.children.first(where: { $0.name == pl.modelID }) as? ModelEntity {
+                                let mat = simd_float4x4.fromArray(pl.transform)
+                                me.transform.matrix = mat
                             }
-                        } else if let existingAnchor = arView.session.currentFrame?.anchors.first(where: { $0.identifier == anchor.identifier }) {
-                            // Anchor already added, place the model
-                            placeModel(for: existingAnchor, modelID: payload.modelID, transformArray: payload.transform)
+                        } else if let existing = arView.session.currentFrame?.anchors.first(where: { $0.identifier == anchor.identifier }) {
+                            placeModel(for: existing, modelID: pl.modelID, transformArray: pl.transform)
                             processedAnchorIDs.insert(anchor.identifier)
-                            print("Placed model for existing anchor \(anchor.identifier) with transform.")
                         } else {
-                            // Store the payload for later processing
-                            pendingAnchorPayloads[anchor.identifier] = payload
-                            print("Stored payload for anchor \(anchor.identifier) for later processing.")
-                            // Add the anchor to the session
+                            pendingAnchorPayloads[anchor.identifier] = pl
                             arView.session.add(anchor: anchor)
                         }
-                    } else {
-                        print("Failed to decode ARAnchor from anchorData.")
                     }
                 } catch {
-                    print("Failed to decode AnchorTransformPayload: \(error.localizedDescription)")
+                    print("Failed to decode AnchorTransformPayload: \(error)")
                 }
             case .anchor:
                 do {
-                    if let anchor = try NSKeyedUnarchiver.unarchivedObject(ofClass: ARAnchor.self, from: receivedData) {
-                        arView.session.add(anchor: anchor)
+                    if let a = try NSKeyedUnarchiver.unarchivedObject(ofClass: ARAnchor.self, from: rest) {
+                        arView.session.add(anchor: a)
                     }
                 } catch {
-                    print("Failed to decode anchor: \(error.localizedDescription)")
+                    print("Failed to decode anchor: \(error)")
                 }
             case .removeAnchors:
                 do {
-                    let ids = try JSONDecoder().decode([String].self, from: receivedData)
-                    for idString in ids {
-                        if let uuid = UUID(uuidString: idString) {
-                            if let anchor = arView.session.currentFrame?.anchors.first(where: { $0.identifier == uuid }) {
-                                arView.session.remove(anchor: anchor)
-                            }
-                            if let anchorEntity = anchorEntities[uuid] {
-                                arView.scene.removeAnchor(anchorEntity)
-                                anchorEntities.removeValue(forKey: uuid)
-                                print("Removed anchor and entity with ID \(uuid)")
-                            } else {
-                                print("Anchor entity with ID \(uuid) not found")
-                            }
+                    let ids = try JSONDecoder().decode([String].self, from: rest)
+                    for idstr in ids {
+                        if let u = UUID(uuidString: idstr),
+                           let an = arView.session.currentFrame?.anchors.first(where: { $0.identifier == u }) {
+                            arView.session.remove(anchor: an)
+                        }
+                        if let u = UUID(uuidString: idstr),
+                           let ae = anchorEntities[u] {
+                            arView.scene.removeAnchor(ae)
+                            anchorEntities.removeValue(forKey: u)
                         }
                     }
                 } catch {
-                    print("Failed to decode anchor IDs for removal: \(error.localizedDescription)")
+                    print("Failed to decode anchor removal IDs: \(error)")
                 }
             case .arWorldMap:
                 do {
-                    if let worldMap = try NSKeyedUnarchiver.unarchivedObject(ofClass: ARWorldMap.self, from: receivedData) {
-                        print("Received ARWorldMap from \(peerID.displayName)")
-                        // Reset AR Session before applying the world map
-                        // resetARSession() // can try it, but I don't think this is a good idea
-                        self.receivedWorldMap = worldMap
+                    if let wm = try NSKeyedUnarchiver.unarchivedObject(ofClass: ARWorldMap.self, from: rest) {
+                        self.receivedWorldMap = wm
                         promptPeerToScanEnvironment()
                         observeFeaturePointsAndApplyWorldMap()
                     }
                 } catch {
-                    print("Failed to decode ARWorldMap: \(error.localizedDescription)")
+                    print("Failed to decode ARWorldMap: \(error)")
                 }
             case .permissionUpdate:
                 do {
-                    let isGranted = try JSONDecoder().decode(Bool.self, from: receivedData)
+                    let isGranted = try JSONDecoder().decode(Bool.self, from: rest)
                     DispatchQueue.main.async {
                         self.isHostPermissionGranted = isGranted
                     }
-                    print("Received permission update from Host: \(isGranted)")
                 } catch {
-                    print("Failed to decode permission update: \(error.localizedDescription)")
+                    print("Failed to decode permission update: \(error)")
                 }
-            default:
-                print("Unhandled data type received from \(peerID.displayName)")
             }
         } else {
-            print("Unknown data type received from \(peerID.displayName)")
+            print("Unknown data type from \(peerID.displayName)")
         }
     }
 
     func findModelEntity(by modelID: String) -> ModelEntity? {
-        guard let arView = arView else {print("Couldn't unwrap arView in func findModelEntity()"); return nil}
+        guard let arView = arView else { return nil }
         for anchor in arView.scene.anchors {
-            if let modelEntity = anchor.findEntity(named: modelID) as? ModelEntity {
-                return modelEntity
+            if let me = anchor.findEntity(named: modelID) as? ModelEntity {
+                return me
             }
         }
         return nil
@@ -956,49 +756,41 @@ extension ARViewModel: MultipeerSessionDelegate {
                 }
                 print("Connected to \(peerID.displayName)")
 
-                // If host, send ARWorldMap and existing anchors with transforms
+                // If host, share a world map or anchors
                 if self.userRole == .host {
-                    self.getCurrentWorldMap { worldMap in
-                        if let worldMap = worldMap, self.validateWorldMap(worldMap) {
+                    self.getCurrentWorldMap { wm in
+                        if let w = wm, self.validateWorldMap(w) {
                             do {
-                                let data = try NSKeyedArchiver.archivedData(withRootObject: worldMap, requiringSecureCoding: true)
-                                self.multipeerSession?.sendToPeer(data, peerID: peerID, dataType: .arWorldMap)
-                                print("Sent ARWorldMap to \(peerID.displayName)")
+                                let d = try NSKeyedArchiver.archivedData(withRootObject: w, requiringSecureCoding: true)
+                                self.multipeerSession?.sendToPeer(d, peerID: peerID, dataType: .arWorldMap)
                             } catch {
-                                print("Error encoding ARWorldMap: \(error.localizedDescription)")
+                                print("Error encoding ARWorldMap: \(error)")
                             }
-                        } else {
-                            print("World map validation failed. Requesting user to scan more of the environment.")
-                            // Optional: Prompt user to scan more or retry fetching the world map
                         }
-                    }
-
-                    // Send existing anchors with transforms
-                    for anchor in self.placedAnchors {
-                        if let anchorData = try? NSKeyedArchiver.archivedData(withRootObject: anchor, requiringSecureCoding: true),
-                          let anchorEntity = self.anchorEntities[anchor.identifier], let modelEntity = anchorEntity.children.first as? ModelEntity {
-                            let modelID = modelEntity.name
-                            let transformArray = modelEntity.transform.matrix.toArray()
-                            let payload = AnchorTransformPayload(anchorData: anchorData, modelID: modelID, transform: transformArray)
-                            do {
-                                let data = try JSONEncoder().encode(payload)
-                                self.multipeerSession?.sendToPeer(data, peerID: peerID, dataType: .anchorWithTransform)
-                                print("Sent anchor and transform for model \(modelID) to \(peerID.displayName)")
-                            } catch {
-                                print("Failed to encode AnchorTransformPayload: \(error.localizedDescription)")
+                        // also send existing anchors
+                        for anchor in self.placedAnchors {
+                            if let ancData = try? NSKeyedArchiver.archivedData(withRootObject: anchor, requiringSecureCoding: true),
+                               let ae = self.anchorEntities[anchor.identifier],
+                               let me = ae.children.first as? ModelEntity {
+                                let modelID = me.name
+                                let tarr = me.transform.matrix.toArray()
+                                let payload = AnchorTransformPayload(anchorData: ancData, modelID: modelID, transform: tarr)
+                                do {
+                                    let encoded = try JSONEncoder().encode(payload)
+                                    self.multipeerSession?.sendToPeer(encoded, peerID: peerID, dataType: .anchorWithTransform)
+                                } catch {
+                                    print("Failed to encode anchor transform: \(error)")
+                                }
                             }
                         }
                     }
+                    self.sendPermissionUpdateToPeers(isGranted: self.isHostPermissionGranted)
                 }
-                // Send current permission state to the new peer
-                self.sendPermissionUpdateToPeers(isGranted: self.isHostPermissionGranted)
 
             case .notConnected:
-                if let index = self.connectedPeers.firstIndex(of: peerID) {
-                    self.connectedPeers.remove(at: index)
-                    print("Removed peer \(peerID.displayName) from connectedPeers.")
+                if let i = self.connectedPeers.firstIndex(of: peerID) {
+                    self.connectedPeers.remove(at: i)
                 }
-                print("Disconnected from \(peerID.displayName)")
 
             case .connecting:
                 print("Connecting to \(peerID.displayName)")
@@ -1009,15 +801,13 @@ extension ARViewModel: MultipeerSessionDelegate {
         }
     }
 
-    func didReceiveInvitation(from peerID: MCPeerID, sessionID: String, invitationHandler: @escaping (Bool, MCSession?) -> Void) {
+    func didReceiveInvitation(from peerID: MCPeerID, sessionID: String,
+                              invitationHandler: @escaping (Bool, MCSession?) -> Void) {
         if userRole == .openSession {
-            print("Collaborate mode: accepting invitation from \(peerID.displayName)")
             invitationHandler(true, multipeerSession.session)
         } else if self.sessionID == sessionID {
-            print("Accepting invitation from \(peerID.displayName) for session \(sessionID)")
             invitationHandler(true, multipeerSession.session)
         } else {
-            print("Rejecting invitation from \(peerID.displayName) for session \(sessionID)")
             invitationHandler(false, nil)
         }
     }
@@ -1025,110 +815,47 @@ extension ARViewModel: MultipeerSessionDelegate {
     func foundPeer(peerID: MCPeerID, sessionID: String, sessionName: String) {
         DispatchQueue.main.async {
             if !self.availableSessions.contains(where: { $0.peerID == peerID }) {
-                print("Adding found peer \(peerID.displayName) with session ID \(sessionID) and session name \(sessionName) to availableSessions.")
-                self.availableSessions.append((peerID: peerID, sessionID: sessionID, sessionName: sessionName))
+                self.availableSessions.append((peerID, sessionID, sessionName))
             }
         }
     }
 
     func lostPeer(peerID: MCPeerID) {
         DispatchQueue.main.async {
-            if let index = self.availableSessions.firstIndex(where: { $0.peerID == peerID }) {
-                self.availableSessions.remove(at: index)
+            if let i = self.availableSessions.firstIndex(where: { $0.peerID == peerID }) {
+                self.availableSessions.remove(at: i)
             }
         }
     }
 
-    // Helper function to get the current ARWorldMap
     func getCurrentWorldMap(completion: @escaping (ARWorldMap?) -> Void) {
-        guard let arView = arView else {
-            print("arView couldn't be unwrapped in func getCurrentWorldMap(completion: ...)")
-            return
-        }
-        arView.session.getCurrentWorldMap { worldMap, error in
-            if let error = error {
-                print("Error getting current world map: \(error.localizedDescription)")
+        arView?.session.getCurrentWorldMap { map, err in
+            if let e = err {
+                print("Error getting world map: \(e)")
                 completion(nil)
                 return
             }
-
-            if let worldMap = worldMap, self.validateWorldMap(worldMap) {
-                print("World map validated successfully.")
-                completion(worldMap)
+            if let m = map, self.validateWorldMap(m) {
+                completion(m)
             } else {
-                print("World map validation failed. Requesting user to scan more of the environment.")
+                print("World map invalid.")
                 self.promptPeerToScanEnvironment()
                 completion(nil)
             }
         }
     }
 
-    // Function to prompt the peer to scan the environment
     func promptPeerToScanEnvironment() {
-        // Show UI prompt to the user
         DispatchQueue.main.async {
             self.alertItem = AlertItem(
                 title: "Scan Environment",
-                message: "Please move your device around to scan the environment a bit more for better alignment."
+                message: "Please move your device to scan the environment for better alignment."
             )
         }
     }
 
-    // Function to observe feature points and apply the world map
     func observeFeaturePointsAndApplyWorldMap() {
-        guard let arView = arView else {
-            print("arView couldn't be unwrapped in func observeFeaturePointsAndApplyWorldMap()")
-            return
-        }
-        arView.session.delegate = self  // Ensure ARSessionDelegate is set
+        // We'll reassign self as the session delegate, so we can watch rawFeaturePoints
+        arView?.session.delegate = self
     }
-}
-
-
-
-extension simd_float4x4 {
-    // Extracts the translation vector (position) from a 4x4 transformation matrix
-    var translation: SIMD3<Float> {
-        let translation = self.columns.3
-        return SIMD3<Float>(translation.x, translation.y, translation.z)
-    }
-    func toArray() -> [Float] {
-        let columns = [columns.0, columns.1, columns.2, columns.3]
-        return columns.flatMap { [$0.x, $0.y, $0.z, $0.w] }
-    }
-    static func fromArray(_ array: [Float]) -> simd_float4x4 {
-        guard array.count == 16 else {
-            print("Invalid transform array count: \(array.count). Expected 16.")
-            return matrix_identity_float4x4
-        }
-        return simd_float4x4(
-            SIMD4<Float>(array[0], array[1], array[2], array[3]),
-            SIMD4<Float>(array[4], array[5], array[6], array[7]),
-            SIMD4<Float>(array[8], array[9], array[10], array[11]),
-            SIMD4<Float>(array[12], array[13], array[14], array[15])
-        )
-    }
-}
-
-
-
-struct ModelTransformPayload: Codable {
-    let modelID: String
-    let transform: [Float] // 16 elements representing the 4x4 matrix
-}
-
-enum DataType: UInt8 {
-    case arWorldMap = 0
-    case anchor = 1
-    case collaborationData = 2
-    case modelTransform = 3
-    case removeAnchors = 4
-    case anchorWithTransform = 5
-    case permissionUpdate = 6
-}
-
-struct AnchorTransformPayload: Codable {
-    let anchorData: Data  // Serialized ARAnchor
-    let modelID: String
-    let transform: [Float] // Model's transform matrix
 }

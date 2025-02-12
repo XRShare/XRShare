@@ -4,7 +4,7 @@ import ARKit
 
 struct ARViewContainer: UIViewRepresentable {
     @EnvironmentObject var arViewModel: ARViewModel
-    var onSwipeFromLeftEdge: (() -> Void)?  // Closure to notify when swipe is detected
+    var onSwipeFromLeftEdge: (() -> Void)?  // to detect a left-edge swipe gesture
 
     func makeUIView(context: Context) -> ARView {
         let arView = ARView(frame: .zero)
@@ -15,7 +15,7 @@ struct ARViewContainer: UIViewRepresentable {
         return arView
     }
 
-    func updateUIView(_ uiView: ARView, context: Context) {}
+    func updateUIView(_ uiView: ARView, context: Context) { }
 
     private func addCoachingOverlay(to arView: ARView) {
         let coachingOverlay = ARCoachingOverlayView()
@@ -25,13 +25,11 @@ struct ARViewContainer: UIViewRepresentable {
         arView.addSubview(coachingOverlay)
     }
 
-    
-    
-    
-    // additional stuff for swipe-right-from-left-edge-of-screen gesture detection (takes you back to main menu)
-    // You really have to start at the edge and give it a good swipe, lol
     private func addEdgePanGestureRecognizer(to arView: ARView, context: Context) {
-        let edgePanGesture = UIScreenEdgePanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleEdgePan(_:)))
+        let edgePanGesture = UIScreenEdgePanGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.handleEdgePan(_:))
+        )
         edgePanGesture.edges = .left
         arView.addGestureRecognizer(edgePanGesture)
     }
@@ -49,7 +47,6 @@ struct ARViewContainer: UIViewRepresentable {
 
         @objc func handleEdgePan(_ gesture: UIScreenEdgePanGestureRecognizer) {
             if gesture.state == .recognized {
-                // Notify the parent view that the swipe gesture was recognized
                 parent.onSwipeFromLeftEdge?()
             }
         }
