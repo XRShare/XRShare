@@ -14,4 +14,5 @@ enum DataType: UInt8 {
     case removeAnchors = 4
     case anchorWithTransform = 5
     case permissionUpdate = 6
+    case textMessage = 7
 }

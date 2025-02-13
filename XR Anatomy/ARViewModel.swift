@@ -731,6 +731,8 @@ extension ARViewModel: MultipeerSessionDelegate {
                 } catch {
                     print("Failed to decode permission update: \(error)")
                 }
+            case .textMessage:
+                print("text")
             }
         } else {
             print("Unknown data type from \(peerID.displayName)")
