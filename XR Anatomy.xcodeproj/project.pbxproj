@@ -32,13 +32,6 @@
 			);
 			target = 0D64C65B2CE003FE00D34085 /* XR Anatomy */;
 		};
-		6654C75A2D5D3CC700225F65 /* Exceptions for "XR Anatomy" folder in "XR Anatomy Vision" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				DataType.swift,
-			);
-			target = 87B974472D09106D00168B98 /* XR Anatomy Vision */;
-		};
 		87B9745A2D09106E00168B98 /* Exceptions for "XR Anatomy Vision" folder in "XR Anatomy Vision" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -53,7 +46,6 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				0DE709142CE1BBE200762D5F /* Exceptions for "XR Anatomy" folder in "XR Anatomy" target */,
-				6654C75A2D5D3CC700225F65 /* Exceptions for "XR Anatomy" folder in "XR Anatomy Vision" target */,
 			);
 			path = "XR Anatomy";
 			sourceTree = "<group>";

@@ -9,7 +9,7 @@ import SwiftUI
 
 
 struct MainMenu: View {
-    @Environment(AppModel.self) private var appModel
+    @EnvironmentObject var appModel: AppModel
 
     @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
     @Environment(\.openImmersiveSpace) private var openImmersiveSpace
@@ -57,5 +57,5 @@ struct MainMenu: View {
 }
 #Preview(windowStyle: .volumetric) {
     MainMenu()
-        .environment(AppModel())
+        .environmentObject(AppModel())
 }

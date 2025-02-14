@@ -2,11 +2,10 @@
 //  AlertItem.swift
 //  XR Anatomy
 //
-//  Created by Ali Kara on 2025-02-12.
+//  Created by Ali Kara on 2025-02-14.
 //
 
 
-// AlertItem.swift
 import Foundation
 
 struct AlertItem: Identifiable {

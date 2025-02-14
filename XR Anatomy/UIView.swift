@@ -16,22 +16,22 @@ struct UIView: View {
     var body: some View {
         ZStack {
             if showSplashScreen {
-                // Show a splash or loading screen the first time the app is launched
+                // Show splash/loading screen on first launch.
                 LoadingView(loadingProgress: $loadingProgress, showProgress: false)
             } else if isFirstLaunchLoading {
                 LoadingView(loadingProgress: $loadingProgress)
             } else if !hasSelectedMode {
-                // Show a “StartupMenuView” to pick Host / Join / etc.
+                // Show the startup menu
                 StartupMenuView(hasSelectedMode: $hasSelectedMode)
                     .environmentObject(arViewModel)
             } else {
-                // Once a role/mode is chosen, show the AR container + top-level UI
+                // Main AR container view
                 ZStack(alignment: .top) {
                     ARViewContainer(onSwipeFromLeftEdge: handleSwipeFromLeftEdge)
                         .edgesIgnoringSafeArea(.all)
                         .environmentObject(arViewModel)
                     
-                    // Left side "Back" button
+                    // Back button on left side
                     VStack {
                         Spacer()
                         HStack {
@@ -57,11 +57,10 @@ struct UIView: View {
                             .frame(maxWidth: .infinity, alignment: .center)
                         Spacer()
                     }
-
-                    // Right side buttons (place model, clear, debug, etc.)
+                    
+                    // Right side buttons (model menu, clear, debug, etc.)
                     if arViewModel.userRole != .viewer || arViewModel.isHostPermissionGranted {
                         VStack(spacing: 10) {
-                            // Model menu
                             Button(action: { showModelMenu.toggle() }) {
                                 Image(systemName: "figure")
                                     .font(.system(size: 24))
@@ -82,7 +81,6 @@ struct UIView: View {
                                 )
                             }
                             
-                            // Delete all user-placed anchors
                             Button(action: { showResetConfirmation = true }) {
                                 Image(systemName: "trash")
                                     .font(.system(size: 24))
@@ -93,7 +91,6 @@ struct UIView: View {
                             }
                             .padding(.bottom, 190)
                             
-                            // Toggle host permission (only visible if you are the real host)
                             if arViewModel.userRole == .host {
                                 Button(action: {
                                     arViewModel.toggleHostPermissions()
@@ -108,7 +105,6 @@ struct UIView: View {
                                 .padding(.bottom, 0)
                             }
                             
-                            // Debug / Settings
                             Button(action: { showSettingsOptions.toggle() }) {
                                 Image(systemName: "wrench.and.screwdriver")
                                     .font(.system(size: 24))
@@ -123,7 +119,7 @@ struct UIView: View {
                         .padding(.trailing, -10)
                         .padding(.bottom, -10)
                     }
-
+                    
                     if showSettingsOptions {
                         BottomSheet {
                             SettingsView(isVisible: $showSettingsOptions, arViewModel: arViewModel)
@@ -165,7 +161,7 @@ struct UIView: View {
             if session != nil { hasSelectedMode = true }
         }
     }
-
+    
     private func handleInitialLaunch() {
         if Utilities.isFirstLaunchForNewBuild() {
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
@@ -181,7 +177,7 @@ struct UIView: View {
             arViewModel.loadModels()
         }
     }
-
+    
     private func handleBackButtonTap() {
         arViewModel.stopMultipeerServices()
         arViewModel.resetARSession()
@@ -190,5 +186,11 @@ struct UIView: View {
     
     private func handleSwipeFromLeftEdge() {
         handleBackButtonTap()
+    }
+}
+
+struct UIView_Previews: PreviewProvider {
+    static var previews: some View {
+        UIView()
     }
 }

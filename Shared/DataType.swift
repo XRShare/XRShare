@@ -5,7 +5,6 @@
 //  Created by Ali Kara on 2025-02-12.
 //
 
-
 enum DataType: UInt8 {
     case arWorldMap = 0
     case anchor = 1
