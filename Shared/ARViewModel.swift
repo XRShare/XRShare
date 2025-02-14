@@ -192,6 +192,9 @@ class ARViewModel: NSObject, ObservableObject, ARSessionDelegate {
             let anchor = ARAnchor(name: anchorName, transform: result.worldTransform)
             arView.session.add(anchor: anchor)
             placedAnchors.append(anchor)
+            anchorsAddedLocally.insert(anchor.identifier)
+            
+            
         }
     }
     

@@ -16,6 +16,17 @@ struct ModelType: Hashable, Identifiable {
     /// Models that should rotate around the Z‑axis (if needed)
     static let zAxisRotationModels: [String] = ["arteriesHead", "brain", "heart", "heart2K"]
     
+    func createModelEntity() -> ModelEntity? {
+        let filename = rawValue + ".usdz"
+        do{
+            let me = try ModelEntity.loadModel(named: filename)
+            return me
+        } catch {
+            print("Error loading \(filename): \(error.localizedDescription)")
+            return nil
+        }
+    }
+    
     static func allCases() -> [ModelType] {
         guard let urls = Bundle.main.urls(forResourcesWithExtension: "usdz", subdirectory: nil) else {
             print("No .usdz files found.")
