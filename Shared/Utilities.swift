@@ -38,8 +38,11 @@ struct Utilities {
         guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let window = scene.windows.first
         else { return }
+        #if os(visionOS)
         window.rootViewController = UIHostingController(rootView: ContentView())
         window.makeKeyAndVisible()
+        #endif
+
     }
 }
 

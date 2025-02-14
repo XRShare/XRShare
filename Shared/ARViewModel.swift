@@ -8,9 +8,16 @@ import MultipeerConnectivity
 public enum UserRole {
     case host, viewer, openSession
 }
+struct Session: Identifiable {
+    let sessionID: String
+    let sessionName: String
+    let peerID: String
+    var id: String { sessionID }
+}
 
 /// The iOS version of ARViewModel that uses ARKit.
 class ARViewModel: NSObject, ObservableObject, ARSessionDelegate {
+    
     // MARK: - Published properties
     @Published var selectedModel: Model? = nil
     @Published var alertItem: AlertItem?
@@ -19,7 +26,7 @@ class ARViewModel: NSObject, ObservableObject, ARSessionDelegate {
     @Published var loadingProgress: Float = 0.0
     @Published var userRole: UserRole = .openSession
     @Published var isHostPermissionGranted = false
-
+    
     // Debug toggles
     @Published var areFeaturePointsEnabled = false { didSet { updateDebugOptions() } }
     @Published var isWorldOriginEnabled = false { didSet { updateDebugOptions() } }
@@ -27,6 +34,11 @@ class ARViewModel: NSObject, ObservableObject, ARSessionDelegate {
     @Published var isAnchorGeometryEnabled = false { didSet { updateDebugOptions() } }
     @Published var isSceneUnderstandingEnabled = false { didSet { updateDebugOptions() } }
 
+    // -- Add these missing properties if your UI references them
+    @Published var availableSessions: [Session] = []
+    @Published var selectedSession: Session? = nil          
+    private var subscriptions = Set<AnyCancellable>()
+    
     // MARK: - AR and Networking references
     weak var arView: ARView?
     var models: [Model] = []
@@ -41,16 +53,52 @@ class ARViewModel: NSObject, ObservableObject, ARSessionDelegate {
     var sessionID: String = UUID().uuidString
     var sessionName: String = ""
     
-    private var subscriptions = Set<AnyCancellable>()
-    private var deferredStartMultipeerServices = false
-    private var shouldStartMultipeerSession = false
+    // Add these if your UI calls them
+    var deferredStartMultipeerServices = false
+    var shouldStartMultipeerSession = false
 
+    // Keep track if you need to wait until models are loaded
+    // (depending on your code flow):
+    func deferMultipeerServicesUntilModelsLoad() {
+        self.deferredStartMultipeerServices = true
+    }
+    // Example properties that you reference in your view:
+//        var sessionID: String = ""
+//        var sessionName: String = ""
+//        var userRole: UserRole = .viewer
+        
+        // Define invitePeer as a function.
+        func invitePeer(_ peerID: String, sessionID: String) {
+            // Your implementation here.
+            print("Inviting peer \(peerID) to session \(sessionID)")
+        }
+    // A toggle function your UI might call
+    func togglePlaneVisualization() {
+        isPlaneVisualizationEnabled.toggle()
+    }
+    func toggleHostPermissions() {
+            isHostPermissionGranted.toggle()
+            print("Host permissions toggled to \(isHostPermissionGranted)")
+        }
+    // Called by UI to reset the AR session
+    func resetARSession() {
+        guard let arView = arView else { return }
+        
+        // Example reset:
+        arView.session.pause()
+        // Possibly re-run session with new configuration
+        let configuration = ARWorldTrackingConfiguration()
+        configuration.planeDetection = [.horizontal, .vertical]
+        arView.session.run(configuration, options: [.resetTracking, .removeExistingAnchors])
+    }
+    
     // MARK: - Model Loading
     func loadModels() {
         guard models.isEmpty else { return }
         let modelTypes = ModelType.allCases()
         let totalModels = modelTypes.count
         var loadedModels = 0
+        
         
         for mt in modelTypes {
             let model = Model(modelType: mt)
@@ -169,27 +217,6 @@ class ARViewModel: NSObject, ObservableObject, ARSessionDelegate {
     }
 }
 
-// MARK: - ARSessionDelegate (iOS)
-extension ARViewModel: ARSessionDelegate {
-    func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
-        for anchor in anchors {
-            if let name = anchor.name {
-                print("New anchor added: \(name)")
-            }
-        }
-    }
-    
-    func session(_ session: ARSession, didOutputCollaborationData data: ARSession.CollaborationData) {
-        guard let mp = multipeerSession else { return }
-        do {
-            let encoded = try NSKeyedArchiver.archivedData(withRootObject: data, requiringSecureCoding: true)
-            mp.sendToAllPeers(encoded, dataType: .collaborationData)
-        } catch {
-            print("Failed to encode collaboration data: \(error)")
-        }
-    }
-}
-
 // MARK: - MultipeerSessionDelegate (iOS)
 extension ARViewModel: MultipeerSessionDelegate {
     func receivedData(_ data: Data, from peerID: MCPeerID) {
@@ -200,7 +227,10 @@ extension ARViewModel: MultipeerSessionDelegate {
             switch dt {
             case .collaborationData:
                 do {
-                    if let collabData = try NSKeyedUnarchiver.unarchivedObject(ofClass: ARSession.CollaborationData.self, from: payload) {
+                    if let collabData = try NSKeyedUnarchiver.unarchivedObject(
+                        ofClass: ARSession.CollaborationData.self,
+                        from: payload
+                    ) {
                         arView.session.update(with: collabData)
                     }
                 } catch {

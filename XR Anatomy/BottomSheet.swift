@@ -46,7 +46,7 @@ struct SettingsView: View {
             Toggle("Anchor Geometry", isOn: $arViewModel.isAnchorGeometryEnabled)
             Toggle("Scene Understanding", isOn: $arViewModel.isSceneUnderstandingEnabled)
                 .onChange(of: arViewModel.isPlaneVisualizationEnabled) { val in
-                    arViewModel.togglePlaneVisualization(isEnabled: val)
+                    arViewModel.togglePlaneVisualization()
                 }
 
             Spacer()

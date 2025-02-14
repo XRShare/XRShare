@@ -27,7 +27,7 @@ struct UIView: View {
             } else {
                 // Main AR container view
                 ZStack(alignment: .top) {
-                    ARViewContainer(onSwipeFromLeftEdge: handleSwipeFromLeftEdge)
+                    ARViewContainer()
                         .edgesIgnoringSafeArea(.all)
                         .environmentObject(arViewModel)
                     
@@ -93,7 +93,7 @@ struct UIView: View {
                             
                             if arViewModel.userRole == .host {
                                 Button(action: {
-                                    arViewModel.toggleHostPermissions()
+                                    arViewModel.toggleHostPermissions() // Parentheses added to call the function
                                 }) {
                                     Image(systemName: arViewModel.isHostPermissionGranted ? "lock.open" : "lock")
                                         .font(.system(size: 24))
