@@ -8,163 +8,161 @@ import MultipeerConnectivity
 public enum UserRole {
     case host, viewer, openSession
 }
-struct Session: Identifiable {
+
+/// Simple struct for displaying peers you discover.
+struct Session: Identifiable, Hashable {
     let sessionID: String
     let sessionName: String
-    let peerID: String
+    let peerID: MCPeerID
     var id: String { sessionID }
 }
 
-// The iOS ARViewModel using ARKit with minimal manual functions.
-class ARViewModel: NSObject, ObservableObject{
-    
-    // MARK: - Published Properties
+// MARK: - ARViewModel
+
+class ARViewModel: NSObject, ObservableObject {
+    // Published properties
     @Published var selectedModel: Model? = nil
     @Published var alertItem: AlertItem?
-    @Published var connectedPeers: [MCPeerID] = []
-    @Published var isPlaneVisualizationEnabled = false
     @Published var loadingProgress: Float = 0.0
     @Published var userRole: UserRole = .openSession
     @Published var isHostPermissionGranted = false
+    @Published var selectedSession: Session? = nil
+    @Published var connectedPeers: [MCPeerID] = []
     
     // Debug toggles
-    @Published var areFeaturePointsEnabled = false { didSet { updateDebugOptions() } }
-    @Published var isWorldOriginEnabled = false { didSet { updateDebugOptions() } }
-    @Published var areAnchorOriginsEnabled = false { didSet { updateDebugOptions() } }
-    @Published var isAnchorGeometryEnabled = false { didSet { updateDebugOptions() } }
-    @Published var isSceneUnderstandingEnabled = false { didSet { updateDebugOptions() } }
+    @Published var isPlaneVisualizationEnabled: Bool = false
+    @Published var areFeaturePointsEnabled: Bool = false
+    @Published var isWorldOriginEnabled: Bool = false
+    @Published var areAnchorOriginsEnabled: Bool = false
+    @Published var isAnchorGeometryEnabled: Bool = false
+    @Published var isSceneUnderstandingEnabled: Bool = false
     
-    // Additional UI properties
+    // New: availableSessions for the startup menu
     @Published var availableSessions: [Session] = []
-    @Published var selectedSession: Session? = nil
-    private var subscriptions = Set<AnyCancellable>()
     
-    // MARK: - AR and Networking References
+    // AR & Model references
     weak var arView: ARView?
     var models: [Model] = []
-    var placedAnchors: [ARAnchor] = []
-    var anchorEntities: [UUID: AnchorEntity] = [:]
-    var pendingAnchorPayloads: [UUID: AnchorTransformPayload] = [:]
-    var processedAnchorIDs: Set<UUID> = []
-    var anchorsAddedLocally: Set<UUID> = []
-    var pendingAnchors: [UUID: ARAnchor] = [:]
     
+    // Networking
     var multipeerSession: MultipeerSession!
     var sessionID: String = UUID().uuidString
     var sessionName: String = ""
     
-    // Multipeer control
-    var deferredStartMultipeerServices = false
-    var shouldStartMultipeerSession = false
+    // Deferred multipeer flag
+    private var deferredMultipeer: Bool = false
     
-    // MARK: - Initialization
+    private var subscriptions = Set<AnyCancellable>()
+    
     override init() {
         super.init()
     }
     
-    // MARK: - Multipeer Services Control
-    func deferMultipeerServicesUntilModelsLoad() {
-        deferredStartMultipeerServices = true
-    }
-    
-    func invitePeer(_ peerID: String, sessionID: String) {
-        // Implement your invitation logic here.
-        print("Inviting peer \(peerID) to session \(sessionID)")
-    }
-    
-    func togglePlaneVisualization() {
-        isPlaneVisualizationEnabled.toggle()
-    }
-    
-    func toggleHostPermissions() {
-        isHostPermissionGranted.toggle()
-        print("Host permissions toggled to \(isHostPermissionGranted)")
-    }
-    
-    // MARK: - AR Session Management
-    func resetARSession() {
-        guard let arView = arView else { return }
-        arView.session.pause()
-        let configuration = ARWorldTrackingConfiguration()
-        configuration.planeDetection = [.horizontal, .vertical]
-        arView.session.run(configuration, options: [.resetTracking, .removeExistingAnchors])
-    }
-    
     // MARK: - Model Loading
+    
     func loadModels() {
         guard models.isEmpty else { return }
         let modelTypes = ModelType.allCases()
-        let totalModels = modelTypes.count
-        var loadedModels = 0
+        var loadedCount = 0
         
         for mt in modelTypes {
             let model = Model(modelType: mt)
             models.append(model)
             
+            // Track loading progress
             model.$loadingState
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] state in
-                    switch state {
-                    case .loaded:
-                        loadedModels += 1
-                        self?.loadingProgress = Float(loadedModels) / Float(totalModels)
-                        if loadedModels == totalModels {
+                    if case .loaded = state {
+                        loadedCount += 1
+                        self?.loadingProgress = Float(loadedCount) / Float(modelTypes.count)
+                        if loadedCount == modelTypes.count {
                             print("All models loaded.")
-                            self?.enableMultipeerServicesIfDeferred()
                         }
-                    case .failed(let error):
-                        self?.alertItem = AlertItem(title: "Failed to Load Model",
-                                                    message: "\(mt.rawValue.capitalized): \(error.localizedDescription)")
-                    default:
-                        break
                     }
                 }
                 .store(in: &subscriptions)
         }
     }
     
-    // MARK: - AR View Setup
+    // MARK: - AR Setup
+    
     func setupARView(_ arView: ARView) {
         self.arView = arView
-        arView.session.delegate = self
-        updateDebugOptions()
+        
+        // Configure ARKit for plane detection + collaboration
         ARSessionManager.shared.configureSession(for: arView)
         
-        // Add a tap gesture recognizer.
+        // Start your custom MC session
+        startMultipeerServices()
+        
+        // Attach RealityKit’s built-in sync service
+        if let mpSession = multipeerSession {
+            do {
+                let syncService = try MultipeerConnectivityService(session: mpSession.session)
+                arView.scene.synchronizationService = syncService
+            } catch {
+                print("Error creating sync service: \(error)")
+            }
+        }
+        
+        // Add a tap gesture for model placement
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
         arView.addGestureRecognizer(tapGesture)
-        
-        if shouldStartMultipeerSession {
-            startMultipeerServices()
+    }
+    
+    // MARK: - Tap to Place Model
+    
+    @objc func handleTap(_ sender: UITapGestureRecognizer) {
+            guard
+                let arView = arView,
+                let modelEntity = selectedModel?.modelEntity
+            else { return }
+            
+            let tapPoint = sender.location(in: arView)
+            let results = arView.raycast(
+                from: tapPoint,
+                allowing: .estimatedPlane,
+                alignment: .any
+            )
+            guard let firstResult = results.first else { return }
+            
+            // Create an AnchorEntity at the raycast location
+            let anchorEntity = AnchorEntity(raycastResult: firstResult)
+            
+            // Clone & add the selected model to the anchor
+            let newEntity = modelEntity.clone(recursive: true)
+            anchorEntity.addChild(newEntity)
+            
+            // Ensure collisions so gestures can work
+            newEntity.generateCollisionShapes(recursive: true)
+            
+            // Install built-in translation, rotation, and scaling gestures
+            arView.installGestures([.translation, .rotation, .scale], for: newEntity)
+            
+            // Add anchor to the scene (auto-syncs to peers)
+            arView.scene.addAnchor(anchorEntity)
         }
-    }
+
+    // MARK: - Networking
     
-    func updateDebugOptions() {
-        var opts: ARView.DebugOptions = []
-        if areFeaturePointsEnabled     { opts.insert(.showFeaturePoints) }
-        if isWorldOriginEnabled        { opts.insert(.showWorldOrigin) }
-        if areAnchorOriginsEnabled     { opts.insert(.showAnchorOrigins) }
-        if isAnchorGeometryEnabled     { opts.insert(.showAnchorGeometry) }
-        if isSceneUnderstandingEnabled { opts.insert(.showSceneUnderstanding) }
-        arView?.debugOptions = opts
-    }
-    
-    // MARK: - Multipeer Services
     func startMultipeerServices() {
+        // If we already have a session, do nothing
         guard multipeerSession == nil else { return }
-        let discoveryInfo: [String: String]? = (userRole == .host || userRole == .openSession)
+        
+        // Only set discoveryInfo if userRole is host or openSession
+        let discoveryInfo = (userRole == .host||userRole == .openSession)
             ? ["sessionID": sessionID, "sessionName": sessionName]
             : nil
-        multipeerSession = MultipeerSession(sessionID: sessionID, sessionName: sessionName, discoveryInfo: discoveryInfo)
+        
+        multipeerSession = MultipeerSession(
+            sessionID: sessionID,
+            sessionName: sessionName,
+            discoveryInfo: discoveryInfo
+        )
         multipeerSession.delegate = self
         multipeerSession.start()
-        print("Multipeer session started with ID \(sessionID)")
-    }
-    
-    func enableMultipeerServicesIfDeferred() {
-        if shouldStartMultipeerSession {
-            startMultipeerServices()
-        }
+        print("Multipeer session started: \(sessionID)")
     }
     
     func stopMultipeerServices() {
@@ -173,226 +171,72 @@ class ARViewModel: NSObject, ObservableObject{
         print("Multipeer services stopped.")
     }
     
-    // MARK: - Content Placement
-    @objc func handleTap(_ sender: UITapGestureRecognizer) {
-        guard userRole != .viewer || isHostPermissionGranted,
-              let arView = arView,
-              let model = selectedModel,
-              let _ = model.modelEntity else { return }
-        let location = sender.location(in: arView)
-        let results = arView.raycast(from: location, allowing: .estimatedPlane, alignment: .any)
-        if let result = results.first {
-            let uniqueID = UUID().uuidString
-            let anchorName = "\(model.modelType.rawValue)_\(uniqueID)"
-            let anchor = ARAnchor(name: anchorName, transform: result.worldTransform)
-            arView.session.add(anchor: anchor)
-            placedAnchors.append(anchor)
-            anchorsAddedLocally.insert(anchor.identifier)
+    func invitePeer(_ session: Session) {
+        print("Inviting peer \(session.peerID) to session \(session.sessionID)")
+        multipeerSession.invitePeer(session.peerID, sessionID: session.sessionID)
+    }
+    
+    func deferMultipeerServicesUntilModelsLoad() {
+        deferredMultipeer = true
+    }
+    
+    func enableMultipeerServicesIfDeferred() {
+        if deferredMultipeer {
+            startMultipeerServices()
+            deferredMultipeer = false
         }
+    }
+    
+    // MARK: - AR Session Control
+    
+    func resetARSession() {
+        guard let arView = arView else { return }
+        
+        arView.session.pause()
+        
+        let config = ARWorldTrackingConfiguration()
+        config.planeDetection = [.horizontal, .vertical]
+        config.isCollaborationEnabled = true
+        arView.session.run(config, options: [.resetTracking, .removeExistingAnchors])
+    }
+    
+    func toggleHostPermissions() {
+        isHostPermissionGranted.toggle()
+        print("Host permissions toggled to \(isHostPermissionGranted)")
+    }
+    
+    // If you want to remove all placed models:
+    func clearAllModels() {
+        guard let arView = arView else { return }
+        
+        // Remove all AnchorEntities from the scene
+        for anchor in arView.scene.anchors {
+            anchor.removeFromParent()
+        }
+        print("Cleared all models (removed all anchors).")
     }
 }
 
 // MARK: - ARSessionDelegate
 extension ARViewModel: ARSessionDelegate {
-    func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
-        for anchor in anchors {
-            if processedAnchorIDs.contains(anchor.identifier) { continue }
-            
-            // If this is a plane anchor and plane visualization is enabled.
-            if let planeAnchor = anchor as? ARPlaneAnchor, isPlaneVisualizationEnabled {
-                let planeEntity = makePlaneEntity(for: planeAnchor)
-                let anchorEntity = AnchorEntity()
-                anchorEntity.transform = Transform(matrix: planeAnchor.transform)
-                anchorEntity.addChild(planeEntity)
-                arView?.scene.addAnchor(anchorEntity)
-            }
-            else if let _ = anchor.name {
-                if anchorsAddedLocally.contains(anchor.identifier) {
-                    placeModel(for: anchor)
-                    processedAnchorIDs.insert(anchor.identifier)
-                    anchorsAddedLocally.remove(anchor.identifier)
-                    
-                    if userRole == .host || isHostPermissionGranted {
-                        sendAnchorWithTransform(anchor: anchor)
-                    }
-                }
-                else if let payload = pendingAnchorPayloads[anchor.identifier] {
-                    placeModel(for: anchor, modelID: payload.modelID, transformArray: payload.transform)
-                    pendingAnchorPayloads.removeValue(forKey: anchor.identifier)
-                    processedAnchorIDs.insert(anchor.identifier)
-                }
-                else {
-                    // Save anchor for later processing.
-                    pendingAnchors[anchor.identifier] = anchor
-                }
-            }
-        }
-    }
-    
-    func sendAnchorWithTransform(anchor: ARAnchor) {
-        if let anchorData = try? NSKeyedArchiver.archivedData(withRootObject: anchor, requiringSecureCoding: true),
-           let anchorEntity = anchorEntities[anchor.identifier],
-           let modelEntity = anchorEntity.children.first as? ModelEntity {
-            let modelID = modelEntity.name
-            let transformArray = modelEntity.transform.matrix.toArray()
-            let payload = AnchorTransformPayload(anchorData: anchorData, modelID: modelID, transform: transformArray)
-            do {
-                let data = try JSONEncoder().encode(payload)
-                multipeerSession?.sendToAllPeers(data, dataType: .modelTransform)
-            } catch {
-                print("Failed to encode AnchorTransformPayload: \(error)")
-            }
-        }
-    }
-    
-    private func makePlaneEntity(for planeAnchor: ARPlaneAnchor) -> ModelEntity {
-        let mesh = MeshResource.generatePlane(width: 0.5, depth: 0.5)
-        let material = SimpleMaterial(color: .blue, isMetallic: false)
-        let plane = ModelEntity(mesh: mesh, materials: [material])
-        plane.name = "plane"
-        return plane
-    }
-    
-    func session(_ session: ARSession, didOutputCollaborationData data: ARSession.CollaborationData) {
-        // In this minimal implementation we simply forward collaboration data if peers are connected.
-        guard let m = multipeerSession, !(m.session?.connectedPeers.isEmpty ?? true) else { return }
-        do {
-            let encoded = try NSKeyedArchiver.archivedData(withRootObject: data, requiringSecureCoding: true)
-            m.sendToAllPeers(encoded, dataType: .collaborationData)
-        } catch {
-            print("Failed to encode collaboration data: \(error)")
-        }
-    }
-    
-    // Clears all local anchors and notifies connected peers.
-    func clearAllModels() {
-        guard let arView = arView else { return }
-        let anchorIDs = placedAnchors.map { $0.identifier }
-        for anchor in placedAnchors {
-            arView.session.remove(anchor: anchor)
-            if let anchorEntity = anchorEntities[anchor.identifier] {
-                arView.scene.removeAnchor(anchorEntity)
-                anchorEntities.removeValue(forKey: anchor.identifier)
-            }
-        }
-        placedAnchors.removeAll()
-        do {
-            let ids = anchorIDs.map { $0.uuidString }
-            let data = try JSONEncoder().encode(ids)
-            multipeerSession?.sendToAllPeers(data, dataType: .removeAnchors)
-        } catch {
-            print("Failed to encode anchor IDs for removal: \(error)")
-        }
-    }
-    
-    func placeModel(for anchor: ARAnchor, modelID: String? = nil, transformArray: [Float]? = nil) {
-        guard let anchorName = anchor.name else { return }
-        // Determine final model ID.
-        let finalModelID = modelID ?? {
-            let comps = anchorName.split(separator: "_", maxSplits: 1)
-            return comps.count == 2 ? String(comps[1]) : UUID().uuidString
-        }()
-        
-        let modelTypeName = String(anchorName.split(separator: "_").first ?? "")
-        guard let model = models.first(where: {
-            $0.modelType.rawValue.lowercased() == modelTypeName.lowercased()
-        }),
-        let modelEntity = model.modelEntity
-        else {
-            print("Model not found for anchor type \(modelTypeName)")
-            return
-        }
-        
-        let anchorEntity = AnchorEntity()
-        anchorEntity.transform = Transform(matrix: anchor.transform)
-        
-        // Clone the model entity.
-        let clone = modelEntity.clone(recursive: true)
-        clone.name = finalModelID
-        
-        if let tarr = transformArray {
-            let newMatrix = simd_float4x4.fromArray(tarr)
-            clone.transform.matrix = newMatrix
-        } else {
-            clone.scale *= SIMD3<Float>(repeating: 0.8)
-        }
-        clone.generateCollisionShapes(recursive: true)
-        anchorEntity.addChild(clone)
-        
-        arView?.scene.addAnchor(anchorEntity)
-        anchorEntities[anchor.identifier] = anchorEntity
-        processedAnchorIDs.insert(anchor.identifier)
-    }
-    
-    func processPendingAnchors() {
-        for (anchorID, payload) in pendingAnchorPayloads {
-            if let anchor = arView?.session.currentFrame?.anchors.first(where: { $0.identifier == anchorID }) {
-                placeModel(for: anchor, modelID: payload.modelID, transformArray: payload.transform)
-                processedAnchorIDs.insert(anchor.identifier)
-            }
-        }
-        pendingAnchorPayloads.removeAll()
-    }
-    
-    // Remove all plane entities from the scene.
-    func removeAllPlaneEntities() {
-        guard let arView = arView else { return }
-        arView.scene.anchors.forEach { anchor in
-            anchor.children.forEach { ent in
-                if let planeEntity = ent as? ModelEntity, planeEntity.name == "plane" {
-                    anchor.removeChild(planeEntity)
-                }
-            }
-        }
+    // We do not manually ship ARSession.CollaborationData anymore,
+    // because RealityKit's MultipeerConnectivityService handles anchor sync automatically.
+    // If you still want to share environment mesh, keep isCollaborationEnabled but
+    // remove your old manual data sending code.
+    //
+    // You can keep these stubs empty unless you do something else with them:
+
+    func session(_ session: ARSession, didUpdate frame: ARFrame) {
+        // e.g., handle frame updates if you want
     }
 }
 
 // MARK: - MultipeerSessionDelegate
 extension ARViewModel: MultipeerSessionDelegate {
+    // If you want to handle custom data from peers, do it here:
     func receivedData(_ data: Data, from peerID: MCPeerID) {
-        guard data.count > 1, let arView = arView else { return }
-        let dataTypeByte = data.first!
-        let payload = data.advanced(by: 1)
-        if let dt = DataType(rawValue: dataTypeByte) {
-            switch dt {
-            case .collaborationData:
-                do {
-                    if let collabData = try NSKeyedUnarchiver.unarchivedObject(
-                        ofClass: ARSession.CollaborationData.self,
-                        from: payload
-                    ) {
-                        arView.session.update(with: collabData)
-                    }
-                } catch {
-                    print("Failed to decode collaboration data: \(error)")
-                }
-            case .modelTransform:
-                // Decode and apply model transform if needed.
-                break
-            case .removeAnchors:
-                // Decode and remove anchors.
-                break
-            case .permissionUpdate:
-                do {
-                    let isGranted = try JSONDecoder().decode(Bool.self, from: payload)
-                    DispatchQueue.main.async {
-                        self.isHostPermissionGranted = isGranted
-                    }
-                } catch {
-                    print("Failed to decode permission update: \(error)")
-                }
-            case .textMessage:
-                if let message = String(data: payload, encoding: .utf8) {
-                    print("Text message from \(peerID.displayName): \(message)")
-                }
-            case .arWorldMap:
-                 break
-            case .anchor:
-                break
-            case .anchorWithTransform:
-                break
-            }
-        }
+        // No-op by default, or handle text chat, etc.
+        print("Received custom data of size \(data.count) from \(peerID.displayName).")
     }
     
     func peerDidChangeState(peerID: MCPeerID, state: MCSessionState) {
@@ -402,36 +246,48 @@ extension ARViewModel: MultipeerSessionDelegate {
                 if !self.connectedPeers.contains(peerID) {
                     self.connectedPeers.append(peerID)
                 }
-                print("Connected to \(peerID.displayName)")
             case .notConnected:
                 if let index = self.connectedPeers.firstIndex(of: peerID) {
                     self.connectedPeers.remove(at: index)
                 }
-            case .connecting:
-                print("Connecting to \(peerID.displayName)")
-            @unknown default:
+            default:
                 break
             }
+            print("Peer \(peerID.displayName) state: \(state)")
         }
     }
     
-    func didReceiveInvitation(from peerID: MCPeerID, invitationHandler: @escaping (Bool, MCSession?) -> Void) {
-        invitationHandler(true, multipeerSession.session)
+    func didReceiveInvitation(from peerID: MCPeerID,
+                             invitationHandler: @escaping (Bool, MCSession?) -> Void) {
+        if userRole == .host {
+            // I'm the host, so I expect viewers to join me. I accept.
+            invitationHandler(true, multipeerSession.session)
+        } else {
+            // I'm a viewer, so accept if we want that scenario, or check sessionIDs if you only
+            // want to connect to a certain one.
+            invitationHandler(true, multipeerSession.session)
+        }
     }
     
     func foundPeer(peerID: MCPeerID, sessionID: String, sessionName: String) {
         DispatchQueue.main.async {
-            if !self.connectedPeers.contains(peerID) {
-                print("Found peer \(peerID.displayName)")
-            }
+            // Append discovered peers to our list
+            let newSession = Session(
+                sessionID: sessionID,
+                sessionName: sessionName,
+                peerID: peerID
+            )
+            self.availableSessions.append(newSession)
+            print("Found peer: \(peerID.displayName)")
         }
     }
     
     func lostPeer(peerID: MCPeerID) {
         DispatchQueue.main.async {
-            if let index = self.connectedPeers.firstIndex(of: peerID) {
-                self.connectedPeers.remove(at: index)
+            if let index = self.availableSessions.firstIndex(where: { $0.peerID == peerID }) {
+                self.availableSessions.remove(at: index)
             }
+            print("Lost peer: \(peerID.displayName)")
         }
     }
 }

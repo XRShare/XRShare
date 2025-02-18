@@ -50,9 +50,9 @@ class MultipeerSession: NSObject {
         if discoveryInfo != nil {
             advertiser = MCNearbyServiceAdvertiser(peer: myPeerID, discoveryInfo: discoveryInfo, serviceType: serviceType)
             advertiser?.delegate = self
-        }
-        browser = MCNearbyServiceBrowser(peer: myPeerID, serviceType: serviceType)
-        browser?.delegate = self
+        }else{
+            browser = MCNearbyServiceBrowser(peer: myPeerID, serviceType: serviceType)
+            browser?.delegate = self}
     }
     
     func start() {

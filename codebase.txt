@@ -1,0 +1,3142 @@
+<file_map>
+├── XR-Anatomy-App-2
+│   ├── .github
+│   │   └── workflows
+│   │       ├── objective-c-xcode.yml
+│   │       └── swift.yml
+│   ├── Packages
+│   │   └── RealityKitContent
+│   │       ├── .swiftpm
+│   │       │   └── xcode
+│   │       │       └── xcuserdata
+│   │       │           ├── alikara.xcuserdatad
+│   │       │           │   └── xcschemes
+│   │       │           │       └── xcschememanagement.plist
+│   │       │           └── samerswedan.xcuserdatad
+│   │       │               └── xcschemes
+│   │       │                   └── xcschememanagement.plist
+│   │       ├── Package.realitycomposerpro
+│   │       │   ├── ProjectData
+│   │       │   │   └── main.json
+│   │       │   └── WorkspaceData
+│   │       │       ├── SceneMetadataList.json
+│   │       │       └── Settings.rcprojectdata
+│   │       ├── Sources
+│   │       │   └── RealityKitContent
+│   │       │       ├── RealityKitContent.rkassets
+│   │       │       │   ├── Materials
+│   │       │       │   │   └── GridMaterial.usda
+│   │       │       │   └── Scene.usda
+│   │       │       └── RealityKitContent.swift
+│   │       ├── Package.swift
+│   │       └── README.md
+│   ├── Shared
+│   │   ├── models
+│   │   │   ├── textures
+│   │   │   │   ├── heart_diffuse.1001.jpg
+│   │   │   │   ├── heart_diffuse.1002.jpg
+│   │   │   │   ├── heart_diffuse.1003.jpg
+│   │   │   │   ├── heart_diffuse.1004.jpg
+│   │   │   │   ├── heart_diffuse.1005.jpg
+│   │   │   │   ├── heart_diffuse.1011.jpg
+│   │   │   │   ├── heart_diffuse.1012.jpg
+│   │   │   │   ├── heart_diffuse.1013.jpg
+│   │   │   │   ├── heart_diffuse.1014.jpg
+│   │   │   │   ├── heart_diffuse.1015.jpg
+│   │   │   │   ├── heart_diffuse.1021.jpg
+│   │   │   │   ├── heart_diffuse.1022.jpg
+│   │   │   │   ├── heart_diffuse.1023.jpg
+│   │   │   │   ├── heart_diffuse.1024.jpg
+│   │   │   │   ├── heart_nor.1001.jpg
+│   │   │   │   ├── heart_nor.1002.jpg
+│   │   │   │   ├── heart_nor.1003.jpg
+│   │   │   │   ├── heart_nor.1004.jpg
+│   │   │   │   ├── heart_nor.1005.jpg
+│   │   │   │   ├── heart_nor.1011.jpg
+│   │   │   │   ├── heart_nor.1012.jpg
+│   │   │   │   ├── heart_nor.1013.jpg
+│   │   │   │   ├── heart_nor.1014.jpg
+│   │   │   │   ├── heart_nor.1015.jpg
+│   │   │   │   ├── heart_nor.1021.jpg
+│   │   │   │   ├── heart_nor.1022.jpg
+│   │   │   │   ├── heart_nor.1023.jpg
+│   │   │   │   ├── heart_nor.1024.jpg
+│   │   │   │   ├── heart_spec.1001.jpg
+│   │   │   │   ├── heart_spec.1002.jpg
+│   │   │   │   ├── heart_spec.1003.jpg
+│   │   │   │   ├── heart_spec.1004.jpg
+│   │   │   │   ├── heart_spec.1005.jpg
+│   │   │   │   ├── heart_spec.1011.jpg
+│   │   │   │   ├── heart_spec.1012.jpg
+│   │   │   │   ├── heart_spec.1013.jpg
+│   │   │   │   ├── heart_spec.1014.jpg
+│   │   │   │   ├── heart_spec.1015.jpg
+│   │   │   │   ├── heart_spec.1021.jpg
+│   │   │   │   ├── heart_spec.1022.jpg
+│   │   │   │   ├── heart_spec.1023.jpg
+│   │   │   │   ├── heart_spec.1024.jpg
+│   │   │   │   ├── Pericardium Serous_01c_normal.jpg
+│   │   │   │   ├── Pericardium Serous_01c.jpg
+│   │   │   │   ├── pericardium1_01.jpg
+│   │   │   │   └── pericardium1_normal.jpg
+│   │   │   ├── ArteriesHead.usdz
+│   │   │   ├── Heart.usdz
+│   │   │   └── pancakes.usdz
+│   │   ├── AlertItem.swift
+│   │   ├── ARSessionManager.swift
+│   │   ├── ARViewModel.swift
+│   │   ├── DataType.swift
+│   │   ├── MatrixExtensions.swift
+│   │   ├── Model.swift
+│   │   ├── ModelTransformPayload.swift
+│   │   ├── ModelType.swift
+│   │   ├── MultipeerSession.swift
+│   │   └── Utilities.swift
+│   ├── XR Anatomy
+│   │   ├── Assets.xcassets
+│   │   │   ├── AccentColor.colorset
+│   │   │   │   └── Contents.json
+│   │   │   ├── AppIcon.appiconset
+│   │   │   │   ├── Contents.json
+│   │   │   │   ├── XR Anatomy logo.png
+│   │   │   │   └── XR_Anatomy_logo_dark_background.png
+│   │   │   ├── logo_white.imageset
+│   │   │   │   ├── Contents.json
+│   │   │   │   └── stylish-white.png
+│   │   │   └── Contents.json
+│   │   ├── Preview Content
+│   │   │   └── Preview Assets.xcassets
+│   │   │       └── Contents.json
+│   │   ├── AppDelegate.swift
+│   │   ├── ARViewContainer.swift
+│   │   ├── BottomSheet.swift
+│   │   ├── ConnectionStatusView.swift
+│   │   ├── Info.plist
+│   │   ├── LoadingView.swift
+│   │   ├── OrientationManager.swift
+│   │   ├── StartupMenuView.swift
+│   │   ├── UIView.swift
+│   │   ├── XR AnatomyDebug.entitlements
+│   │   └── XRAnatomy.swift
+│   ├── XR Anatomy Vision
+│   │   ├── Assets.xcassets
+│   │   │   ├── AccentColor.colorset
+│   │   │   │   └── Contents.json
+│   │   │   ├── AppIcon.appiconset
+│   │   │   │   ├── Contents.json
+│   │   │   │   ├── XR Anatomy logo - dark.png
+│   │   │   │   └── XR Anatomy logo.png
+│   │   │   ├── logo_white.imageset
+│   │   │   │   ├── Contents.json
+│   │   │   │   └── stylish-white.png
+│   │   │   └── Contents.json
+│   │   ├── Preview Content
+│   │   │   └── Preview Assets.xcassets
+│   │   │       └── Contents.json
+│   │   ├── Scenes
+│   │   │   ├── HostSession.swift
+│   │   │   ├── InSession.swift
+│   │   │   ├── JoinSession.swift
+│   │   │   └── MainMenu.swift
+│   │   ├── AppModel.swift
+│   │   ├── ContentView.swift
+│   │   ├── ImmersiveView.swift
+│   │   ├── Info.plist
+│   │   ├── MainView.swift
+│   │   ├── ToggleImmersiveSpaceButton.swift
+│   │   └── XRAnatomy_visionOSApp.swift
+│   ├── XR Anatomy.xcodeproj
+│   │   ├── project.xcworkspace
+│   │   │   ├── xcshareddata
+│   │   │   │   └── swiftpm
+│   │   │   │       └── configuration
+│   │   │   ├── xcuserdata
+│   │   │   │   ├── alikara.xcuserdatad
+│   │   │   │   │   └── UserInterfaceState.xcuserstate
+│   │   │   │   ├── codystasyk.xcuserdatad
+│   │   │   │   │   └── UserInterfaceState.xcuserstate
+│   │   │   │   └── samerswedan.xcuserdatad
+│   │   │   │       └── UserInterfaceState.xcuserstate
+│   │   │   └── contents.xcworkspacedata
+│   │   ├── xcshareddata
+│   │   │   └── xcschemes
+│   │   │       └── XR Anatomy.xcscheme
+│   │   ├── xcuserdata
+│   │   │   ├── alikara.xcuserdatad
+│   │   │   │   ├── xcdebugger
+│   │   │   │   │   └── Breakpoints_v2.xcbkptlist
+│   │   │   │   └── xcschemes
+│   │   │   │       └── xcschememanagement.plist
+│   │   │   ├── codystasyk.xcuserdatad
+│   │   │   │   ├── xcdebugger
+│   │   │   │   │   └── Breakpoints_v2.xcbkptlist
+│   │   │   │   └── xcschemes
+│   │   │   │       └── xcschememanagement.plist
+│   │   │   └── samerswedan.xcuserdatad
+│   │   │       └── xcschemes
+│   │   │           └── xcschememanagement.plist
+│   │   └── project.pbxproj
+│   ├── codebase.txt
+│   └── z___A few thoughts about this repo.txt
+
+</file_map>
+
+<file_contents>
+File: Packages/RealityKitContent/.swiftpm/xcode/xcuserdata/alikara.xcuserdatad/xcschemes/xcschememanagement.plist
+```plist
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>SchemeUserState</key>
+	<dict>
+		<key>RealityKitContent.xcscheme_^#shared#^_</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>2</integer>
+		</dict>
+	</dict>
+</dict>
+</plist>
+
+```
+
+File: Packages/RealityKitContent/Package.realitycomposerpro/ProjectData/main.json
+```json
+{
+  "pathsToIds" : {
+    "\/RealityKitContent\/Sources\/RealityKitContent\/RealityKitContent.rkassets\/GridMaterial.usda" : "440DE5B4-E4E4-459B-AABF-9ACE96319272",
+    "\/RealityKitContent\/Sources\/RealityKitContent\/RealityKitContent.rkassets\/procedural_sphere_grid.usda" : "34C460AE-CA1B-4348-BD05-621ACBDFFE97",
+    "\/RealityKitContent\/Sources\/RealityKitContent\/RealityKitContent.rkassets\/Scene.usda" : "0A9B4653-B11E-4D6A-850E-C6FCB621626C",
+    "\/RealityKitContent\/Sources\/RealityKitContent\/RealityKitContent.rkassets\/Untitled Scene.usda" : "03E02005-EFA6-48D6-8A76-05B2822A74E9",
+    "RealityKitContent\/Sources\/RealityKitContent\/RealityKitContent.rkassets\/GridMaterial.usda" : "FBD8436F-6B8B-4B82-99B5-995D538B4704",
+    "RealityKitContent\/Sources\/RealityKitContent\/RealityKitContent.rkassets\/procedural_sphere_grid.usda" : "1CBF3893-ABFD-408C-8B91-045BFD257808",
+    "RealityKitContent\/Sources\/RealityKitContent\/RealityKitContent.rkassets\/Scene.usda" : "26DBAE76-5DD8-47B6-A085-1B4ADA111097"
+  }
+}
+```
+
+File: Packages/RealityKitContent/.swiftpm/xcode/xcuserdata/samerswedan.xcuserdatad/xcschemes/xcschememanagement.plist
+```plist
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>SchemeUserState</key>
+	<dict>
+		<key>RealityKitContent.xcscheme_^#shared#^_</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>2</integer>
+		</dict>
+	</dict>
+</dict>
+</plist>
+
+```
+
+File: Packages/RealityKitContent/Package.realitycomposerpro/WorkspaceData/SceneMetadataList.json
+```json
+{
+  "0A9B4653-B11E-4D6A-850E-C6FCB621626C" : {
+    "cameraTransform" : [
+      0.9807314,
+      -1.9820146e-10,
+      -0.195361,
+      0,
+      -0.10051192,
+      0.85749435,
+      -0.5045798,
+      0,
+      0.16752096,
+      0.51449335,
+      0.84097165,
+      0,
+      0.09084191,
+      0.05849296,
+      0.13903293,
+      1
+    ],
+    "objectMetadataList" : [
+      [
+        "0A9B4653-B11E-4D6A-850E-C6FCB621626C",
+        "Root"
+      ],
+      {
+        "isExpanded" : true,
+        "isLocked" : false
+      },
+      [
+        "0A9B4653-B11E-4D6A-850E-C6FCB621626C",
+        "Root",
+        "GridMaterial"
+      ],
+      {
+        "isExpanded" : true,
+        "isLocked" : false
+      },
+      [
+        "0A9B4653-B11E-4D6A-850E-C6FCB621626C",
+        "Root",
+        "Sphere"
+      ],
+      {
+        "isExpanded" : true,
+        "isLocked" : false
+      }
+    ]
+  },
+  "1CBF3893-ABFD-408C-8B91-045BFD257808" : {
+    "cameraTransform" : [
+      0.99999994,
+      0,
+      -0,
+      0,
+      -0,
+      0.8660255,
+      -0.49999988,
+      0,
+      0,
+      0.49999988,
+      0.8660255,
+      0,
+      0,
+      0.27093542,
+      0.46927398,
+      1
+    ],
+    "objectMetadataList" : [
+
+    ]
+  },
+  "03E02005-EFA6-48D6-8A76-05B2822A74E9" : {
+    "cameraTransform" : [
+      0.99999994,
+      0,
+      -0,
+      0,
+      -0,
+      0.8660254,
+      -0.49999994,
+      0,
+      0,
+      0.49999994,
+      0.8660254,
+      0,
+      0,
+      0.5981957,
+      1.0361054,
+      1
+    ],
+    "objectMetadataList" : [
+
+    ]
+  },
+  "26DBAE76-5DD8-47B6-A085-1B4ADA111097" : {
+    "cameraTransform" : [
+      1,
+      0,
+      -0,
+      0,
+      -0,
+      0.7071069,
+      -0.7071067,
+      0,
+      0,
+      0.7071067,
+      0.7071069,
+      0,
+      0,
+      0.2681068,
+      0.26850593,
+      1
+    ],
+    "objectMetadataList" : [
+      [
+        "26DBAE76-5DD8-47B6-A085-1B4ADA111097",
+        "Root"
+      ],
+      {
+        "isExpanded" : true,
+        "isLocked" : false
+      }
+    ]
+  },
+  "34C460AE-CA1B-4348-BD05-621ACBDFFE97" : {
+    "cameraTransform" : [
+      0.99999994,
+      0,
+      -0,
+      0,
+      -0,
+      0.8660255,
+      -0.49999988,
+      0,
+      0,
+      0.49999988,
+      0.8660255,
+      0,
+      0,
+      0.27093542,
+      0.46927398,
+      1
+    ],
+    "objectMetadataList" : [
+
+    ]
+  },
+  "440DE5B4-E4E4-459B-AABF-9ACE96319272" : {
+    "cameraTransform" : [
+      0.99999994,
+      0,
+      -0,
+      0,
+      -0,
+      0.8660254,
+      -0.49999994,
+      0,
+      0,
+      0.49999994,
+      0.8660254,
+      0,
+      0,
+      0.5981957,
+      1.0361054,
+      1
+    ],
+    "objectMetadataList" : [
+      [
+        "440DE5B4-E4E4-459B-AABF-9ACE96319272",
+        "Root"
+      ],
+      {
+        "isExpanded" : true,
+        "isLocked" : false
+      }
+    ]
+  },
+  "FBD8436F-6B8B-4B82-99B5-995D538B4704" : {
+    "cameraTransform" : [
+      0.99999994,
+      0,
+      -0,
+      0,
+      -0,
+      0.8660254,
+      -0.49999994,
+      0,
+      0,
+      0.49999994,
+      0.8660254,
+      0,
+      0,
+      0.5981957,
+      1.0361054,
+      1
+    ],
+    "objectMetadataList" : [
+      [
+        "FBD8436F-6B8B-4B82-99B5-995D538B4704",
+        "Root"
+      ],
+      {
+        "isExpanded" : true,
+        "isLocked" : false
+      }
+    ]
+  }
+}
+```
+
+File: Packages/RealityKitContent/Sources/RealityKitContent/RealityKitContent.rkassets/Materials/GridMaterial.usda
+```usda
+#usda 1.0
+(
+    defaultPrim = "Root"
+    metersPerUnit = 1
+    upAxis = "Y"
+)
+
+def Xform "Root"
+{
+    def Material "GridMaterial"
+    {
+        reorder nameChildren = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "DefaultSurfaceShader", "MaterialXPreviewSurface", "Texcoord", "Add", "Multiply", "Fractional", "LineCounts", "Multiply_1", "Separate2", "Separate2_1", "Ifgreater", "Ifgreater_1", "Max", "Background_Color"]
+        token outputs:mtlx:surface.connect = </Root/GridMaterial/MaterialXPreviewSurface.outputs:out>
+        token outputs:realitykit:vertex
+        token outputs:surface
+        float2 ui:nodegraph:realitykit:subgraphOutputs:pos = (2222, 300.5)
+        float2 ui:nodegraph:realitykit:subgraphOutputs:size = (182, 89)
+        int ui:nodegraph:realitykit:subgraphOutputs:stackingOrder = 749
+
+        def Shader "DefaultSurfaceShader"
+        {
+            uniform token info:id = "UsdPreviewSurface"
+            color3f inputs:diffuseColor = (1, 1, 1)
+            float inputs:roughness = 0.75
+            token outputs:surface
+        }
+
+        def Shader "MaterialXPreviewSurface"
+        {
+            uniform token info:id = "ND_UsdPreviewSurface_surfaceshader"
+            float inputs:clearcoat
+            float inputs:clearcoatRoughness
+            color3f inputs:diffuseColor.connect = </Root/GridMaterial/Remap.outputs:out>
+            color3f inputs:emissiveColor
+            float inputs:ior
+            float inputs:metallic = 0.15
+            float3 inputs:normal
+            float inputs:occlusion
+            float inputs:opacity
+            float inputs:opacityThreshold
+            float inputs:roughness = 0.5
+            token outputs:out
+            float2 ui:nodegraph:node:pos = (1967, 300.5)
+            float2 ui:nodegraph:node:size = (208, 297)
+            int ui:nodegraph:node:stackingOrder = 870
+            string[] ui:nodegraph:realitykit:node:attributesShowingChildren = ["Advanced"]
+        }
+
+        def Shader "Texcoord"
+        {
+            uniform token info:id = "ND_texcoord_vector2"
+            float2 outputs:out
+            float2 ui:nodegraph:node:pos = (94.14453, 35.29297)
+            float2 ui:nodegraph:node:size = (182, 43)
+            int ui:nodegraph:node:stackingOrder = 1358
+        }
+
+        def Shader "Multiply"
+        {
+            uniform token info:id = "ND_multiply_vector2"
+            float2 inputs:in1.connect = </Root/GridMaterial/Texcoord.outputs:out>
+            float2 inputs:in2 = (32, 15)
+            float2 inputs:in2.connect = </Root/GridMaterial/LineCounts.outputs:out>
+            float2 outputs:out
+            float2 ui:nodegraph:node:pos = (275.64453, 47.29297)
+            float2 ui:nodegraph:node:size = (61, 36)
+            int ui:nodegraph:node:stackingOrder = 1348
+            string[] ui:nodegraph:realitykit:node:attributesShowingChildren = ["inputs:in2"]
+        }
+
+        def Shader "Fractional"
+        {
+            uniform token info:id = "ND_realitykit_fractional_vector2"
+            float2 inputs:in.connect = </Root/GridMaterial/Multiply.outputs:out>
+            float2 outputs:out
+            float2 ui:nodegraph:node:pos = (440.5, 49.5)
+            float2 ui:nodegraph:node:size = (155, 99)
+            int ui:nodegraph:node:stackingOrder = 1345
+        }
+
+        def Shader "BaseColor"
+        {
+            uniform token info:id = "ND_constant_color3"
+            color3f inputs:value = (0.89737034, 0.89737034, 0.89737034) (
+                colorSpace = "Input - Texture - sRGB - sRGB"
+            )
+            color3f inputs:value.connect = None
+            color3f outputs:out
+            float2 ui:nodegraph:node:pos = (1537.5977, 363.07812)
+            float2 ui:nodegraph:node:size = (150, 43)
+            int ui:nodegraph:node:stackingOrder = 1353
+        }
+
+        def Shader "LineColor"
+        {
+            uniform token info:id = "ND_constant_color3"
+            color3f inputs:value = (0.55945957, 0.55945957, 0.55945957) (
+                colorSpace = "Input - Texture - sRGB - sRGB"
+            )
+            color3f inputs:value.connect = None
+            color3f outputs:out
+            float2 ui:nodegraph:node:pos = (1536.9844, 287.86328)
+            float2 ui:nodegraph:node:size = (146, 43)
+            int ui:nodegraph:node:stackingOrder = 1355
+        }
+
+        def Shader "LineWidths"
+        {
+            uniform token info:id = "ND_combine2_vector2"
+            float inputs:in1 = 0.1
+            float inputs:in2 = 0.1
+            float2 outputs:out
+            float2 ui:nodegraph:node:pos = (443.64453, 233.79297)
+            float2 ui:nodegraph:node:size = (151, 43)
+            int ui:nodegraph:node:stackingOrder = 1361
+        }
+
+        def Shader "LineCounts"
+        {
+            uniform token info:id = "ND_combine2_vector2"
+            float inputs:in1 = 24
+            float inputs:in2 = 12
+            float2 outputs:out
+            float2 ui:nodegraph:node:pos = (94.14453, 138.29297)
+            float2 ui:nodegraph:node:size = (153, 43)
+            int ui:nodegraph:node:stackingOrder = 1359
+        }
+
+        def Shader "Remap"
+        {
+            uniform token info:id = "ND_remap_color3"
+            color3f inputs:in.connect = </Root/GridMaterial/Combine3.outputs:out>
+            color3f inputs:inhigh.connect = None
+            color3f inputs:inlow.connect = None
+            color3f inputs:outhigh.connect = </Root/GridMaterial/BaseColor.outputs:out>
+            color3f inputs:outlow.connect = </Root/GridMaterial/LineColor.outputs:out>
+            color3f outputs:out
+            float2 ui:nodegraph:node:pos = (1755.5, 300.5)
+            float2 ui:nodegraph:node:size = (95, 171)
+            int ui:nodegraph:node:stackingOrder = 1282
+            string[] ui:nodegraph:realitykit:node:attributesShowingChildren = ["inputs:outlow"]
+        }
+
+        def Shader "Separate2"
+        {
+            uniform token info:id = "ND_separate2_vector2"
+            float2 inputs:in.connect = </Root/GridMaterial/Range.outputs:out>
+            float outputs:outx
+            float outputs:outy
+            float2 ui:nodegraph:node:pos = (1212.6445, 128.91797)
+            float2 ui:nodegraph:node:size = (116, 117)
+            int ui:nodegraph:node:stackingOrder = 1363
+        }
+
+        def Shader "Combine3"
+        {
+            uniform token info:id = "ND_combine3_color3"
+            float inputs:in1.connect = </Root/GridMaterial/Min.outputs:out>
+            float inputs:in2.connect = </Root/GridMaterial/Min.outputs:out>
+            float inputs:in3.connect = </Root/GridMaterial/Min.outputs:out>
+            color3f outputs:out
+            float2 ui:nodegraph:node:pos = (1578.1445, 128.91797)
+            float2 ui:nodegraph:node:size = (146, 54)
+            int ui:nodegraph:node:stackingOrder = 1348
+        }
+
+        def Shader "Range"
+        {
+            uniform token info:id = "ND_range_vector2"
+            bool inputs:doclamp = 1
+            float2 inputs:gamma = (2, 2)
+            float2 inputs:in.connect = </Root/GridMaterial/Absval.outputs:out>
+            float2 inputs:inhigh.connect = </Root/GridMaterial/LineWidths.outputs:out>
+            float2 inputs:inlow = (0.02, 0.02)
+            float2 inputs:outhigh
+            float2 inputs:outlow
+            float2 outputs:out
+            float2 ui:nodegraph:node:pos = (990.64453, 128.91797)
+            float2 ui:nodegraph:node:size = (98, 207)
+            int ui:nodegraph:node:stackingOrder = 1364
+        }
+
+        def Shader "Subtract"
+        {
+            uniform token info:id = "ND_subtract_vector2"
+            float2 inputs:in1.connect = </Root/GridMaterial/Fractional.outputs:out>
+            float2 inputs:in2.connect = </Root/GridMaterial/LineWidths.outputs:out>
+            float2 outputs:out
+            float2 ui:nodegraph:node:pos = (612.64453, 87.04297)
+            float2 ui:nodegraph:node:size = (63, 36)
+            int ui:nodegraph:node:stackingOrder = 1348
+        }
+
+        def Shader "Absval"
+        {
+            uniform token info:id = "ND_absval_vector2"
+            float2 inputs:in.connect = </Root/GridMaterial/Subtract.outputs:out>
+            float2 outputs:out
+            float2 ui:nodegraph:node:pos = (765.64453, 87.04297)
+            float2 ui:nodegraph:node:size = (123, 43)
+            int ui:nodegraph:node:stackingOrder = 1348
+        }
+
+        def Shader "Min"
+        {
+            uniform token info:id = "ND_min_float"
+            float inputs:in1.connect = </Root/GridMaterial/Separate2.outputs:outx>
+            float inputs:in2.connect = </Root/GridMaterial/Separate2.outputs:outy>
+            float outputs:out
+            float2 ui:nodegraph:node:pos = (1388.1445, 128.91797)
+            float2 ui:nodegraph:node:size = (114, 36)
+            int ui:nodegraph:node:stackingOrder = 1363
+        }
+    }
+}
+
+
+```
+
+File: Packages/RealityKitContent/Package.realitycomposerpro/WorkspaceData/Settings.rcprojectdata
+```rcprojectdata
+{
+  "cameraPresets" : {
+
+  },
+  "secondaryToolbarData" : {
+    "isGridVisible" : true,
+    "sceneReverbPreset" : -1
+  },
+  "unitDefaults" : {
+    "°" : "°",
+    "kg" : "g",
+    "m" : "cm",
+    "m\/s" : "m\/s",
+    "m\/s²" : "m\/s²",
+    "s" : "s"
+  }
+}
+```
+
+File: Packages/RealityKitContent/Sources/RealityKitContent/RealityKitContent.rkassets/Scene.usda
+```usda
+#usda 1.0
+(
+    defaultPrim = "Root"
+    metersPerUnit = 1
+    upAxis = "Y"
+)
+
+def Xform "Root"
+{
+    reorder nameChildren = ["GridMaterial", "Sphere"]
+    rel material:binding = None (
+        bindMaterialAs = "weakerThanDescendants"
+    )
+
+    def Sphere "Sphere" (
+        active = true
+        prepend apiSchemas = ["MaterialBindingAPI"]
+    )
+    {
+        rel material:binding = </Root/GridMaterial/GridMaterial> (
+            bindMaterialAs = "weakerThanDescendants"
+        )
+        double radius = 0.05
+        quatf xformOp:orient = (1, 0, 0, 0)
+        float3 xformOp:scale = (1, 1, 1)
+        float3 xformOp:translate = (0, 0, 0.0004)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        def RealityKitComponent "Collider"
+        {
+            uint group = 1
+            uniform token info:id = "RealityKit.Collider"
+            uint mask = 4294967295
+            token type = "Default"
+
+            def RealityKitStruct "Shape"
+            {
+                float3 extent = (0.2, 0.2, 0.2)
+                float radius = 0.05
+                token shapeType = "Sphere"
+            }
+        }
+
+        def RealityKitComponent "InputTarget"
+        {
+            uniform token info:id = "RealityKit.InputTarget"
+        }
+    }
+
+    def "GridMaterial" (
+        active = true
+        prepend references = @Materials/GridMaterial.usda@
+    )
+    {
+        float3 xformOp:scale = (1, 1, 1)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+    }
+}
+
+
+```
+
+File: Packages/RealityKitContent/Sources/RealityKitContent/RealityKitContent.swift
+```swift
+import Foundation
+
+/// Bundle for the RealityKitContent project
+public let realityKitContentBundle = Bundle.module
+
+```
+
+File: Packages/RealityKitContent/Package.swift
+```swift
+// swift-tools-version:6.0
+// The swift-tools-version declares the minimum version of Swift required to build this package.
+
+import PackageDescription
+
+let package = Package(
+    name: "RealityKitContent",
+    platforms: [
+        .visionOS(.v2),
+        .macOS(.v15),
+        .iOS(.v18)
+    ],
+    products: [
+        // Products define the executables and libraries a package produces, and make them visible to other packages.
+        .library(
+            name: "RealityKitContent",
+            targets: ["RealityKitContent"]),
+    ],
+    dependencies: [
+        // Dependencies declare other packages that this package depends on.
+        // .package(url: /* package url */, from: "1.0.0"),
+    ],
+    targets: [
+        // Targets are the basic building blocks of a package. A target can define a module or a test suite.
+        // Targets can depend on other targets in this package, and on products in packages this package depends on.
+        .target(
+            name: "RealityKitContent",
+            dependencies: []),
+    ]
+)
+```
+
+File: Packages/RealityKitContent/README.md
+```md
+# RealityKitContent
+
+A description of this package.
+```
+
+File: Shared/AlertItem.swift
+```swift
+//
+//  AlertItem.swift
+//  XR Anatomy
+//
+//  Created by Ali Kara on 2025-02-14.
+//
+
+
+import Foundation
+
+struct AlertItem: Identifiable {
+    let id = UUID()
+    let title: String
+    let message: String
+}
+```
+
+File: Shared/ARSessionManager.swift
+```swift
+#if os(iOS)
+import ARKit
+import RealityKit
+
+/// An AR session manager for iOS that configures an ARView's session.
+class ARSessionManager {
+    static let shared = ARSessionManager()
+    private init() { }
+
+    func configureSession(for arView: ARView) {
+        let config = ARWorldTrackingConfiguration()
+        config.planeDetection = [.horizontal, .vertical]
+        if ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) {
+            config.sceneReconstruction = .meshWithClassification
+        }
+        config.environmentTexturing = .automatic
+        config.isCollaborationEnabled = true
+        
+        arView.session.run(config, options: [.resetTracking, .removeExistingAnchors])
+    }
+}
+#elseif os(visionOS)
+import SwiftUI
+import RealityKit
+
+/// A stub AR session manager for visionOS.
+/// On visionOS, you use RealityView and its internal session management.
+class ARSessionManager {
+    static let shared = ARSessionManager()
+    private init() { }
+
+    func configureSession() {
+        // No manual configuration is needed—RealityView manages its own AR session.
+        print("Session configuration for visionOS is handled automatically by RealityView.")
+    }
+}
+#endif
+
+```
+
+File: Shared/DataType.swift
+```swift
+//
+//  DataType.swift
+//  XR Anatomy
+//
+//  Created by Ali Kara on 2025-02-12.
+//
+
+enum DataType: UInt8 {
+    case arWorldMap = 0
+    case anchor = 1
+    case collaborationData = 2
+    case modelTransform = 3
+    case removeAnchors = 4
+    case anchorWithTransform = 5
+    case permissionUpdate = 6
+    case textMessage = 7
+}
+
+```
+
+File: Shared/MatrixExtensions.swift
+```swift
+//
+//  MatrixExtensions.swift
+//  XR Anatomy
+//
+//  Created by Ali Kara on 2025-02-12.
+//
+
+
+//
+//  MatrixExtensions.swift
+//  XR Anatomy
+//
+//  Provides simd_float4x4 convenience extensions for position, toArray, fromArray
+//
+
+import simd
+
+extension simd_float4x4 {
+    /// Extract the position (translation) from the matrix's fourth column.
+    var position: SIMD3<Float> {
+        let t = self.columns.3
+        return SIMD3<Float>(t.x, t.y, t.z)
+    }
+
+    /// Convert this 4x4 matrix into a 16-element Float array.
+    func toArray() -> [Float] {
+        return [
+            columns.0.x, columns.0.y, columns.0.z, columns.0.w,
+            columns.1.x, columns.1.y, columns.1.z, columns.1.w,
+            columns.2.x, columns.2.y, columns.2.z, columns.2.w,
+            columns.3.x, columns.3.y, columns.3.z, columns.3.w
+        ]
+    }
+
+    /// Create a simd_float4x4 from a 16-element Float array.
+    static func fromArray(_ arr: [Float]) -> simd_float4x4 {
+        guard arr.count == 16 else {
+            return matrix_identity_float4x4
+        }
+        return simd_float4x4(
+            SIMD4<Float>(arr[0],  arr[1],  arr[2],  arr[3]),
+            SIMD4<Float>(arr[4],  arr[5],  arr[6],  arr[7]),
+            SIMD4<Float>(arr[8],  arr[9],  arr[10], arr[11]),
+            SIMD4<Float>(arr[12], arr[13], arr[14], arr[15])
+        )
+    }
+}
+
+```
+
+File: Shared/ModelTransformPayload.swift
+```swift
+//
+//  ModelTransformPayload.swift
+//  XR Anatomy
+//
+//  Created by Ali Kara on 2025-02-14.
+//
+
+
+import Foundation
+
+struct ModelTransformPayload: Codable {
+    let modelID: String
+    let transform: [Float] // a 16-element array representing a 4x4 matrix
+}
+
+struct AnchorTransformPayload: Codable {
+    let anchorData: Data
+    let modelID: String
+    let transform: [Float]
+}
+```
+
+File: Shared/MultipeerSession.swift
+```swift
+//
+//  that.swift
+//  XR Anatomy
+//
+//  Created by Ali Kara on 2025-02-14.
+//
+
+import MultipeerConnectivity
+import Foundation
+
+protocol MultipeerSessionDelegate: AnyObject {
+    func receivedData(_ data: Data, from peerID: MCPeerID)
+    func peerDidChangeState(peerID: MCPeerID, state: MCSessionState)
+    func didReceiveInvitation(from peerID: MCPeerID,
+                              invitationHandler: @escaping (Bool, MCSession?) -> Void)
+    func foundPeer(peerID: MCPeerID, sessionID: String, sessionName: String)
+    func lostPeer(peerID: MCPeerID)
+}
+
+class MultipeerSession: NSObject {
+    private let serviceType = "ar-collab"
+    let myPeerID: MCPeerID
+    var session: MCSession!
+    private var advertiser: MCNearbyServiceAdvertiser?
+    private var browser: MCNearbyServiceBrowser?
+    weak var delegate: MultipeerSessionDelegate?
+    
+    // For a host/openSession, we use discovery info:
+    private var discoveryInfo: [String: String]?
+    private var sessionID: String?
+    private var sessionName: String?
+    
+    // For keeping track of found peers
+    var foundPeers: [(peerID: MCPeerID, sessionID: String, sessionName: String)] = []
+    
+    init(sessionID: String? = nil, sessionName: String? = nil, discoveryInfo: [String:String]? = nil) {
+        // Append a unique suffix so that the display name is unique.
+        let uniqueSuffix = UUID().uuidString.prefix(4)
+        let deviceName = UIDevice.current.name
+        self.myPeerID = MCPeerID(displayName: "\(deviceName)-\(uniqueSuffix)")
+        self.sessionID = sessionID
+        self.sessionName = sessionName
+        self.discoveryInfo = discoveryInfo
+        
+        super.init()
+        session = MCSession(peer: myPeerID, securityIdentity: nil, encryptionPreference: .required)
+        session.delegate = self
+        
+        // For hosts and open sessions, advertise and for viewers, browse.
+        if discoveryInfo != nil {
+            advertiser = MCNearbyServiceAdvertiser(peer: myPeerID, discoveryInfo: discoveryInfo, serviceType: serviceType)
+            advertiser?.delegate = self
+        }
+        browser = MCNearbyServiceBrowser(peer: myPeerID, serviceType: serviceType)
+        browser?.delegate = self
+    }
+    
+    func start() {
+        advertiser?.startAdvertisingPeer()
+        browser?.startBrowsingForPeers()
+    }
+    
+    func stop() {
+        advertiser?.stopAdvertisingPeer()
+        browser?.stopBrowsingForPeers()
+        session.disconnect()
+    }
+    
+    func invitePeer(_ peerID: MCPeerID, sessionID: String) {
+        guard let browser = browser else { return }
+        let context = sessionID.data(using: .utf8)
+        browser.invitePeer(peerID, to: session, withContext: context, timeout: 10)
+    }
+    
+    func sendToAllPeers(_ data: Data, dataType: DataType) {
+        guard session.connectedPeers.count > 0 else { return }
+        var packet = Data([dataType.rawValue])
+        packet.append(data)
+        do {
+            try session.send(packet, toPeers: session.connectedPeers, with: .reliable)
+        } catch {
+            print("Error sending data: \(error)")
+        }
+    }
+}
+
+extension MultipeerSession: MCSessionDelegate {
+    func session(_ session: MCSession, peer peerID: MCPeerID, didChange state: MCSessionState) {
+        DispatchQueue.main.async {
+            self.delegate?.peerDidChangeState(peerID: peerID, state: state)
+        }
+    }
+    
+    func session(_ session: MCSession, didReceive data: Data, fromPeer peerID: MCPeerID) {
+        DispatchQueue.main.async {
+            self.delegate?.receivedData(data, from: peerID)
+        }
+    }
+    
+    // Unused delegate methods:
+    func session(_ session: MCSession,
+                 didReceive stream: InputStream,
+                 withName streamName: String,
+                 fromPeer peerID: MCPeerID) { }
+    func session(_ session: MCSession,
+                 didStartReceivingResourceWithName resourceName: String,
+                 fromPeer peerID: MCPeerID,
+                 with progress: Progress) { }
+    func session(_ session: MCSession,
+                 didFinishReceivingResourceWithName resourceName: String,
+                 fromPeer peerID: MCPeerID,
+                 at localURL: URL?,
+                 withError error: Error?) { }
+}
+
+extension MultipeerSession: MCNearbyServiceAdvertiserDelegate {
+    func advertiser(_ advertiser: MCNearbyServiceAdvertiser,
+                    didNotStartAdvertisingPeer error: Error) {
+        print("Failed to start advertising: \(error)")
+    }
+    
+    func advertiser(_ advertiser: MCNearbyServiceAdvertiser,
+                    didReceiveInvitationFromPeer peerID: MCPeerID,
+                    withContext context: Data?,
+                    invitationHandler: @escaping (Bool, MCSession?) -> Void) {
+        // Auto-accept invitations (or delegate to UI as needed)
+        delegate?.didReceiveInvitation(from: peerID, invitationHandler: invitationHandler)
+    }
+}
+
+extension MultipeerSession: MCNearbyServiceBrowserDelegate {
+    func browser(_ browser: MCNearbyServiceBrowser,
+                 didNotStartBrowsingForPeers error: Error) {
+        print("Failed to start browsing: \(error)")
+    }
+    
+    func browser(_ browser: MCNearbyServiceBrowser,
+                 foundPeer peerID: MCPeerID,
+                 withDiscoveryInfo info: [String : String]?) {
+        guard peerID != myPeerID else { return }
+        let sid = info?["sessionID"] ?? "Unknown"
+        let sname = info?["sessionName"] ?? "Unknown"
+        foundPeers.append((peerID, sid, sname))
+        delegate?.foundPeer(peerID: peerID, sessionID: sid, sessionName: sname)
+    }
+    
+    func browser(_ browser: MCNearbyServiceBrowser,
+                 lostPeer peerID: MCPeerID) {
+        delegate?.lostPeer(peerID: peerID)
+    }
+}
+
+```
+
+File: XR Anatomy/Assets.xcassets/AppIcon.appiconset/Contents.json
+```json
+{
+  "images" : [
+    {
+      "filename" : "XR Anatomy logo.png",
+      "idiom" : "universal",
+      "platform" : "ios",
+      "size" : "1024x1024"
+    },
+    {
+      "appearances" : [
+        {
+          "appearance" : "luminosity",
+          "value" : "dark"
+        }
+      ],
+      "filename" : "XR_Anatomy_logo_dark_background.png",
+      "idiom" : "universal",
+      "platform" : "ios",
+      "size" : "1024x1024"
+    },
+    {
+      "appearances" : [
+        {
+          "appearance" : "luminosity",
+          "value" : "tinted"
+        }
+      ],
+      "idiom" : "universal",
+      "platform" : "ios",
+      "size" : "1024x1024"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
+
+```
+
+File: XR Anatomy/Assets.xcassets/AccentColor.colorset/Contents.json
+```json
+{
+  "colors" : [
+    {
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
+
+```
+
+File: XR Anatomy/Assets.xcassets/AppIcon.appiconset/XR Anatomy logo.png
+```png
+[Binary file]
+```
+
+File: XR Anatomy/Assets.xcassets/AppIcon.appiconset/XR_Anatomy_logo_dark_background.png
+```png
+[Binary file]
+```
+
+File: XR Anatomy/Assets.xcassets/logo_white.imageset/stylish-white.png
+```png
+[Binary file]
+```
+
+File: XR Anatomy/Assets.xcassets/logo_white.imageset/Contents.json
+```json
+{
+  "images" : [
+    {
+      "filename" : "stylish-white.png",
+      "idiom" : "universal",
+      "scale" : "1x"
+    },
+    {
+      "idiom" : "universal",
+      "scale" : "2x"
+    },
+    {
+      "idiom" : "universal",
+      "scale" : "3x"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
+
+```
+
+File: XR Anatomy/Assets.xcassets/Contents.json
+```json
+{
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
+
+```
+
+File: XR Anatomy/Preview Content/Preview Assets.xcassets/Contents.json
+```json
+{
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
+
+```
+
+File: XR Anatomy/ARViewContainer.swift
+```swift
+import SwiftUI
+import RealityKit
+import ARKit
+
+struct ARViewContainer: UIViewRepresentable {
+    @EnvironmentObject var arViewModel: ARViewModel
+    
+    func makeUIView(context: Context) -> ARView {
+        let arView = ARView(frame: .zero)
+        arViewModel.setupARView(arView)
+        // Optionally add an ARCoachingOverlayView if desired:
+        let coachingOverlay = ARCoachingOverlayView()
+        coachingOverlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        coachingOverlay.goal = .anyPlane
+        coachingOverlay.session = arView.session
+        arView.addSubview(coachingOverlay)
+        return arView
+    }
+    
+    func updateUIView(_ uiView: ARView, context: Context) { }
+}
+
+```
+
+File: XR Anatomy/AppDelegate.swift
+```swift
+// not normally used in a SwiftUI project, but using this for the orientationLock feature used in the start menu... SwiftUI's locks do not work well.
+
+import UIKit
+
+class AppDelegate: UIResponder, UIApplicationDelegate {
+    var window: UIWindow?
+
+    func application(_ application: UIApplication,
+                     supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+        // Lock orientation as needed (or .all if you want full rotation)
+        return OrientationManager.shared.orientationLock
+    }
+}
+
+```
+
+File: XR Anatomy/ConnectionStatusView.swift
+```swift
+//
+//  ConnectionStatusView.swift
+//  XR Anatomy
+//
+//  Created by Ali Kara on 2025-02-12.
+//
+
+
+import SwiftUI
+
+struct ConnectionStatusView: View {
+    @EnvironmentObject var arViewModel: ARViewModel
+
+    var body: some View {
+        VStack {
+            if arViewModel.connectedPeers.isEmpty {
+                Text("Searching for peers...")
+                    .padding(8)
+                    .background(Color.yellow.opacity(0.8))
+                    .cornerRadius(8)
+            } else {
+                Text("Connected to \(arViewModel.connectedPeers.count) peer(s)")
+                    .padding(8)
+                    .background(Color.green.opacity(0.8))
+                    .cornerRadius(8)
+            }
+        }
+        .padding()
+    }
+}
+```
+
+File: XR Anatomy/Info.plist
+```plist
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_ar-collab._tcp</string>
+	</array>
+</dict>
+</plist>
+
+```
+
+File: XR Anatomy/OrientationManager.swift
+```swift
+//
+//  OrientationManager.swift
+//  XR Anatomy
+//
+//  Created by Ali Kara on 2025-02-14.
+//
+
+
+import UIKit
+
+class OrientationManager {
+    static let shared = OrientationManager()
+    private init() {}
+    
+    var orientationLock: UIInterfaceOrientationMask = .all
+
+    func lock(to orientation: UIInterfaceOrientationMask) {
+        orientationLock = orientation
+        // This forces the device to use the given orientation.
+        UIDevice.current.setValue(orientation == .portrait ? UIInterfaceOrientation.portrait.rawValue : UIInterfaceOrientation.unknown.rawValue, forKey: "orientation")
+    }
+
+    func unlock() {
+        lock(to: .all)
+    }
+}
+```
+
+File: XR Anatomy/LoadingView.swift
+```swift
+//
+//  LoadingView.swift
+//  XR Anatomy
+//
+//  Created by Ali Kara on 2025-02-12.
+//
+
+
+import SwiftUI
+
+struct LoadingView: View {
+    @Binding var loadingProgress: Float
+    var showProgress: Bool = true
+
+    var body: some View {
+        ZStack {
+            Color(red: 0.9137, green: 0.9176, blue: 0.9255)
+                .edgesIgnoringSafeArea(.all)
+            VStack(spacing: 20) {
+                Image("logo_white")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 360)
+                    .padding(.top, 40)
+
+                Text("Preparing your AR experience...")
+                    .font(Font.custom("Courier New", size: 18))
+                    .foregroundColor(.black)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+                    .padding(.top,35)
+
+                if showProgress {
+                    ProgressView(value: loadingProgress)
+                        .progressViewStyle(LinearProgressViewStyle())
+                        .frame(width: 200)
+                        .padding(.top,20)
+                        .tint(.black)
+
+                    if loadingProgress < 1.0 {
+                        Text("Loading models and initializing AR...")
+                            .font(Font.custom("Courier New", size: 14))
+                            .foregroundColor(.black)
+                            .padding(.top,10)
+                    }
+                }
+                Spacer()
+            }
+            .padding()
+        }
+        .onAppear {
+            OrientationManager.shared.lock(to: .portrait)
+        }
+    }
+}
+```
+
+File: XR Anatomy/XR AnatomyDebug.entitlements
+```entitlements
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict/>
+</plist>
+
+```
+
+File: XR Anatomy Vision/Assets.xcassets/AccentColor.colorset/Contents.json
+```json
+{
+  "colors" : [
+    {
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
+
+```
+
+File: XR Anatomy Vision/Assets.xcassets/AppIcon.appiconset/Contents.json
+```json
+{
+  "images" : [
+    {
+      "filename" : "XR Anatomy logo.png",
+      "idiom" : "universal",
+      "platform" : "ios",
+      "size" : "1024x1024"
+    },
+    {
+      "appearances" : [
+        {
+          "appearance" : "luminosity",
+          "value" : "dark"
+        }
+      ],
+      "filename" : "XR Anatomy logo - dark.png",
+      "idiom" : "universal",
+      "platform" : "ios",
+      "size" : "1024x1024"
+    },
+    {
+      "appearances" : [
+        {
+          "appearance" : "luminosity",
+          "value" : "tinted"
+        }
+      ],
+      "idiom" : "universal",
+      "platform" : "ios",
+      "size" : "1024x1024"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
+
+```
+
+File: XR Anatomy Vision/Assets.xcassets/AppIcon.appiconset/XR Anatomy logo - dark.png
+```png
+[Binary file]
+```
+
+File: XR Anatomy Vision/Assets.xcassets/AppIcon.appiconset/XR Anatomy logo.png
+```png
+[Binary file]
+```
+
+File: XR Anatomy Vision/Assets.xcassets/logo_white.imageset/Contents.json
+```json
+{
+  "images" : [
+    {
+      "filename" : "stylish-white.png",
+      "idiom" : "universal",
+      "scale" : "1x"
+    },
+    {
+      "idiom" : "universal",
+      "scale" : "2x"
+    },
+    {
+      "idiom" : "universal",
+      "scale" : "3x"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
+
+```
+
+File: XR Anatomy Vision/Assets.xcassets/logo_white.imageset/stylish-white.png
+```png
+[Binary file]
+```
+
+File: XR Anatomy Vision/Preview Content/Preview Assets.xcassets/Contents.json
+```json
+{
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
+
+```
+
+File: XR Anatomy Vision/Assets.xcassets/Contents.json
+```json
+{
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
+
+```
+
+File: XR Anatomy Vision/Scenes/InSession.swift
+```swift
+//
+//  InSession.swift
+//  XR Anatomy
+//
+//  Created by Marko Vujic on 2024-12-11.
+//
+
+import SwiftUI
+import RealityKit
+import Combine
+
+struct InSession: View {
+    @EnvironmentObject var appModel: AppModel
+
+    // State variables for tracking models and UI state
+    @State private var entityInitialRotations: [Entity: simd_quatf] = [:]
+    @State private var expanded = false
+    @State private var placedModels: [Model] = []
+    @State private var modelDict: [Entity: Model] = [:]
+    @State private var selectedModelForPlacement: Model? = nil
+    @State private var modelTypes: [ModelType] = []
+
+    // Anchors used in the scene
+    let headAnchor = AnchorEntity(.head)
+    let modelAnchor = AnchorEntity(world: [0, 0, 0])
+    
+    var body: some View {
+        ZStack {
+            // RealityView with two closures (make and update)
+            RealityView { content in
+                // "Make" closure: set up initial content
+                content.add(self.headAnchor)
+                content.add(self.modelAnchor)
+            } update: { content in
+                // "Update" closure: update every frame
+                for model in self.placedModels {
+                    guard !model.isLoading(), let modelEntity = model.modelEntity else { continue }
+                    let zeroVector = SIMD3<Float>(repeating: 0.0)
+                    if modelEntity.position == zeroVector {
+                        modelEntity.setPosition([0, 0, -1], relativeTo: self.headAnchor)
+                        model.position = modelEntity.position
+                    }
+                    content.add(modelEntity)
+                }
+            }
+            .gesture(dragGesture)
+            .gesture(scaleGesture)
+            .simultaneousGesture(rotationGesture)
+            .onAppear {
+                loadModelTypes()
+            }
+            // Overlay back button (top-leading)
+            .overlay(backButtonOverlay, alignment: .topLeading)
+            // Overlay add model button (bottom-trailing)
+            .overlay(addModelButtonOverlay, alignment: .bottomTrailing)
+            
+            // Model selection overlay (center) appears when expanded == true
+            if expanded {
+                modelSelectionOverlay
+                    .transition(.move(edge: .bottom))
+            }
+        }
+    }
+    
+    // MARK: - Overlays
+    
+    private var backButtonOverlay: some View {
+        Button {
+            // Navigate back (e.g., set current page to mainMenu)
+            appModel.currentPage = .mainMenu
+        } label: {
+            Image(systemName: "arrow.backward.circle.fill")
+                .resizable()
+                .frame(width: 50, height: 50)
+                .foregroundColor(.white)
+                .shadow(radius: 5)
+        }
+        .padding()
+    }
+    
+    private var addModelButtonOverlay: some View {
+        Button {
+            withAnimation {
+                expanded.toggle()
+                print("Add model button pressed, expanded is now \(expanded)")
+            }
+        } label: {
+            Image(systemName: "plus.circle.fill")
+                .resizable()
+                .frame(width: 50, height: 50)
+                .foregroundColor(.green)
+                .shadow(radius: 5)
+        }
+        .padding()
+    }
+    
+    private var modelSelectionOverlay: some View {
+        // This overlay appears when expanded is true.
+        VStack {
+            DisclosureGroup("Select a Model", isExpanded: $expanded) {
+                if modelTypes.isEmpty {
+                    Text("No models found.")
+                        .foregroundColor(.gray)
+                } else {
+                    ForEach(modelTypes, id: \.id) { modelType in
+                        Button {
+                            Task {
+                                print("Attempting to load model: \(modelType.rawValue).usdz")
+                                // Call the async initializer with the correct label.
+                                let model = await Model(modelType: modelType)
+                                if let entity = model.modelEntity {
+                                    self.modelDict[entity] = model
+                                    self.selectedModelForPlacement = model
+                                    self.placedModels.append(model)
+                                    print("\(modelType.rawValue) chosen – model ready for placement")
+                                    withAnimation { expanded = false }
+                                } else {
+                                    print("Failed to load model entity for \(modelType.rawValue).usdz")
+                                }
+                            }
+                        } label: {
+                            Text("\(modelType.rawValue) Model")
+                                .foregroundColor(.white)
+                                .padding()
+                                .background(Color.blue.opacity(0.7))
+                                .cornerRadius(8)
+                        }
+                        .padding(.vertical, 5)
+                    }
+                }
+            }
+            .font(.system(size: 25))
+            .padding()
+            .background(Color.black.opacity(0.7))
+            .cornerRadius(12)
+            Spacer()
+        }
+        .padding()
+    }
+    
+    // MARK: - Gestures
+    
+    var dragGesture: some Gesture {
+        DragGesture()
+            .targetedToAnyEntity()
+            .onChanged { value in
+                print("Drag gesture changing")
+                guard let model = self.modelDict[value.entity],
+                      let parent = value.entity.parent else { return }
+                let translation = value.translation3D
+                let convertedTranslation = value.convert(translation, from: .local, to: parent)
+                let newPosition = model.position + convertedTranslation
+                value.entity.position = newPosition
+            }
+            .onEnded { value in
+                guard let model = self.modelDict[value.entity] else { return }
+                model.position = value.entity.position
+                print("Drag gesture ended for \(value.entity.name)")
+            }
+    }
+    
+    var scaleGesture: some Gesture {
+        MagnifyGesture(minimumScaleDelta: 0.001)
+            .targetedToAnyEntity()
+            .onChanged { value in
+                let entity = value.entity
+                print("Scaling gesture started for \(entity.name)")
+                guard let model = self.modelDict[entity] else { return }
+                let magnification = Float(value.gestureValue.magnification)
+                let newScale = model.scale * magnification
+                entity.scale = newScale
+                print("Entity scaled to \(entity.scale)")
+            }
+            .onEnded { value in
+                guard let model = self.modelDict[value.entity] else { return }
+                model.scale = value.entity.scale
+                model.updateCollisionBox()
+                print("Scaling gesture ended")
+            }
+    }
+    
+    var rotationGesture: some Gesture {
+        RotateGesture()
+            .targetedToAnyEntity()
+            .onChanged { value in
+                let entity = value.entity
+                if self.entityInitialRotations[entity] == nil {
+                    self.entityInitialRotations[entity] = entity.transform.rotation
+                    print("Initial rotation recorded for \(entity.name)")
+                }
+                if let initialRotation = self.entityInitialRotations[entity] {
+                    let angle = Float(value.rotation.radians)
+                    let targetRotation = initialRotation * simd_quatf(angle: angle, axis: [0, 0, 1])
+                    let currentRotation = entity.transform.rotation
+                    let newRotation = simd_slerp(currentRotation, targetRotation, 0.2)
+                    entity.transform.rotation = newRotation
+                    print("Entity rotated by \(value.rotation.radians) radians")
+                }
+            }
+            .onEnded { value in
+                let entity = value.entity
+                self.entityInitialRotations.removeValue(forKey: entity)
+                print("Rotation gesture ended for \(entity.name)")
+            }
+    }
+    
+    private func loadModelTypes() {
+        self.modelTypes = ModelType.allCases()
+        print("Loaded model types: \(self.modelTypes.map { $0.rawValue })")
+    }
+}
+
+#Preview(immersionStyle: .mixed) {
+    InSession()
+        .environmentObject(AppModel())
+}
+
+```
+
+File: XR Anatomy Vision/Scenes/HostSession.swift
+```swift
+//
+//  HostSesion.swift
+//  XR Anatomy
+//
+//  Created by Marko Vujic on 2024-12-11.
+//
+
+
+import SwiftUI
+
+struct HostSession: View {
+    @EnvironmentObject var appModel: AppModel
+    
+    var body: some View {
+        VStack {
+            Text("Hosting Session").font(.title)
+            // Show some session info; for instance, your peer ID could be the session ID.
+            if let session = appModel.multipeerSession {
+                Text("Your Session: \(session.myPeerID.displayName)")
+            } else {
+                Text("Starting session...")
+            }
+            Button("Start Session") {
+                // As the host, after setting up, transition to the in-session view.
+                appModel.currentPage = .inSession
+            }
+            .padding()
+            .background(Color.blue)
+            .foregroundColor(.white)
+            .cornerRadius(10)
+            Button("Back") {
+                appModel.currentPage = .mainMenu
+            }
+            .padding()
+        }
+    }
+}
+
+```
+
+File: XR Anatomy Vision/Scenes/JoinSession.swift
+```swift
+import SwiftUI
+
+struct JoinSession: View {
+    @EnvironmentObject var appModel: AppModel
+    
+    var body: some View {
+        VStack {
+            Text("Available Sessions").font(.title)
+            List(appModel.availableSessions, id: \.peerID) { session in
+                Button(session.sessionName) {
+                    // When selecting a session, join it.
+                    // (In a full implementation you might send invitations or set up additional data.)
+                    appModel.currentPage = .inSession
+                }
+            }
+            Button("Back") {
+                appModel.currentPage = .mainMenu
+            }
+            .padding()
+        }
+    }
+}
+
+```
+
+File: XR Anatomy Vision/Scenes/MainMenu.swift
+```swift
+//
+//  MainMenu.swift
+//  XR Anatomy
+//
+//  Created by Marko Vujic on 2024-12-10.
+//
+
+import SwiftUI
+
+
+struct MainMenu: View {
+    @EnvironmentObject var appModel: AppModel
+
+    @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
+    @Environment(\.openImmersiveSpace) private var openImmersiveSpace
+    var body: some View {
+        VStack {
+            Image("logo_white")
+            HStack {
+                Button {
+                    appModel.currentPage = .joinSession
+                } label: {
+                    Text("Join a Session")
+                        .padding(.horizontal, 120)
+                        .padding(.vertical, 50)
+
+                }
+                .animation(.none, value: 0)
+                .font(.system(size: 40))
+                .fontWeight(.bold)
+
+                Button {
+                    Task { @MainActor in
+                        let res = await openImmersiveSpace(id: appModel.immersiveSpaceID)
+                        if (res == .opened) {
+                            print("immersive space opened")
+                        }
+                        if (res == .error) {
+                            print("error opening immersive space")
+                        }
+                        if (res == .userCancelled) {
+                            print("user canceled")
+                        }
+                        appModel.currentPage = .inSession
+                    }
+                } label: {
+                    Text("Host a session")
+                        .padding(.horizontal, 120)
+                        .padding(.vertical, 50)
+                }
+                .animation(.none, value: 0)
+                .font(.system(size: 40))
+                .fontWeight(.bold)
+            }
+        }
+    }
+}
+#Preview(windowStyle: .volumetric) {
+    MainMenu()
+        .environmentObject(AppModel())
+}
+
+```
+
+File: XR Anatomy Vision/ImmersiveView.swift
+```swift
+import SwiftUI
+import RealityKit
+
+struct ImmersiveView: View {
+    var body: some View {
+        RealityView { content in
+            // Load your shared scene (for example from Reality Composer)
+            if let scene = try? await Entity.loadAnchor(named: "SharedScene", in: .main) {
+                content.add(scene)
+            }
+        } update: { content in
+            // Optional: update the scene as needed
+        }
+    }
+}
+
+```
+
+File: XR Anatomy Vision/ContentView.swift
+```swift
+import SwiftUI
+
+struct ContentView: View {
+    @EnvironmentObject var appModel: AppModel
+    
+    var body: some View {
+        switch appModel.currentPage {
+        case .mainMenu:
+            MainMenu()
+        case .joinSession:
+            JoinSession()
+        case .hostSession:
+            HostSession()
+        case .inSession:
+            InSession() // your immersive AR view (from previous code)
+        }
+    }
+}
+
+```
+
+File: XR Anatomy Vision/AppModel.swift
+```swift
+import SwiftUI
+import MultipeerConnectivity
+
+// A simple state machine for session pages.
+enum SessionPage {
+    case mainMenu, joinSession, hostSession, inSession
+}
+
+enum ImmersiveSpaceState {
+    case closed, inTransition, open
+}
+
+final class AppModel: ObservableObject, MultipeerSessionDelegate {
+    @Published var currentPage: SessionPage = .mainMenu
+    @Published var immersiveSpaceState: ImmersiveSpaceState = .closed
+    @Published var availableSessions: [(peerID: MCPeerID, sessionName: String)] = []
+    
+    // An ID for the immersive space (used in XRAnatomy_visionOSApp.swift)
+    let immersiveSpaceID: String = "ImmersiveSpace"
+    
+    var multipeerSession: MultipeerSession?
+    
+    init() {
+        // For viewers, start browsing for sessions
+        startBrowsing()
+    }
+    
+    func startBrowsing() {
+        // Create a multipeer session in viewer mode (no discovery info)
+        multipeerSession = MultipeerSession(sessionID: nil, sessionName: nil, discoveryInfo: nil)
+        multipeerSession?.delegate = self
+        multipeerSession?.start()
+    }
+    
+    // MARK: - MultipeerSessionDelegate Methods
+    
+    func receivedData(_ data: Data, from peerID: MCPeerID) {
+        // Handle incoming session data here.
+    }
+    
+    func peerDidChangeState(peerID: MCPeerID, state: MCSessionState) {
+        DispatchQueue.main.async {
+            if state == .connected {
+                // For simplicity, add the connected peer to available sessions.
+                let sessionName = "Session \(peerID.displayName)"
+                if !self.availableSessions.contains(where: { $0.peerID == peerID }) {
+                    self.availableSessions.append((peerID: peerID, sessionName: sessionName))
+                }
+            } else if state == .notConnected {
+                self.availableSessions.removeAll { $0.peerID == peerID }
+            }
+        }
+    }
+    
+    func didReceiveInvitation(from peerID: MCPeerID, invitationHandler: @escaping (Bool, MCSession?) -> Void) {
+        // Auto-accept invitations for simplicity.
+        invitationHandler(true, multipeerSession?.session)
+    }
+    
+    func foundPeer(peerID: MCPeerID, sessionID: String, sessionName: String) {
+        DispatchQueue.main.async {
+            if !self.availableSessions.contains(where: { $0.peerID == peerID }) {
+                self.availableSessions.append((peerID: peerID, sessionName: sessionName))
+            }
+        }
+    }
+    
+    func lostPeer(peerID: MCPeerID) {
+        DispatchQueue.main.async {
+            self.availableSessions.removeAll { $0.peerID == peerID }
+        }
+    }
+}
+
+```
+
+File: XR Anatomy Vision/Info.plist
+```plist
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationPreferredDefaultSceneSessionRole</key>
+		<string>UIWindowSceneSessionRoleVolumetricApplication</string>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<true/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UISceneSessionRoleImmersiveSpaceApplication</key>
+			<array>
+				<dict>
+					<key>UISceneInitialImmersionStyle</key>
+					<string>UIImmersionStyleFull</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
+</dict>
+</plist>
+
+```
+
+File: XR Anatomy Vision/MainView.swift
+```swift
+import SwiftUI
+
+struct MainView: View {
+    @Environment(\.openImmersiveSpace) private var openImmersiveSpace
+
+    var body: some View {
+    
+        VStack(spacing: 20) {
+            
+            Spacer()
+            Text("Welcome to AR Space").font(.headline).padding()
+
+            Button(action: {
+                Task {
+                    print("Entering immersive space")
+                    await openImmersiveSpace(id: "ARView")
+                }
+            }) {
+                Text("Enter Immersive Space")
+                    .font(.title2)
+                    .padding()
+                    
+            }
+            Spacer()
+        }
+        .padding()
+    }
+}
+
+```
+
+File: XR Anatomy Vision/ToggleImmersiveSpaceButton.swift
+```swift
+//
+//  ToggleImmersiveSpaceButton.swift
+//  XRAnatomy-visionOS
+//
+//  Created by Marko Vujic on 2024-12-10.
+//
+
+import SwiftUI
+
+struct ToggleImmersiveSpaceButton: View {
+
+    @EnvironmentObject var appModel: AppModel
+
+    @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
+    @Environment(\.openImmersiveSpace) private var openImmersiveSpace
+
+    var body: some View {
+        Button {
+            Task { @MainActor in
+                switch appModel.immersiveSpaceState {
+                    case .open:
+                        appModel.immersiveSpaceState = .inTransition
+                        await dismissImmersiveSpace()
+                        // Don't set immersiveSpaceState to .closed because there
+                        // are multiple paths to ImmersiveView.onDisappear().
+                        // Only set .closed in ImmersiveView.onDisappear().
+
+                    case .closed:
+                        appModel.immersiveSpaceState = .inTransition
+                        switch await openImmersiveSpace(id: appModel.immersiveSpaceID) {
+                            case .opened:
+                                // Don't set immersiveSpaceState to .open because there
+                                // may be multiple paths to ImmersiveView.onAppear().
+                                // Only set .open in ImmersiveView.onAppear().
+                                break
+
+                            case .userCancelled, .error:
+                                // On error, we need to mark the immersive space
+                                // as closed because it failed to open.
+                                fallthrough
+                            @unknown default:
+                                // On unknown response, assume space did not open.
+                                appModel.immersiveSpaceState = .closed
+                        }
+
+                    case .inTransition:
+                        // This case should not ever happen because button is disabled for this case.
+                        break
+                }
+            }
+        } label: {
+            Text(appModel.immersiveSpaceState == .open ? "Hide Immersive Space" : "Show Immersive Space")
+        }
+        .disabled(appModel.immersiveSpaceState == .inTransition)
+        .animation(.none, value: 0)
+        .fontWeight(.semibold)
+    }
+}
+
+```
+
+File: z___A few thoughts about this repo.txt
+```txt
+Getting errors when trying to run this in the simulator (for iOS at least)? These shouldn't occur if you run it on an actual device, as the simulator doesn't play nice with all of AR's features... could be wrong here, but that's what "the internet" says. Try running it on your actual phone/iPad and it should be fine... this code as-is has ran on a few of our team's devices.
+
+Models: remember that the models aren't included in the repo. Place them in the "models" folder. If you add new ones from Shane, edit the Model.swift file... add those new models to the list in there, so they rotate about the correct axis.
+
+
+One more note: this app is far from perfect in its current state. It has bugs. Several of them. We can try to sort them out over the remaining days.
+```
+
+File: XR Anatomy Vision/XRAnatomy_visionOSApp.swift
+```swift
+import SwiftUI
+
+@main
+struct XRAnatomy_visionOSApp: App {
+    @StateObject private var appModel = AppModel()
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .environmentObject(appModel)
+        }
+        .windowStyle(.volumetric)
+        
+        ImmersiveSpace(id: appModel.immersiveSpaceID) {
+            ImmersiveView()
+                .environmentObject(appModel)
+                .onAppear { appModel.immersiveSpaceState = .open }
+                .onDisappear { appModel.immersiveSpaceState = .closed }
+        }
+        .immersionStyle(selection: .constant(.mixed), in: .mixed)
+    }
+}
+
+```
+
+File: Shared/ARViewModel.swift
+```swift
+#if os(iOS)
+import SwiftUI
+import RealityKit
+import ARKit
+import Combine
+import MultipeerConnectivity
+
+public enum UserRole {
+    case host, viewer, openSession
+}
+struct Session: Identifiable, Hashable {
+    let sessionID: String
+    let sessionName: String
+    let peerID: MCPeerID  // Changed from String to MCPeerID
+    var id: String { sessionID }
+}
+// MARK: - ARViewModel
+
+class ARViewModel: NSObject, ObservableObject {
+    // Published properties.
+    @Published var selectedModel: Model? = nil
+    @Published var alertItem: AlertItem?
+    @Published var loadingProgress: Float = 0.0
+    @Published var userRole: UserRole = .openSession
+    @Published var isHostPermissionGranted = false
+    @Published var selectedSession: Session? = nil
+    @Published var connectedPeers: [MCPeerID] = []
+    
+    // Debug toggles.
+    @Published var isPlaneVisualizationEnabled: Bool = false
+    @Published var areFeaturePointsEnabled: Bool = false
+    @Published var isWorldOriginEnabled: Bool = false
+    @Published var areAnchorOriginsEnabled: Bool = false
+    @Published var isAnchorGeometryEnabled: Bool = false
+    @Published var isSceneUnderstandingEnabled: Bool = false
+    
+    // New: availableSessions for the startup menu.
+    @Published var availableSessions: [Session] = []
+    
+    // AR & Model references.
+    weak var arView: ARView?
+    var models: [Model] = []
+    var placedAnchors: [ARAnchor] = []
+    var processedAnchorIDs: Set<UUID> = []
+    
+    // Networking.
+    var multipeerSession: MultipeerSession!
+    var sessionID: String = UUID().uuidString
+    var sessionName: String = ""
+    
+    // Deferred multipeer flag.
+    private var deferredMultipeer: Bool = false
+    
+    private var subscriptions = Set<AnyCancellable>()
+    
+    override init() {
+        super.init()
+    }
+    
+    // MARK: - Model Loading
+    
+    func loadModels() {
+        guard models.isEmpty else { return }
+        let modelTypes = ModelType.allCases()
+        var loadedCount = 0
+        for mt in modelTypes {
+            let model = Model(modelType: mt)
+            models.append(model)
+            model.$loadingState
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] state in
+                    if case .loaded = state {
+                        loadedCount += 1
+                        self?.loadingProgress = Float(loadedCount) / Float(modelTypes.count)
+                        if loadedCount == modelTypes.count {
+                            print("All models loaded.")
+                        }
+                    }
+                }
+                .store(in: &subscriptions)
+        }
+    }
+    
+    // MARK: - AR Setup & Content Placement
+    
+    func setupARView(_ arView: ARView) {
+        self.arView = arView
+        arView.session.delegate = self
+        ARSessionManager.shared.configureSession(for: arView)
+        arView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleTap(_:))))
+        startMultipeerServices()
+    }
+    
+    @objc func handleTap(_ sender: UITapGestureRecognizer) {
+        guard userRole != .viewer || isHostPermissionGranted,
+              let arView = arView,
+              let model = selectedModel,
+              model.modelEntity != nil,
+              let result = arView.raycast(from: sender.location(in: arView),
+                                          allowing: .estimatedPlane,
+                                          alignment: .any).first
+        else { return }
+        let anchorName = "\(model.modelType.rawValue)_\(UUID().uuidString)"
+        let anchor = ARAnchor(name: anchorName, transform: result.worldTransform)
+        arView.session.add(anchor: anchor)
+        placedAnchors.append(anchor)
+    }
+    
+    func placeModel(for anchor: ARAnchor) {
+        guard let name = anchor.name,
+              let prefix = name.split(separator: "_").first,
+              let model = models.first(where: { $0.modelType.rawValue.lowercased() == prefix.lowercased() }),
+              let entity = model.modelEntity
+        else { return }
+        let anchorEntity = AnchorEntity(world: anchor.transform)
+        let clone = entity.clone(recursive: true)
+        clone.generateCollisionShapes(recursive: true)
+        anchorEntity.addChild(clone)
+        arView?.scene.addAnchor(anchorEntity)
+        processedAnchorIDs.insert(anchor.identifier)
+    }
+    
+    // MARK: - Invite Peer (for startup menu)
+    func invitePeer(_ session: Session) {
+        // Minimal implementation: call MultipeerSession's invitePeer method.
+        // You might convert session.peerID to String if needed.
+        print("Inviting peer \(session.peerID) to session \(session.sessionID)")
+        // For example:
+        multipeerSession.invitePeer(session.peerID, sessionID: session.sessionID)
+    }
+    
+    // MARK: - Networking
+    
+    func startMultipeerServices() {
+        guard multipeerSession == nil else { return }
+        let discoveryInfo = (userRole == .host || userRole == .openSession)
+            ? ["sessionID": sessionID, "sessionName": sessionName]
+            : nil
+        multipeerSession = MultipeerSession(sessionID: sessionID, sessionName: sessionName, discoveryInfo: discoveryInfo)
+        multipeerSession.delegate = self
+        multipeerSession.start()
+        print("Multipeer session started: \(sessionID)")
+    }
+    
+    func stopMultipeerServices() {
+        multipeerSession?.stop()
+        multipeerSession = nil
+        print("Multipeer services stopped.")
+    }
+    
+    func deferMultipeerServicesUntilModelsLoad() {
+        deferredMultipeer = true
+    }
+    
+    func enableMultipeerServicesIfDeferred() {
+        if deferredMultipeer {
+            startMultipeerServices()
+            deferredMultipeer = false
+        }
+    }
+    
+    // MARK: - AR Session Control
+    
+    func resetARSession() {
+        guard let arView = arView else { return }
+        arView.session.pause()
+        let config = ARWorldTrackingConfiguration()
+        config.planeDetection = [.horizontal, .vertical]
+        config.isCollaborationEnabled = true
+        arView.session.run(config, options: [.resetTracking, .removeExistingAnchors])
+    }
+    
+    // Toggle host permissions.
+    func toggleHostPermissions() {
+        isHostPermissionGranted.toggle()
+        print("Host permissions toggled to \(isHostPermissionGranted)")
+    }
+    
+    // Clear all models.
+    func clearAllModels() {
+        guard let arView = arView else { return }
+        for anchor in placedAnchors {
+            arView.session.remove(anchor: anchor)
+        }
+        placedAnchors.removeAll()
+        print("Cleared all models.")
+    }
+}
+
+// MARK: - ARSessionDelegate
+extension ARViewModel: ARSessionDelegate {
+    func session(_ session: ARSession, didOutputCollaborationData data: ARSession.CollaborationData) {
+        guard let mpSession = multipeerSession,
+              !mpSession.session.connectedPeers.isEmpty else { return }
+        do {
+            let archivedData = try NSKeyedArchiver.archivedData(withRootObject: data, requiringSecureCoding: true)
+            mpSession.sendToAllPeers(archivedData, dataType: .collaborationData)
+        } catch {
+            print("Error archiving collaboration data: \(error)")
+        }
+    }
+    
+    func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
+        for anchor in anchors where !processedAnchorIDs.contains(anchor.identifier) {
+            if anchor.name != nil { placeModel(for: anchor) }
+        }
+    }
+}
+
+// MARK: - MultipeerSessionDelegate
+extension ARViewModel: MultipeerSessionDelegate {
+    func receivedData(_ data: Data, from peerID: MCPeerID) {
+        guard let arView = arView else { return }
+        do {
+            if let collabData = try NSKeyedUnarchiver.unarchivedObject(
+                ofClass: ARSession.CollaborationData.self,
+                from: data
+            ) {
+                arView.session.update(with: collabData)
+            }
+        } catch {
+            print("Error unarchiving collaboration data: \(error)")
+        }
+    }
+    
+    func peerDidChangeState(peerID: MCPeerID, state: MCSessionState) {
+        DispatchQueue.main.async {
+            switch state {
+            case .connected:
+                if !self.connectedPeers.contains(peerID) {
+                    self.connectedPeers.append(peerID)
+                }
+            case .notConnected:
+                if let index = self.connectedPeers.firstIndex(of: peerID) {
+                    self.connectedPeers.remove(at: index)
+                }
+            default:
+                break
+            }
+            print("Peer \(peerID.displayName) state: \(state)")
+        }
+    }
+    
+    func didReceiveInvitation(from peerID: MCPeerID, invitationHandler: @escaping (Bool, MCSession?) -> Void) {
+        invitationHandler(true, multipeerSession.session)
+    }
+    
+    func foundPeer(peerID: MCPeerID, sessionID: String, sessionName: String) {
+        print("Found peer: \(peerID.displayName)")
+    }
+    
+    func lostPeer(peerID: MCPeerID) {
+        print("Lost peer: \(peerID.displayName)")
+    }
+}#elseif os(visionOS)
+import SwiftUI
+import RealityKit
+import Combine
+import MultipeerConnectivity
+
+public enum UserRole {
+    case host, viewer, openSession
+}
+
+/// A stub ARViewModel for visionOS that excludes ARKit‐specific code.
+/// On visionOS, RealityView manages the AR session automatically.
+class ARViewModel: ObservableObject {
+    @Published var selectedModel: Model? = nil
+    @Published var alertItem: AlertItem?
+    @Published var connectedPeers: [MCPeerID] = []
+    @Published var loadingProgress: Float = 0.0
+    @Published var userRole: UserRole = .openSession
+    @Published var isHostPermissionGranted = false
+    
+    var models: [Model] = []
+    var cancellables = Set<AnyCancellable>()
+    
+    /// visionOS does not use ARView or ARAnchor.
+    /// Provide a stub setup method for RealityView.
+    func setupAR() {
+        print("On visionOS, AR session configuration is handled automatically by RealityView.")
+    }
+    
+    func loadModels() {
+        guard models.isEmpty else { return }
+        let modelTypes = ModelType.allCases()
+        let totalModels = modelTypes.count
+        var loadedModels = 0
+        
+        for mt in modelTypes {
+            let model = Model(modelType: mt)
+            models.append(model)
+            
+            model.$loadingState
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] state in
+                    switch state {
+                    case .loaded:
+                        loadedModels += 1
+                        self?.loadingProgress = Float(loadedModels) / Float(totalModels)
+                        if loadedModels == totalModels {
+                            print("All models loaded.")
+                        }
+                    case .failed(let error):
+                        self?.alertItem = AlertItem(title: "Failed to Load Model",
+                                                     message: "\(mt.rawValue.capitalized): \(error.localizedDescription)")
+                    default:
+                        break
+                    }
+                }
+                .store(in: &cancellables)
+        }
+    }
+}
+#endif
+
+```
+
+File: Shared/Model.swift
+```swift
+import RealityKit
+import SwiftUI
+import Foundation
+
+final class Model: ObservableObject, Identifiable {
+    enum LoadingState {
+        case loading, loaded, failed(Error)
+    }
+    
+    let modelType: ModelType
+    @Published var modelEntity: ModelEntity?
+    @Published var loadingState: LoadingState = .loading
+    
+    // Properties for scene placement
+    var position: SIMD3<Float> = SIMD3<Float>(repeating: 0)
+    var scale: SIMD3<Float> = SIMD3<Float>(repeating: 1)
+    
+    var id: ModelType { modelType }
+    
+    init(modelType: ModelType) {
+        self.modelType = modelType
+        Task {
+            await loadModelEntity()
+        }
+    }
+    
+    private func loadModelEntity() async {
+        let filename = "\(modelType.rawValue).usdz"
+        do {
+            // Specify Bundle.main explicitly (or another bundle if your resources are in a module)
+            self.modelEntity = try await ModelEntity(named: filename, in: Bundle.main)
+            self.loadingState = .loaded
+            print("Successfully loaded \(filename)")
+        } catch {
+            print("Error loading model \(filename): \(error)")
+            self.loadingState = .failed(error)
+        }
+    }
+    
+    func isLoading() -> Bool {
+        if case .loading = loadingState { return true }
+        return false
+    }
+    
+    func updateCollisionBox() {
+        // Implement collision box update if needed, or leave as a stub.
+        print("updateCollisionBox called")
+    }
+}
+
+```
+
+File: Shared/ModelType.swift
+```swift
+//
+//  ModelType.swift
+//  XR Anatomy
+//
+//  Created by Ali Kara on 2025-02-14.
+//
+
+
+import Foundation
+import RealityKit
+
+struct ModelType: Hashable, Identifiable {
+    let rawValue: String
+    let id = UUID()
+    
+    /// Models that should rotate around the Z‑axis (if needed)
+    static let zAxisRotationModels: [String] = ["arteriesHead", "brain", "heart", "heart2K"]
+    
+    func createModelEntity() -> ModelEntity? {
+        let filename = rawValue + ".usdz"
+        do{
+            let me = try ModelEntity.loadModel(named: filename)
+            return me
+        } catch {
+            print("Error loading \(filename): \(error.localizedDescription)")
+            return nil
+        }
+    }
+    
+    static func allCases() -> [ModelType] {
+        guard let urls = Bundle.main.urls(forResourcesWithExtension: "usdz", subdirectory: nil) else {
+            print("No .usdz files found.")
+            return []
+        }
+        return urls.map {
+            let name = $0.deletingPathExtension().lastPathComponent
+            return ModelType(rawValue: name)
+        }
+    }
+    
+    var shouldRotateAroundZAxis: Bool {
+        Self.zAxisRotationModels.contains(rawValue)
+    }
+    
+    static func ==(lhs: ModelType, rhs: ModelType) -> Bool {
+        lhs.rawValue == rhs.rawValue
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(rawValue)
+    }
+}
+
+```
+
+File: Shared/Utilities.swift
+```swift
+//
+//  Utilities.swift
+//  XR Anatomy
+//
+//  Created by Ali Kara on 2025-02-14.
+//
+
+
+import Foundation
+import SwiftUI
+import UIKit
+
+struct Utilities {
+    private static let lastBundleModificationDateKey = "lastBundleModificationDate"
+    
+    static func isFirstLaunchForNewBuild() -> Bool {
+        let currentDate = getBundleModificationDate()
+        let storedDate = UserDefaults.standard.object(forKey: lastBundleModificationDateKey) as? Date
+        return (storedDate == nil || storedDate != currentDate)
+    }
+    
+    static func getBundleModificationDate() -> Date? {
+        guard let url = Bundle.main.url(forResource: "Info", withExtension: "plist"),
+              let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+              let modDate = attrs[.modificationDate] as? Date
+        else { return nil }
+        return modDate
+    }
+    
+    static func updateStoredModificationDate() {
+        if let date = getBundleModificationDate() {
+            UserDefaults.standard.set(date, forKey: lastBundleModificationDateKey)
+        }
+    }
+    
+    static func restart() {
+        AppLoadTracker.hasRestarted = true
+        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = scene.windows.first
+        else { return }
+        #if os(visionOS)
+        window.rootViewController = UIHostingController(rootView: ContentView())
+        window.makeKeyAndVisible()
+        #endif
+
+    }
+}
+
+struct AppLoadTracker {
+    private static let hasRestartedKey = "hasRestarted"
+    static var hasRestarted: Bool {
+        get { UserDefaults.standard.bool(forKey: hasRestartedKey) }
+        set { UserDefaults.standard.set(newValue, forKey: hasRestartedKey) }
+    }
+}
+
+```
+
+File: XR Anatomy/BottomSheet.swift
+```swift
+//
+//  BottomSheet.swift
+//  XR Anatomy
+//
+//  Created by Ali Kara on 2025-02-12.
+//
+
+
+import SwiftUI
+
+struct BottomSheet<Content: View>: View {
+    var content: Content
+    private let heightFraction: CGFloat = 0.67
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            VStack {
+                Spacer()
+                VStack { content }
+                .frame(width: geo.size.width, height: geo.size.height * heightFraction)
+                .background(Color(.systemBackground).opacity(0.7))
+                .cornerRadius(16)
+                .shadow(radius: 8)
+            }
+            .edgesIgnoringSafeArea(.bottom)
+        }
+    }
+}
+
+struct SettingsView: View {
+    @Binding var isVisible: Bool
+    @ObservedObject var arViewModel: ARViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Settings").font(.headline).padding(.top)
+
+            Toggle("Plane Visualization", isOn: $arViewModel.isPlaneVisualizationEnabled)
+            Toggle("Feature Points", isOn: $arViewModel.areFeaturePointsEnabled)
+            Toggle("World Origin", isOn: $arViewModel.isWorldOriginEnabled)
+            Toggle("Anchor Origins", isOn: $arViewModel.areAnchorOriginsEnabled)
+            Toggle("Anchor Geometry", isOn: $arViewModel.isAnchorGeometryEnabled)
+            Toggle("Scene Understanding", isOn: $arViewModel.isSceneUnderstandingEnabled)
+                .onChange(of: arViewModel.isPlaneVisualizationEnabled) { _ in
+                    arViewModel.togglePlaneVisualization()
+                }
+
+            Spacer()
+            Button("Close") {
+                isVisible = false
+            }
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(Color.gray.opacity(0.2))
+            .cornerRadius(8)
+            .padding(.horizontal)
+        }
+        .padding()
+    }
+}
+
+```
+
+File: XR Anatomy/XRAnatomy.swift
+```swift
+// The actual entrypoint for the app
+
+import SwiftUI
+
+@main
+struct XRAnatomyApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+
+    var body: some Scene {
+        WindowGroup {
+            XRAnatomyView()  // <-- the first view that loads. Think of this as the real entrypoint of the app.
+        }
+    }
+}
+
+```
+
+File: XR Anatomy/StartupMenuView.swift
+```swift
+import SwiftUI
+
+struct StartupMenuView: View {
+    @Binding var hasSelectedMode: Bool
+    @EnvironmentObject var arViewModel: ARViewModel
+    @State private var isJoiningSession = false
+    @State private var isEnteringSessionName = false
+    @State private var sessionNameInput = ""
+    
+    let bgColor = Color(red: 0.9137, green: 0.9176, blue: 0.9255)
+    let pressedButtonColor = Color(red: 0.8, green: 0.8, blue: 0.8)
+    
+    var body: some View {
+        ZStack {
+            bgColor.ignoresSafeArea()
+            VStack(spacing: 20) {
+                Image("logo_white")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 360)
+                    .padding(.top, 40)
+                    .padding(.bottom, 30)
+                
+                Spacer()
+                
+                if isJoiningSession {
+                    Text("Available Sessions:")
+                        .font(.title2)
+                        .foregroundColor(.black)
+                        .padding()
+                    
+                    // Using our custom SessionInfo type.
+                    List(arViewModel.availableSessions, id: \.self) { session in
+                                    Button(action: {
+                                        arViewModel.invitePeer(session)
+                                    }) {
+                                        Text(session.sessionName)
+                                    }
+                                }
+                    .listStyle(.plain)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    
+                    Spacer()
+                    
+                    Button("Cancel") {
+                        isJoiningSession = false
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 50)
+                    .foregroundColor(.red)
+                    .background(bgColor)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 9)
+                            .stroke(Color.black, lineWidth: 2)
+                    )
+                    .padding()
+                    
+                } else {
+                    ForEach(["Host session", "Join session"], id: \.self) { title in
+                        Button(action: {
+                            switch title {
+                            case "Host session":
+                                isEnteringSessionName = true
+                            case "Join session":
+                                arViewModel.userRole = .viewer
+                                arViewModel.startMultipeerServices()
+                                isJoiningSession = true
+                            default:
+                                break
+                            }
+                        }) {
+                            Text(title)
+                                .font(.title2)
+                                .foregroundColor(.black)
+                                .frame(maxWidth: .infinity, minHeight: 25)
+                                .padding()
+                        }
+                        .buttonStyle(PressableButtonStyle(normalColor: bgColor, pressedColor: pressedButtonColor))
+                    }
+                }
+            }
+            
+            if isEnteringSessionName {
+                SessionNameInputAlert(isPresented: $isEnteringSessionName, sessionName: $sessionNameInput) {
+                    arViewModel.sessionName = sessionNameInput
+                    arViewModel.userRole = .host
+                    arViewModel.sessionID = UUID().uuidString
+                    arViewModel.startMultipeerServices()
+                    hasSelectedMode = true
+                }
+            }
+        }
+        .onAppear {
+            OrientationManager.shared.lock(to: .portrait)
+        }
+        .onDisappear {
+            OrientationManager.shared.unlock()
+        }
+    }
+}
+
+struct PressableButtonStyle: ButtonStyle {
+    let normalColor: Color
+    let pressedColor: Color
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(configuration.isPressed ? pressedColor : normalColor)
+            .cornerRadius(9)
+            .overlay(RoundedRectangle(cornerRadius: 9).stroke(Color.black, lineWidth: 2))
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
+
+struct SessionNameInputAlert: View {
+    @Binding var isPresented: Bool
+    @Binding var sessionName: String
+    var onContinue: () -> Void
+    @FocusState private var focused: Bool
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    isPresented = false
+                }
+            VStack(spacing: 16) {
+                Text("Enter Session Name")
+                    .font(.headline)
+                    .padding(.top, 16)
+                TextField("Session Name", text: $sessionName)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .padding(.horizontal)
+                    .focused($focused)
+                    .submitLabel(.done)
+                Divider()
+                HStack {
+                    Button("Cancel") {
+                        isPresented = false
+                    }
+                    .frame(maxWidth: .infinity)
+                    .foregroundColor(.red)
+                    .padding()
+                    Button("Continue") {
+                        isPresented = false
+                        onContinue()
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .disabled(sessionName.isEmpty)
+                }
+            }
+            .padding()
+            .background(Color(.systemBackground))
+            .cornerRadius(12)
+            .shadow(radius: 20)
+            .frame(maxWidth: 300)
+            .onAppear {
+                focused = true
+            }
+        }
+    }
+}
+
+struct StartupMenuView_Previews: PreviewProvider {
+    static var previews: some View {
+        StartupMenuView(hasSelectedMode: .constant(false))
+            .environmentObject(ARViewModel())
+    }
+}
+
+```
+
+File: XR Anatomy/UIView.swift
+```swift
+import SwiftUI
+import RealityKit
+import ARKit
+
+struct XRAnatomyView: View {
+    @StateObject var arViewModel = ARViewModel()
+    @State private var showModelMenu = false
+    @State private var showResetConfirmation = false
+    @State private var showSettingsOptions = false
+    @State private var isFirstLaunchLoading = false
+    @State private var loadingProgress: Float = 0.0
+    @State private var hasStartedMultipeer = false
+    @State private var showSplashScreen = !AppLoadTracker.hasRestarted
+    @State private var hasSelectedMode = false
+
+    var body: some View {
+        ZStack {
+            if showSplashScreen {
+                // Splash/loading screen for first launch.
+                LoadingView(loadingProgress: $loadingProgress, showProgress: false)
+            } else if isFirstLaunchLoading {
+                LoadingView(loadingProgress: $loadingProgress)
+            } else if !hasSelectedMode {
+                // Show startup menu.
+                StartupMenuView(hasSelectedMode: $hasSelectedMode)
+                    .environmentObject(arViewModel)
+            } else {
+                // Main AR container view.
+                ZStack(alignment: .top) {
+                    ARViewContainer()
+                        .edgesIgnoringSafeArea(.all)
+                        .environmentObject(arViewModel)
+                    
+                    // Back button.
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Button(action: handleBackButtonTap) {
+                                Image(systemName: "arrowshape.left")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(.white)
+                                    .padding(10)
+                                    .contentShape(Circle())
+                                    .padding(10)
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                    .padding(.leading, -10)
+                    .padding(.bottom, -20)
+                    
+                    // Connection status.
+                    VStack {
+                        ConnectionStatusView()
+                            .environmentObject(arViewModel)
+                            .padding(.top, -5)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                        Spacer()
+                    }
+                    
+                    // Right side buttons (model menu, clear, debug, etc.)
+                    if arViewModel.userRole != .viewer || arViewModel.isHostPermissionGranted {
+                        VStack(spacing: 10) {
+                            Button(action: { showModelMenu.toggle() }) {
+                                Image(systemName: "figure")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(.white)
+                                    .padding(10)
+                                    .contentShape(Circle())
+                                    .padding(10)
+                            }
+                            .padding(.bottom, 30)
+                            .actionSheet(isPresented: $showModelMenu) {
+                                ActionSheet(
+                                    title: Text("Select a Model"),
+                                    buttons: arViewModel.models.map { model in
+                                        .default(Text(model.modelType.rawValue.capitalized)) {
+                                            arViewModel.selectedModel = model
+                                        }
+                                    } + [.cancel()]
+                                )
+                            }
+                            
+                            Button(action: { showResetConfirmation = true }) {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(.white)
+                                    .padding(10)
+                                    .contentShape(Circle())
+                                    .padding(5)
+                            }
+                            .padding(.bottom, 190)
+                            
+                            if arViewModel.userRole == .host {
+                                Button(action: {
+                                    arViewModel.toggleHostPermissions()
+                                }) {
+                                    Image(systemName: arViewModel.isHostPermissionGranted ? "lock.open" : "lock")
+                                        .font(.system(size: 24))
+                                        .foregroundColor(.white)
+                                        .padding(10)
+                                        .contentShape(Circle())
+                                        .padding(10)
+                                }
+                            }
+                            
+                            Button(action: { showSettingsOptions.toggle() }) {
+                                Image(systemName: "wrench.and.screwdriver")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(.white)
+                                    .padding(10)
+                                    .contentShape(Circle())
+                                    .padding(10)
+                            }
+                            .padding(.bottom, -10)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                        .padding(.trailing, -10)
+                        .padding(.bottom, -10)
+                    }
+                    
+                    if showSettingsOptions {
+                        BottomSheet {
+                            SettingsView(isVisible: $showSettingsOptions, arViewModel: arViewModel)
+                        }
+                        .transition(.move(edge: .bottom))
+                        .animation(.easeInOut, value: showSettingsOptions)
+                    }
+                }
+                .alert(item: $arViewModel.alertItem) { alertItem in
+                    Alert(
+                        title: Text(alertItem.title),
+                        message: Text(alertItem.message),
+                        dismissButton: .default(Text("OK"))
+                    )
+                }
+                .alert(isPresented: $showResetConfirmation) {
+                    Alert(
+                        title: Text("Confirm Delete"),
+                        message: Text("Are you sure you want to delete all models you've added?"),
+                        primaryButton: .destructive(Text("Delete")) {
+                            arViewModel.clearAllModels()
+                        },
+                        secondaryButton: .cancel()
+                    )
+                }
+            }
+        }
+        .onAppear { handleInitialLaunch() }
+        .onReceive(arViewModel.$loadingProgress) { progress in
+            loadingProgress = progress
+            if progress >= 1.0, isFirstLaunchLoading {
+                arViewModel.enableMultipeerServicesIfDeferred()
+                hasStartedMultipeer = true
+                isFirstLaunchLoading = false
+                Utilities.updateStoredModificationDate()
+            }
+        }
+        .onReceive(arViewModel.$selectedSession) { session in
+            if session != nil { hasSelectedMode = true }
+        }
+    }
+    
+    private func handleInitialLaunch() {
+        if Utilities.isFirstLaunchForNewBuild() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                isFirstLaunchLoading = true
+                arViewModel.deferMultipeerServicesUntilModelsLoad()
+                arViewModel.loadModels()
+                showSplashScreen = false
+            }
+        } else {
+            showSplashScreen = false
+            arViewModel.startMultipeerServices()
+            hasStartedMultipeer = true
+            arViewModel.loadModels()
+        }
+    }
+    
+    private func handleBackButtonTap() {
+        arViewModel.stopMultipeerServices()
+        arViewModel.resetARSession()
+        hasSelectedMode = false // Return to main menu.
+    }
+}
+
+struct XRAnatomyView_Previews: PreviewProvider {
+    static var previews: some View {
+        XRAnatomyView()
+    }
+}
+
+```
+</file_contents>
+

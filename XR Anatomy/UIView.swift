@@ -2,36 +2,39 @@ import SwiftUI
 import RealityKit
 import ARKit
 
-struct UIView: View {
+struct XRAnatomyView: View {
     @StateObject var arViewModel = ARViewModel()
     @State private var showModelMenu = false
     @State private var showResetConfirmation = false
     @State private var showSettingsOptions = false
+    
     @State private var isFirstLaunchLoading = false
     @State private var loadingProgress: Float = 0.0
-    @State private var hasStartedMultipeer = false
     @State private var showSplashScreen = !AppLoadTracker.hasRestarted
     @State private var hasSelectedMode = false
+    
+    // We no longer automatically start multi-peer, so we remove `hasStartedMultipeer`
+    // var hasStartedMultipeer = false  // Removed or unused
 
     var body: some View {
         ZStack {
             if showSplashScreen {
-                // Show splash/loading screen on first launch.
+                // Splash/loading screen for first launch.
                 LoadingView(loadingProgress: $loadingProgress, showProgress: false)
             } else if isFirstLaunchLoading {
                 LoadingView(loadingProgress: $loadingProgress)
             } else if !hasSelectedMode {
-                // Show the startup menu
+                // Show startup menu (Host / Join / Open).
                 StartupMenuView(hasSelectedMode: $hasSelectedMode)
                     .environmentObject(arViewModel)
             } else {
-                // Main AR container view
+                // Main AR container view.
                 ZStack(alignment: .top) {
                     ARViewContainer()
                         .edgesIgnoringSafeArea(.all)
                         .environmentObject(arViewModel)
                     
-                    // Back button on left side
+                    // Back button in bottom-left corner
                     VStack {
                         Spacer()
                         HStack {
@@ -49,7 +52,7 @@ struct UIView: View {
                     .padding(.leading, -10)
                     .padding(.bottom, -20)
                     
-                    // Connection status at top center
+                    // Connection status across top
                     VStack {
                         ConnectionStatusView()
                             .environmentObject(arViewModel)
@@ -58,9 +61,10 @@ struct UIView: View {
                         Spacer()
                     }
                     
-                    // Right side buttons (model menu, clear, debug, etc.)
+                    // Right side buttons
                     if arViewModel.userRole != .viewer || arViewModel.isHostPermissionGranted {
                         VStack(spacing: 10) {
+                            // Model menu
                             Button(action: { showModelMenu.toggle() }) {
                                 Image(systemName: "figure")
                                     .font(.system(size: 24))
@@ -81,6 +85,7 @@ struct UIView: View {
                                 )
                             }
                             
+                            // Trash / reset
                             Button(action: { showResetConfirmation = true }) {
                                 Image(systemName: "trash")
                                     .font(.system(size: 24))
@@ -91,9 +96,10 @@ struct UIView: View {
                             }
                             .padding(.bottom, 190)
                             
+                            // Host permission toggle
                             if arViewModel.userRole == .host {
                                 Button(action: {
-                                    arViewModel.toggleHostPermissions() // Parentheses added to call the function
+                                    arViewModel.toggleHostPermissions()
                                 }) {
                                     Image(systemName: arViewModel.isHostPermissionGranted ? "lock.open" : "lock")
                                         .font(.system(size: 24))
@@ -102,9 +108,9 @@ struct UIView: View {
                                         .contentShape(Circle())
                                         .padding(10)
                                 }
-                                .padding(.bottom, 0)
                             }
                             
+                            // Debug settings
                             Button(action: { showSettingsOptions.toggle() }) {
                                 Image(systemName: "wrench.and.screwdriver")
                                     .font(.system(size: 24))
@@ -120,6 +126,7 @@ struct UIView: View {
                         .padding(.bottom, -10)
                     }
                     
+                    // Bottom sheet for debug settings
                     if showSettingsOptions {
                         BottomSheet {
                             SettingsView(isVisible: $showSettingsOptions, arViewModel: arViewModel)
@@ -149,48 +156,52 @@ struct UIView: View {
         }
         .onAppear { handleInitialLaunch() }
         .onReceive(arViewModel.$loadingProgress) { progress in
+            // Update local state
             loadingProgress = progress
+            // If we just finished loading all models
             if progress >= 1.0, isFirstLaunchLoading {
-                arViewModel.enableMultipeerServicesIfDeferred()
-                hasStartedMultipeer = true
+                // We used to do "arViewModel.enableMultipeerServicesIfDeferred()" here,
+                // but now we only start multipeer after user picks Host / Join in StartupMenuView.
                 isFirstLaunchLoading = false
                 Utilities.updateStoredModificationDate()
             }
         }
         .onReceive(arViewModel.$selectedSession) { session in
+            // If your code auto-joins session -> show AR
             if session != nil { hasSelectedMode = true }
         }
     }
     
+    /// The initial app launch logic
     private func handleInitialLaunch() {
         if Utilities.isFirstLaunchForNewBuild() {
+            // Show splash, load models
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                 isFirstLaunchLoading = true
-                arViewModel.deferMultipeerServicesUntilModelsLoad()
+                // We just load models, no multipeer yet
                 arViewModel.loadModels()
                 showSplashScreen = false
             }
         } else {
+            // Not first launch -> skip splash, just load models
             showSplashScreen = false
-            arViewModel.startMultipeerServices()
-            hasStartedMultipeer = true
             arViewModel.loadModels()
         }
     }
     
+    /// Called when user hits the back button in the AR view
     private func handleBackButtonTap() {
+        // Stop the session so we can pick host/join again
         arViewModel.stopMultipeerServices()
         arViewModel.resetARSession()
         hasSelectedMode = false // Return to main menu
     }
-    
-    private func handleSwipeFromLeftEdge() {
-        handleBackButtonTap()
-    }
 }
 
-struct UIView_Previews: PreviewProvider {
+// MARK: - Preview
+
+struct XRAnatomyView_Previews: PreviewProvider {
     static var previews: some View {
-        UIView()
+        XRAnatomyView()
     }
 }

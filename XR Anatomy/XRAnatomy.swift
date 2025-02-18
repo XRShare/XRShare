@@ -8,7 +8,7 @@ struct XRAnatomyApp: App {
 
     var body: some Scene {
         WindowGroup {
-            UIView()  // <-- the first view that loads. Think of this as the real entrypoint of the app.
+            XRAnatomyView()  // <-- the first view that loads. Think of this as the real entrypoint of the app.
         }
     }
 }

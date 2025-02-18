@@ -45,9 +45,9 @@ struct SettingsView: View {
             Toggle("Anchor Origins", isOn: $arViewModel.areAnchorOriginsEnabled)
             Toggle("Anchor Geometry", isOn: $arViewModel.isAnchorGeometryEnabled)
             Toggle("Scene Understanding", isOn: $arViewModel.isSceneUnderstandingEnabled)
-                .onChange(of: arViewModel.isPlaneVisualizationEnabled) { val in
-                    arViewModel.togglePlaneVisualization()
-                }
+//                .onChange(of: arViewModel.isPlaneVisualizationEnabled) { _ in
+//                    arViewModel.togglePlaneVisualization()
+//                }
 
             Spacer()
             Button("Close") {

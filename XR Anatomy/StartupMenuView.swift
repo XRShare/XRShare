@@ -3,6 +3,7 @@ import SwiftUI
 struct StartupMenuView: View {
     @Binding var hasSelectedMode: Bool
     @EnvironmentObject var arViewModel: ARViewModel
+    
     @State private var isJoiningSession = false
     @State private var isEnteringSessionName = false
     @State private var sessionNameInput = ""
@@ -13,6 +14,7 @@ struct StartupMenuView: View {
     var body: some View {
         ZStack {
             bgColor.ignoresSafeArea()
+            
             VStack(spacing: 20) {
                 Image("logo_white")
                     .resizable()
@@ -29,17 +31,16 @@ struct StartupMenuView: View {
                         .foregroundColor(.black)
                         .padding()
                     
-                    // Using our custom SessionInfo type.
-                    List(arViewModel.availableSessions, id: \.sessionID) { (sess: Session) in
+                    // Display discovered sessions in a list
+                    List(arViewModel.availableSessions, id: \.self) { session in
                         Button(action: {
-                            arViewModel.selectedSession = sess
-                            arViewModel.invitePeer(sess.peerID, sessionID: sess.sessionID)
-                            arViewModel.sessionID = sess.sessionID
-                            arViewModel.sessionName = sess.sessionName
-                            arViewModel.userRole = .viewer
+                            arViewModel.invitePeer(session)
+                            // Optionally navigate away once invitation is sent:
+                            isJoiningSession = false
                             hasSelectedMode = true
                         }) {
-                            Text(sess.sessionName.isEmpty ? "Join unnamed session" : "Session: \(sess.sessionName)")
+                            Text(session.sessionName)
+                                .foregroundColor(.blue)
                         }
                     }
                     .listStyle(.plain)
@@ -61,15 +62,23 @@ struct StartupMenuView: View {
                     .padding()
                     
                 } else {
-                    ForEach(["Host session", "Join session"], id: \.self) { title in
+                    // Updated to include "Open session"
+                    ForEach(["Host session", "Join session", "Open session"], id: \.self) { title in
                         Button(action: {
                             switch title {
                             case "Host session":
-                                isEnteringSessionName = true
+                                isEnteringSessionName = true  // show the text input for session name
                             case "Join session":
                                 arViewModel.userRole = .viewer
                                 arViewModel.startMultipeerServices()
                                 isJoiningSession = true
+                            case "Open session":
+                                // "Open" means we broadcast publicly with some default session name
+                                arViewModel.userRole = .openSession
+                                arViewModel.sessionName = "OpenSession"
+                                arViewModel.sessionID = UUID().uuidString
+                                arViewModel.startMultipeerServices()
+                                hasSelectedMode = true
                             default:
                                 break
                             }
@@ -80,13 +89,19 @@ struct StartupMenuView: View {
                                 .frame(maxWidth: .infinity, minHeight: 25)
                                 .padding()
                         }
-                        .buttonStyle(PressableButtonStyle(normalColor: bgColor, pressedColor: pressedButtonColor))
+                        .buttonStyle(PressableButtonStyle(normalColor: bgColor,
+                                                          pressedColor: pressedButtonColor))
                     }
                 }
             }
             
+            // If the user wants to host and needs a custom session name
             if isEnteringSessionName {
-                SessionNameInputAlert(isPresented: $isEnteringSessionName, sessionName: $sessionNameInput) {
+                SessionNameInputAlert(
+                    isPresented: $isEnteringSessionName,
+                    sessionName: $sessionNameInput
+                ) {
+                    // Once the user enters a name and continues:
                     arViewModel.sessionName = sessionNameInput
                     arViewModel.userRole = .host
                     arViewModel.sessionID = UUID().uuidString
@@ -104,6 +119,8 @@ struct StartupMenuView: View {
     }
 }
 
+// MARK: - Custom Button Style
+
 struct PressableButtonStyle: ButtonStyle {
     let normalColor: Color
     let pressedColor: Color
@@ -116,11 +133,15 @@ struct PressableButtonStyle: ButtonStyle {
     }
 }
 
+// MARK: - SessionNameInputAlert
+
 struct SessionNameInputAlert: View {
     @Binding var isPresented: Bool
     @Binding var sessionName: String
     var onContinue: () -> Void
+    
     @FocusState private var focused: Bool
+    
     var body: some View {
         ZStack {
             Color.black.opacity(0.4)
@@ -128,16 +149,20 @@ struct SessionNameInputAlert: View {
                 .onTapGesture {
                     isPresented = false
                 }
+            
             VStack(spacing: 16) {
                 Text("Enter Session Name")
                     .font(.headline)
                     .padding(.top, 16)
+                
                 TextField("Session Name", text: $sessionName)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .padding(.horizontal)
                     .focused($focused)
                     .submitLabel(.done)
+                
                 Divider()
+                
                 HStack {
                     Button("Cancel") {
                         isPresented = false
@@ -145,6 +170,7 @@ struct SessionNameInputAlert: View {
                     .frame(maxWidth: .infinity)
                     .foregroundColor(.red)
                     .padding()
+                    
                     Button("Continue") {
                         isPresented = false
                         onContinue()
@@ -165,6 +191,8 @@ struct SessionNameInputAlert: View {
         }
     }
 }
+
+// MARK: - Preview
 
 struct StartupMenuView_Previews: PreviewProvider {
     static var previews: some View {
