@@ -10,7 +10,9 @@ struct ContentView: View {
         case .joinSession:
             JoinSession()
         case .hostSession:
-            HostSession()
+            HostSession() // Legacy if needed
+        case .hostEntityEditor:
+            HostEntityEditorView()
         case .inSession:
             InSession() // The 3D experience
         }

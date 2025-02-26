@@ -38,6 +38,7 @@ class ARViewModel: NSObject, ObservableObject {
     @Published var areAnchorOriginsEnabled: Bool = false
     @Published var isAnchorGeometryEnabled: Bool = false
     @Published var isSceneUnderstandingEnabled: Bool = false
+    @Published var hostedModels: [Model] = [] 
     
     // List of discovered sessions.
     @Published var availableSessions: [Session] = []

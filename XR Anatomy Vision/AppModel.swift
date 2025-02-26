@@ -3,7 +3,7 @@ import MultipeerConnectivity
 
 // A simple state machine for session pages
 enum SessionPage {
-    case mainMenu, joinSession, hostSession, inSession
+    case mainMenu, joinSession, hostSession, hostEntityEditor, inSession
 }
 
 enum ImmersiveSpaceState {

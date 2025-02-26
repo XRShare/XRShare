@@ -3,40 +3,54 @@ import SwiftUI
 struct JoinSession: View {
     @EnvironmentObject var appModel: AppModel
     @EnvironmentObject var arViewModel: ARViewModel
-    
     @Environment(\.openImmersiveSpace) private var openImmersiveSpace
-    
+
     var body: some View {
         VStack(spacing: 20) {
-            Text("Available Sessions").font(.title)
+            Text("Available Sessions")
+                .font(.title)
+                .bold()
             
             if arViewModel.availableSessions.isEmpty {
                 Text("No sessions found yet.")
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.gray)
             } else {
-                List(arViewModel.availableSessions, id: \.self) { session in
-                    Button("Join \(session.sessionName)") {
-                        // In iOS, you might do “invitePeer” from the host’s perspective,
-                        // but if you want to do something on the viewer side,
-                        // you could add logic here. For now, we just open ImmersiveSpace
-                        Task {
-                            let result = await openImmersiveSpace(id: appModel.immersiveSpaceID)
-                            switch result {
-                            case .opened:
-                                appModel.currentPage = .inSession
-                            default:
-                                appModel.currentPage = .mainMenu
+                ScrollView {
+                    VStack(spacing: 15) {
+                        ForEach(arViewModel.availableSessions, id: \.self) { session in
+                            Button {
+                                // Example: Attempt to join the session.
+                                Task {
+                                    let result = await openImmersiveSpace(id: appModel.immersiveSpaceID)
+                                    if result == .opened {
+                                        withAnimation { appModel.currentPage = .inSession }
+                                    } else {
+                                        withAnimation { appModel.currentPage = .mainMenu }
+                                    }
+                                }
+                            } label: {
+                                Text(session.sessionName)
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(Color.blue.opacity(0.8))
+                                    .foregroundColor(.white)
+                                    .cornerRadius(12)
                             }
                         }
                     }
+                    .padding()
                 }
+                .frame(maxWidth: 400)
             }
             
             Button("Back") {
-                appModel.currentPage = .mainMenu
+                withAnimation { appModel.currentPage = .mainMenu }
             }
-            .padding(.bottom, 30)
+            .buttonStyle(SpatialButtonStyle())
         }
         .padding()
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
+        .shadow(radius: 10)
+        .frame(maxWidth: 400)
     }
 }

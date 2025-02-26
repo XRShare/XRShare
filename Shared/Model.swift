@@ -17,17 +17,23 @@ final class Model: ObservableObject, Identifiable {
     
     var id: ModelType { modelType }
     
+    // Synchronous initializer; note it does NOT load immediately.
     init(modelType: ModelType) {
         self.modelType = modelType
-        Task {
-            await loadModelEntity()
-        }
     }
     
-    private func loadModelEntity() async {
+    /// An asynchronous factory method that creates a Model and waits until its entity is loaded.
+    static func load(modelType: ModelType) async -> Model {
+        let model = Model(modelType: modelType)
+        await model.loadModelEntity()
+        return model
+    }
+    
+    /// Loads the modelEntity asynchronously.
+    fileprivate func loadModelEntity() async {
         let filename = "\(modelType.rawValue).usdz"
         do {
-            // Specify Bundle.main explicitly (or another bundle if your resources are in a module)
+            // Use Bundle.main explicitly (or another bundle if needed)
             self.modelEntity = try await ModelEntity(named: filename, in: Bundle.main)
             self.loadingState = .loaded
             print("Successfully loaded \(filename)")
@@ -43,7 +49,6 @@ final class Model: ObservableObject, Identifiable {
     }
     
     func updateCollisionBox() {
-        // Implement collision box update if needed, or leave as a stub.
         print("updateCollisionBox called")
     }
 }
