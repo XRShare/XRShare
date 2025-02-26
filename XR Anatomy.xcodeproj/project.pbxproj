@@ -11,6 +11,7 @@
 		0D64C6A12CE0076A00D34085 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0D64C6A02CE0076A00D34085 /* SwiftUI.framework */; };
 		0D64C6A32CE0077200D34085 /* RealityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0D64C6A22CE0077200D34085 /* RealityKit.framework */; };
 		0D64C6A52CE0077B00D34085 /* MultipeerConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0D64C6A42CE0077B00D34085 /* MultipeerConnectivity.framework */; };
+		6679B79D2D6CFFAA006EB279 /* MultipeerConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6679B79C2D6CFFAA006EB279 /* MultipeerConnectivity.framework */; };
 		87B9744D2D09106D00168B98 /* RealityKitContent in Frameworks */ = {isa = PBXBuildFile; productRef = 87B9744C2D09106D00168B98 /* RealityKitContent */; };
 /* End PBXBuildFile section */
 
@@ -20,6 +21,9 @@
 		0D64C6A02CE0076A00D34085 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		0D64C6A22CE0077200D34085 /* RealityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RealityKit.framework; path = System/Library/Frameworks/RealityKit.framework; sourceTree = SDKROOT; };
 		0D64C6A42CE0077B00D34085 /* MultipeerConnectivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MultipeerConnectivity.framework; path = System/Library/Frameworks/MultipeerConnectivity.framework; sourceTree = SDKROOT; };
+		6679B7932D6CE2AC006EB279 /* RealityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RealityKit.framework; path = Platforms/XROS.platform/Developer/SDKs/XROS2.2.sdk/System/Library/Frameworks/RealityKit.framework; sourceTree = DEVELOPER_DIR; };
+		6679B7942D6CE2AC006EB279 /* RealityFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RealityFoundation.framework; path = Platforms/XROS.platform/Developer/SDKs/XROS2.2.sdk/System/Library/Frameworks/RealityFoundation.framework; sourceTree = DEVELOPER_DIR; };
+		6679B79C2D6CFFAA006EB279 /* MultipeerConnectivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MultipeerConnectivity.framework; path = Platforms/XROS.platform/Developer/SDKs/XROS2.2.sdk/System/Library/Frameworks/MultipeerConnectivity.framework; sourceTree = DEVELOPER_DIR; };
 		87B974482D09106D00168B98 /* XR Anatomy Vision.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "XR Anatomy Vision.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		87B9744B2D09106D00168B98 /* RealityKitContent */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = RealityKitContent; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -82,6 +86,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				87B9744D2D09106D00168B98 /* RealityKitContent in Frameworks */,
+				6679B79D2D6CFFAA006EB279 /* MultipeerConnectivity.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +117,9 @@
 		0D64C69D2CE0075B00D34085 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				6679B79C2D6CFFAA006EB279 /* MultipeerConnectivity.framework */,
+				6679B7942D6CE2AC006EB279 /* RealityFoundation.framework */,
+				6679B7932D6CE2AC006EB279 /* RealityKit.framework */,
 				0D64C6A42CE0077B00D34085 /* MultipeerConnectivity.framework */,
 				0D64C6A22CE0077200D34085 /* RealityKit.framework */,
 				0D64C6A02CE0076A00D34085 /* SwiftUI.framework */,
@@ -467,7 +475,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 7;
-				XROS_DEPLOYMENT_TARGET = 2.1;
+				XROS_DEPLOYMENT_TARGET = 1.3;
 			};
 			name = Debug;
 		};
@@ -495,7 +503,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 7;
-				XROS_DEPLOYMENT_TARGET = 2.1;
+				XROS_DEPLOYMENT_TARGET = 1.3;
 			};
 			name = Release;
 		};

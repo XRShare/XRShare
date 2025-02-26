@@ -1,37 +1,43 @@
-//
-//  HostSesion.swift
-//  XR Anatomy
-//
-//  Created by Marko Vujic on 2024-12-11.
-//
-
-
 import SwiftUI
 
 struct HostSession: View {
     @EnvironmentObject var appModel: AppModel
-    
+    @EnvironmentObject var arViewModel: ARViewModel
+    @Environment(\.openImmersiveSpace) private var openImmersiveSpace
+
     var body: some View {
-        VStack {
-            Text("Hosting Session").font(.title)
-            // Show some session info; for instance, your peer ID could be the session ID.
-            if let session = appModel.multipeerSession {
-                Text("Your Session: \(session.myPeerID.displayName)")
+        VStack(spacing: 20) {
+            Text("Hosting Session").font(.largeTitle)
+            
+            if let mpSession = arViewModel.multipeerSession {
+                Text("Your PeerID: \(mpSession.myPeerID.displayName)")
             } else {
-                Text("Starting session...")
+                Text("Session not started yet.")
             }
-            Button("Start Session") {
-                // As the host, after setting up, transition to the in-session view.
-                appModel.currentPage = .inSession
+            
+            Button("Open Immersive Space") {
+                Task {
+                    let result = await openImmersiveSpace(id: appModel.immersiveSpaceID)
+                    switch result {
+                    case .opened:
+                        appModel.currentPage = .inSession
+                    default:
+                        appModel.currentPage = .mainMenu
+                    }
+                }
             }
-            .padding()
-            .background(Color.blue)
-            .foregroundColor(.white)
-            .cornerRadius(10)
+            
             Button("Back") {
                 appModel.currentPage = .mainMenu
             }
-            .padding()
+        }
+        .padding()
+        .onAppear {
+            // If we haven’t started hosting yet:
+            if arViewModel.multipeerSession == nil {
+                arViewModel.userRole = .host
+                arViewModel.startMultipeerServices()
+            }
         }
     }
 }

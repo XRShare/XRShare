@@ -12,7 +12,7 @@ struct ContentView: View {
         case .hostSession:
             HostSession()
         case .inSession:
-            InSession() // your immersive AR view (from previous code)
+            InSession() // The 3D experience
         }
     }
 }
