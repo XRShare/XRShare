@@ -330,3 +330,91 @@ extension ARViewModel: MultipeerSessionDelegate {
         }
     }
 }
+
+
+extension ARViewModel {
+    
+    /// Sends the transform of the given entity to all connected peers.
+    func sendTransform(for entity: Entity) {
+        // Convert the entity’s transform matrix to an array of 16 Floats.
+        let matrixArray = entity.transform.matrix.toArray()  // Requires an extension to convert matrix to [Float]
+        
+        // Encode the entity's id as a string.
+        let idString = "\(entity.id)"
+        guard let idData = idString.data(using: .utf8) else {
+            print("Failed to encode entity id.")
+            return
+        }
+        
+        // Build a packet:
+        // 1. Append a single byte indicating the length of the id.
+        var packetData = Data()
+        var idLength = UInt8(idData.count)
+        packetData.append(&idLength, count: 1)
+        
+        // 2. Append the id data.
+        packetData.append(idData)
+        
+        // 3. Append the transform matrix (16 floats).
+        matrixArray.withUnsafeBufferPointer { buffer in
+            packetData.append(Data(buffer: buffer))
+        }
+        
+        // Prepend a header byte for the data type (modelTransform).
+        var fullPacket = Data([DataType.modelTransform.rawValue])
+        fullPacket.append(packetData)
+        
+        // Send the packet via your multipeer session.
+        multipeerSession.sendToAllPeers(fullPacket, dataType: .modelTransform)
+        print("Sent transform for entity \(entity.id)")
+    }
+    
+    /// Decodes an incoming transform packet and applies the update to the corresponding model.
+    func handleReceivedTransform(_ data: Data, from peerID: MCPeerID) {
+        // Remove the first byte (data type header).
+        let packet = data.dropFirst()
+        guard packet.count >= 1, let idLengthByte = packet.first else { return }
+        let idLength = Int(idLengthByte)
+        
+        // Ensure the packet contains enough bytes for the id.
+        guard packet.count >= 1 + idLength else { return }
+        let idData = packet.subdata(in: 1 ..< (1 + idLength))
+        guard let idString = String(data: idData, encoding: .utf8) else {
+            print("Failed to decode entity id from packet.")
+            return
+        }
+        
+        // The remainder of the packet should be the transform matrix (16 floats).
+        let matrixDataStart = 1 + idLength
+        let matrixData = packet.subdata(in: matrixDataStart..<packet.count)
+        let expectedByteCount = 16 * MemoryLayout<Float>.size
+        guard matrixData.count == expectedByteCount else {
+            print("Unexpected matrix data size: \(matrixData.count) bytes")
+            return
+        }
+        
+        // Decode the array of 16 floats.
+        let floatArray: [Float] = matrixData.withUnsafeBytes { pointer in
+            Array(UnsafeBufferPointer<Float>(
+                start: pointer.bindMemory(to: Float.self).baseAddress,
+                count: 16
+            ))
+        }
+        
+        // Reconstruct the simd_float4x4 matrix.
+        let newMatrix = simd_float4x4(
+            SIMD4(floatArray[0],  floatArray[1],  floatArray[2],  floatArray[3]),
+            SIMD4(floatArray[4],  floatArray[5],  floatArray[6],  floatArray[7]),
+            SIMD4(floatArray[8],  floatArray[9],  floatArray[10], floatArray[11]),
+            SIMD4(floatArray[12], floatArray[13], floatArray[14], floatArray[15])
+        )
+        
+        // Find and update the model matching this id.
+        DispatchQueue.main.async {
+
+        self.model.modelEntity?.transform.matrix = newMatrix
+        print("Updated model \(idString) transform from peer \(peerID.displayName)")
+           
+        }
+    }
+}

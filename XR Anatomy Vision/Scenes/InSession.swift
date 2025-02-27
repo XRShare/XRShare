@@ -11,98 +11,112 @@ final class TransformCache: ObservableObject {
 struct InSession: View {
     @EnvironmentObject var appModel: AppModel
     @EnvironmentObject var arViewModel: ARViewModel
-
-    // Store placed models.
+    
+    // Add the immersive space dismiss environment value.
+    @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
+    
+    // Store placed models
     @State private var placedModels: [Model] = []
     @State private var modelDict: [Entity: Model] = [:]
     @State private var entityInitialRotations: [Entity: simd_quatf] = [:]
+    
     @State private var expanded = false
     @State private var modelTypes: [ModelType] = []
     
-    // Use a state object for transform caching.
+    // Use a state object for transform caching
     @StateObject private var transformCache = TransformCache()
     
-    // Create a dedicated world anchor (for immersive content).
-    let modelAnchor = AnchorEntity(world: [0, 0, 0])
+    // Anchors
+    let headAnchor = AnchorEntity(.head)
+    let modelAnchor = AnchorEntity(world: [0, 0, -1])
     
     var body: some View {
-        ZStack {
-            // RealityView for world content only.
-            RealityView { content in
-                // Add the world anchor if not already added.
-                if modelAnchor.parent == nil {
-                    content.add(modelAnchor)
+        RealityView { content, attachments in
+            
+            // 1. Add the HUD anchor entity (headAnchor) to the AR scene.
+            if headAnchor.parent == nil {
+                content.add(headAnchor)
+            }
+            // 2. Add the world anchor entity (modelAnchor) for placed models.
+            if modelAnchor.parent == nil {
+                content.add(modelAnchor)
+            }
+            
+            // Attempt to find the “hudd” attachment entity; place it in front of user’s head.
+            guard let hudEntity = attachments.entity(for: "hudd") else {
+                print("HUD entity not found.")
+                return
+            }
+            hudEntity.setPosition([0, 0.2, -1], relativeTo: headAnchor)
+            if hudEntity.parent == nil {
+                headAnchor.addChild(hudEntity)
+            }
+            
+        } update: { content, attachments in
+            // Per-frame update for placed models
+            for model in placedModels {
+                guard !model.isLoading(), let entity = model.modelEntity else {
+                    continue
+                }
+                // If not positioned yet, place one meter out in front of the model anchor
+                if entity.transform.translation == SIMD3<Float>(repeating: 0) {
+                    DispatchQueue.main.async {
+                        entity.setPosition([0, 0, -1], relativeTo: modelAnchor)
+                        model.position = entity.position
+                    }
+                }
+                // Ensure the entity is a child of the modelAnchor
+                if entity.parent == nil {
+                    modelAnchor.addChild(entity)
+                    content.add(entity)
                 }
                 
-                // Add placed models as children of the world anchor.
-                for model in placedModels {
-                    guard !model.isLoading(), let entity = model.modelEntity else {
-                        print("Skipping \(model.modelType.rawValue): still loading or missing entity")
-                        continue
-                    }
-                    // Register with the sync service if needed.
-                    if let customService = arViewModel.currentScene?.synchronizationService as? MyCustomConnectivityService,
-                       customService.entity(for: entity.id) == nil {
-                        customService.registerEntity(entity)
-                    }
-                    // Ensure the entity is added to the world anchor.
-                    if entity.parent == nil {
-                        modelAnchor.addChild(entity)
-                    }
-                }
-            } update: { content in
-                // Per-frame update: update transforms and broadcast changes.
-                for model in placedModels {
-                    guard let entity = model.modelEntity else {
-                        print("Update: Model \(model.modelType.rawValue) entity is nil")
-                        continue
-                    }
-                    // If entity hasn't been positioned, set a default position.
-                    if entity.transform.translation == SIMD3<Float>(repeating: 0) {
-                        DispatchQueue.main.async {
-                            entity.setPosition([0, 0, -1], relativeTo: modelAnchor)
-                            model.position = entity.position
+                // Check for transform changes; broadcast if changed
+                let currentMatrix = entity.transform.matrix
+                if let lastMatrix = transformCache.lastTransforms[entity.id],
+                   lastMatrix != currentMatrix {
+                    if let customService = arViewModel.currentScene?.synchronizationService as? MyCustomConnectivityService {
+                        let localPointer: __PeerIDRef = customService.__toCore(peerID: customService.localPeerIdentifier)
+                        if let owner = customService.owner(of: entity) as? CustomPeerID,
+                           let localOwner = customService.__fromCore(peerID: localPointer) as? CustomPeerID,
+                           owner == localOwner {
+                            broadcastTransform(entity)
                         }
                     }
-                    // Update transform changes.
-                    let currentMatrix = entity.transform.matrix
-                    if let lastMatrix = transformCache.lastTransforms[entity.id] {
-                        if lastMatrix != currentMatrix {
-                            if let customService = arViewModel.currentScene?.synchronizationService as? MyCustomConnectivityService {
-                                let localPeerPointer: __PeerIDRef = customService.__toCore(peerID: customService.localPeerIdentifier)
-                                if let owner = customService.owner(of: entity) as? CustomPeerID,
-                                   let localOwner = customService.__fromCore(peerID: localPeerPointer) as? CustomPeerID,
-                                   owner == localOwner {
-                                    broadcastTransform(entity)
-                                }
-                            }
-                            DispatchQueue.main.async {
-                                transformCache.lastTransforms[entity.id] = currentMatrix
-                            }
-                        }
-                    } else {
-                        DispatchQueue.main.async {
-                            transformCache.lastTransforms[entity.id] = currentMatrix
-                        }
+                    DispatchQueue.main.async {
+                        transformCache.lastTransforms[entity.id] = currentMatrix
+                    }
+                } else if transformCache.lastTransforms[entity.id] == nil {
+                    // First time tracking this entity
+                    DispatchQueue.main.async {
+                        transformCache.lastTransforms[entity.id] = currentMatrix
                     }
                 }
             }
-            // End RealityView
             
-            // UI Overlays (added as SwiftUI overlays separate from world content)
-            VStack {
-                HStack {
-                    backButtonOverlay
-                    Spacer()
-                    addModelButtonOverlay
+        } attachments: {
+            // The 3D HUD attachment
+            Attachment(id: "hudd") {
+                ZStack {
+                    Color.clear
+                    
+                    // The “HUD UI”
+                    VStack {
+                        HStack {
+                            backButtonOverlay
+                            Spacer()
+                            addModelButtonOverlay
+                        }
+                        .padding()
+                        
+                        Spacer()
+                        
+                        if expanded {
+                            modelSelectionOverlay
+                        }
+                    }
+                    .frame(width: 500, height: 500) // Adjust as desired
                 }
-                .padding()
-                Spacer()
-            }
-            
-            if expanded {
-                modelSelectionOverlay
-                    .transition(.move(edge: .bottom))
             }
         }
         .gesture(dragGesture)
@@ -113,15 +127,20 @@ struct InSession: View {
         }
     }
     
-    // MARK: - UI Overlays
+    // MARK: - Buttons (in the 3D HUD)
     
     private var backButtonOverlay: some View {
         Button {
-            appModel.currentPage = .mainMenu
+            // Reset the session, dismiss immersive space, and return to main menu.
+            resetSession()
+            Task { @MainActor in
+                await dismissImmersiveSpace()
+                appModel.currentPage = .mainMenu
+            }
         } label: {
             Image(systemName: "arrow.backward.circle.fill")
                 .resizable()
-                .frame(width: 50, height: 50)
+                .frame(width: 45, height: 45)
                 .foregroundColor(.white)
                 .shadow(radius: 5)
         }
@@ -136,7 +155,7 @@ struct InSession: View {
         } label: {
             Image(systemName: "plus.circle.fill")
                 .resizable()
-                .frame(width: 50, height: 50)
+                .frame(width: 45, height: 45)
                 .foregroundColor(.green)
                 .shadow(radius: 5)
         }
@@ -162,45 +181,68 @@ struct InSession: View {
                     }
                 }
             }
-            .font(.system(size: 25))
+            .font(.system(size: 24))
             .padding()
             .background(Color.black.opacity(0.7))
             .cornerRadius(12)
+            
             Spacer()
         }
-        .padding()
+        .padding(.top, 30)
     }
     
-    // MARK: - Model Loading
+    // MARK: - Session Reset Function
     
-    // Loads a model asynchronously using your asynchronous factory method.
+    /// Resets the session by stopping multipeer services, clearing models, and removing anchored children.
+    private func resetSession() {
+        // Stop multipeer services
+        arViewModel.stopMultipeerServices()
+        
+        // Clear any placed models and associated state
+        placedModels.removeAll()
+        modelDict.removeAll()
+        
+        // Remove all children from anchors
+        headAnchor.children.removeAll()
+        modelAnchor.children.removeAll()
+        
+        print("Session reset: Multipeer services stopped and anchors cleared.")
+    }
+    
+    // MARK: - Loading Models
+    
     private func loadModel(for modelType: ModelType) {
         Task {
             print("Attempting to load model: \(modelType.rawValue).usdz")
             let model = await Model.load(modelType: modelType)
-            if let modelEntity = model.modelEntity {
-                modelDict[modelEntity] = model
+            if let entity = model.modelEntity {
+                modelDict[entity] = model
                 placedModels.append(model)
                 
-                // Set default scale (if needed) and place the model one meter in front of the world anchor.
-                modelEntity.transform.translation = SIMD3<Float>(0, 0.2, 0.2)
-                modelEntity.generateCollisionShapes(recursive: true)
+                // Set a default position if not already set
+                if (model.modelEntity?.position == SIMD3<Float>(repeating: 0.0)) {
+                    model.modelEntity?.setPosition([0, 0, -1], relativeTo: headAnchor)
+                    model.position = model.modelEntity!.position
+                }
                 
-                // Add the model entity to the world anchor.
-                modelAnchor.addChild(modelEntity)
-                
-                // Register with the sync service.
+                // Register with the synchronization service
                 if let customService = arViewModel.currentScene?.synchronizationService as? MyCustomConnectivityService {
-                    customService.registerEntity(modelEntity)
+                    customService.registerEntity(entity)
                 }
                 
                 print("\(modelType.rawValue) chosen – model ready for placement")
-                print("Placed \(modelType.rawValue) at position: \(modelEntity.transform.translation)")
+                print("Placed \(modelType.rawValue) at position: \(entity.transform.translation)")
+                
                 withAnimation { expanded = false }
             } else {
                 print("Failed to load model entity for \(modelType.rawValue).usdz")
             }
         }
+    }
+    
+    private func loadModelTypes() {
+        self.modelTypes = ModelType.allCases()
+        print("Loaded model types: \(modelTypes.map { $0.rawValue })")
     }
     
     // MARK: - Gestures
@@ -269,15 +311,11 @@ struct InSession: View {
             }
     }
     
-    private func loadModelTypes() {
-        self.modelTypes = ModelType.allCases()
-        print("Loaded model types: \(self.modelTypes.map { $0.rawValue })")
-    }
-    
     // MARK: - Broadcast Transform Updates
     
     private func broadcastTransform(_ entity: Entity) {
         let matrixArray = entity.transform.matrix.toArray()
+        
         var data = Data()
         let idString = "\(entity.id)"
         if let idData = idString.data(using: .utf8) {
@@ -296,7 +334,9 @@ struct InSession: View {
     }
 }
 
+// MARK: - Preview
 #Preview(immersionStyle: .mixed) {
     InSession()
         .environmentObject(AppModel())
+        .environmentObject(ARViewModel())
 }

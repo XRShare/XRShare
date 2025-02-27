@@ -7,28 +7,22 @@ struct XRAnatomy_visionOSApp: App {
 
     var body: some Scene {
         WindowGroup {
-            // Fallback content if needed; primary navigation is within immersive space.
             ContentView()
                 .environmentObject(appModel)
                 .environmentObject(arViewModel)
         }
         .windowStyle(.volumetric)
-        
+
         ImmersiveSpace(id: appModel.immersiveSpaceID) {
-            ZStack {
-                // The immersive AR/RealityKit content.
-                ImmersiveView()
-                    .environmentObject(appModel)
-                    .environmentObject(arViewModel)
-                    .onAppear { appModel.immersiveSpaceState = .open }
-                    .onDisappear { appModel.immersiveSpaceState = .closed }
-                
-                // Show the spatial main menu only when the app is in main menu mode.
-                if appModel.currentPage == .mainMenu {
-                    MainMenu()
-                        .transition(.opacity)
+            InSession()
+                .environmentObject(appModel)
+                .environmentObject(arViewModel)
+                .onAppear {
+                    appModel.immersiveSpaceState = .open
                 }
-            }
+                .onDisappear {
+                    appModel.immersiveSpaceState = .closed
+                }
         }
         .immersionStyle(selection: .constant(.mixed), in: .mixed)
     }

@@ -49,7 +49,6 @@ struct HostEntityEditorView: View {
                             appModel.currentPage = .mainMenu
                         }
                     }
-                    .buttonStyle(SpatialButtonStyle())
                     
                     Spacer()
                     
@@ -123,7 +122,6 @@ struct ModelSelectionOverlay: View {
             Button("Cancel") {
                 withAnimation { showOverlay = false }
             }
-            .buttonStyle(SpatialButtonStyle())
         }
         .padding()
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))

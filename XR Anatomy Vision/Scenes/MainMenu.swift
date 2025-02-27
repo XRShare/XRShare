@@ -2,61 +2,146 @@ import SwiftUI
 
 struct MainMenu: View {
     @EnvironmentObject var appModel: AppModel
-        @EnvironmentObject var arViewModel: ARViewModel
-
-        var body: some View {
-            VStack(spacing: 30) {
-                Text("XR Anatomy")
-                    .font(.largeTitle)
-                    .bold()
+    @EnvironmentObject var arViewModel: ARViewModel
+    
+    // Add environment values to open/dismiss immersive space
+    @Environment(\.openImmersiveSpace) private var openImmersiveSpace
+    // @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace // if needed
+    
+    @State private var isJoiningSession = false
+    @State private var isEnteringSessionName = false
+    @State private var sessionNameInput = ""
+    
+    let bgColor = Color(red: 0.9137, green: 0.9176, blue: 0.9255)
+    let pressedButtonColor = Color(red: 0.8, green: 0.8, blue: 0.8)
+    
+    var body: some View {
+        ZStack {
+            bgColor.ignoresSafeArea()
+            
+            VStack(spacing: 20) {
+                // Your existing "logo_white"
+                Image("logo_white")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 360)
+                    .padding(.top, 40)
+                    .padding(.bottom, 30)
                 
                 Spacer()
                 
-                // Button to join an existing session
-                Button("Join Session") {
-                    arViewModel.userRole = .viewer
-                    arViewModel.startMultipeerServices()
-                    withAnimation { appModel.currentPage = .joinSession }
+                if isJoiningSession {
+                    Text("Available Sessions:")
+                        .font(.title2)
+                        .foregroundColor(.black)
+                        .padding()
+                    
+                    // List discovered sessions
+                    List(arViewModel.availableSessions, id: \.self) { session in
+                        Button {
+                            // Connect to the chosen session
+                            arViewModel.invitePeer(session)
+                            // Once invitation is sent, hide UI and open the immersive space
+                            isJoiningSession = false
+                            moveToInSession()
+                        } label: {
+                            Text(session.sessionName)
+                                .foregroundColor(.blue)
+                        }
+                    }
+                    .listStyle(.plain)
+                    .frame(maxWidth: .infinity)
+                    
+                    Spacer()
+                    
+                    Button("Cancel") {
+                        isJoiningSession = false
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 50)
+                    .foregroundColor(.red)
+                    .background(bgColor)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 9)
+                            .stroke(Color.black, lineWidth: 2)
+                    )
+                    .padding()
+                    
+                } else {
+                    // The three main options
+                    ForEach(["Host session", "Join session", "Open session"], id: \.self) { title in
+                        Button {
+                            switch title {
+                            case "Host session":
+                                // Prompt user to enter a session name
+                                isEnteringSessionName = true
+                            case "Join session":
+                                arViewModel.userRole = .viewer
+                                arViewModel.startMultipeerServices()
+                                isJoiningSession = true
+                            case "Open session":
+                                // “Open” meaning you broadcast publicly with a default session
+                                arViewModel.userRole = .openSession
+                                arViewModel.sessionName = "OpenSession"
+                                arViewModel.sessionID = UUID().uuidString
+                                arViewModel.startMultipeerServices()
+                                moveToInSession()
+                            default:
+                                break
+                            }
+                        } label: {
+                            Text(title)
+                                .font(.title2)
+                                .foregroundColor(.black)
+                                .frame(maxWidth: .infinity, minHeight: 25)
+                                .padding()
+                        }
+                    }
                 }
-                .buttonStyle(SpatialButtonStyle())
-                
-                // Button to host a session
-                Button("Host Session") {
+            }
+            
+            // If the user wants to host and must enter a custom session name
+            if isEnteringSessionName {
+                SessionNameInputAlert(
+                    isPresented: $isEnteringSessionName,
+                    sessionName: $sessionNameInput
+                ) {
+                    print("Session name entered: \(sessionNameInput)")
+                    arViewModel.sessionName = sessionNameInput
                     arViewModel.userRole = .host
-                    arViewModel.startMultipeerServices()
-                    withAnimation { appModel.currentPage = .hostSession }
-                }
-                .buttonStyle(SpatialButtonStyle())
-                
-                // Button to open a public session
-                Button("Open Session") {
-                    arViewModel.userRole = .openSession
-                    arViewModel.sessionName = "OpenSession"
                     arViewModel.sessionID = UUID().uuidString
                     arViewModel.startMultipeerServices()
-                    withAnimation { appModel.currentPage = .inSession }
+                    
+                    // Trigger immersive space opening before transitioning
+                    Task { @MainActor in
+                        let res = await openImmersiveSpace(id: appModel.immersiveSpaceID)
+                        switch res {
+                        case .opened:
+                            print("immersive space opened")
+                        case .error:
+                            print("error opening immersive space")
+                        case .userCancelled:
+                            print("user cancelled")
+                        @unknown default:
+                            break
+                        }
+                        moveToInSession()
+                    }
                 }
-                .buttonStyle(SpatialButtonStyle())
-                
-                Spacer()
             }
-            .padding()
-            .frame(maxWidth: 400)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
-            .shadow(radius: 10)
         }
     }
+    
+    /// Moves the app to the “in session” screen.
+    private func moveToInSession() {
+        // Set the high-level app flow
+        appModel.currentPage = .inSession
+    }
+}
 
-struct SpatialButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.title2)
-            .padding()
-            .frame(maxWidth: .infinity)
-            .background(configuration.isPressed ? Color.blue.opacity(0.7) : Color.blue)
-            .foregroundColor(.white)
-            .cornerRadius(12)
-            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
-            .shadow(radius: 5)
+struct MainMenu_Previews: PreviewProvider {
+    static var previews: some View {
+        MainMenu()
+            .environmentObject(AppModel())
+            .environmentObject(ARViewModel())
     }
 }
