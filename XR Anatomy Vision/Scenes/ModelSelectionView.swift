@@ -7,7 +7,7 @@ struct ModelSelectionScreen: View {
     @ObservedObject var modelManager: ModelManager
 
     @Environment(\.openImmersiveSpace) private var openImmersiveSpace
-    @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace  // Added to dismiss immersive view
+    @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
 
     var body: some View {
         VStack(spacing: 20) {
@@ -44,7 +44,7 @@ struct ModelSelectionScreen: View {
                     // Reset multipeer services
                     arViewModel.stopMultipeerServices()
                     // Exit the immersive view
-                    task{
+                    Task {
                         await dismissImmersiveSpace()
                     }
                     // Switch the app page back to main
@@ -52,22 +52,25 @@ struct ModelSelectionScreen: View {
                 }
                 
                 Spacer()
-                
-                Button("Enter Immersive") {
+                .onAppear {
                     Task {
-                        let result = await openImmersiveSpace(id: appModel.immersiveSpaceID)
-                        if case .opened = result {
-                            print("Immersive space opened")
-                        } else {
-                            print("ImmersiveSpace open failed or canceled.")
-                        }
+                        _ = await openImmersiveSpace(id: appModel.immersiveSpaceID)
                     }
                 }
+                
             }
             .padding()
         }
         .onAppear {
             modelManager.loadModelTypes()
+        }
+        .onDisappear {
+            // Also clear if user navigates away via system or other route
+            modelManager.reset()
+            arViewModel.stopMultipeerServices()
+            Task {
+                await dismissImmersiveSpace()
+            }
         }
     }
 }

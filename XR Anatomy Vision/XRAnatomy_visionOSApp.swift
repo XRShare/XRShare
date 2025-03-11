@@ -15,6 +15,7 @@ struct XRAnatomy_visionOSApp: App {
                 .onAppear {
                     appModel.immersiveSpaceState = .closed
                 }
+                
         }
         .windowStyle(.volumetric)
 

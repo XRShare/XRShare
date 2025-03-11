@@ -51,6 +51,10 @@ final class ModelManager: ObservableObject {
     }
     
     func reset() {
+        // Remove all from the scene
+        placedModels.forEach { model in
+            model.modelEntity?.removeFromParent()
+        }
         placedModels.removeAll()
         modelDict.removeAll()
         entityInitialRotations.removeAll()

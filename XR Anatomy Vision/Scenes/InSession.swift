@@ -40,5 +40,10 @@ struct InSession: View {
         .onAppear {
             print("InSession has appeared. ModelManager has \(modelManager.placedModels.count) models loaded.")
         }
+        .onDisappear{
+            _ = task{
+                await dismissImmersiveSpace()
+            }
+        }
     }
 }
