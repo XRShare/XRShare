@@ -412,7 +412,7 @@ extension ARViewModel {
         // Find and update the model matching this id.
         DispatchQueue.main.async {
 
-        self.model.modelEntity?.transform.matrix = newMatrix
+            self.selectedModel?.modelEntity?.transform.matrix = newMatrix
         print("Updated model \(idString) transform from peer \(peerID.displayName)")
            
         }
