@@ -1,56 +1,64 @@
-//
-//  ModelSelectionView.swift
-//  XR Anatomy
-//
-//  Created by XR Anatomy on 2025-03-11.
-//
-
-
 import SwiftUI
 import RealityKit
 
-struct ModelSelectionView: View {
+struct ModelSelectionScreen: View {
+    @EnvironmentObject var appModel: AppModel
+    @EnvironmentObject var arViewModel: ARViewModel
     @ObservedObject var modelManager: ModelManager
     
+    @Environment(\.openImmersiveSpace) private var openImmersiveSpace
+    
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Select a Model")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                if modelManager.modelTypes.isEmpty {
-                    Text("No models found.")
-                        .foregroundColor(.gray)
-                } else {
-                    ForEach(modelManager.modelTypes, id: \.id) { modelType in
-                        Button(action: {
-                            modelManager.loadModel(for: modelType,
-                                                   headAnchor: AnchorEntity(.head),
-                                                   arViewModel: nil)
-                        }) {
-                            Text("\(modelType.rawValue) Model")
-                                .foregroundColor(.white)
-                                .padding()
-                                .frame(maxWidth: .infinity)
-                                .background(Color.blue)
-                                .cornerRadius(8)
+        VStack(spacing: 20) {
+            Text("Select Your Models")
+                .font(.largeTitle)
+            
+            ScrollView {
+                ForEach(modelManager.modelTypes, id: \.id) { modelType in
+                    Button(modelType.rawValue) {
+                        modelManager.loadModel(for: modelType, arViewModel: arViewModel)
+                    }
+                }
+            }
+            .frame(height: 200)
+
+            Text("Loaded Models: \(modelManager.placedModels.count)")
+
+            List {
+                ForEach(modelManager.placedModels, id: \.id) { mod in
+                    HStack {
+                        Text(mod.modelType.rawValue)
+                        Spacer()
+                        Button("Delete") {
+                            modelManager.removeModel(mod)
+                        }
+                    }
+                }
+            }
+            
+            HStack {
+                Button("Back to Main") {
+                    modelManager.reset()
+                    appModel.currentPage = .mainMenu
+                }
+                
+                Spacer()
+                
+                Button("Enter Immersive") {
+                    Task {
+                        let result = await openImmersiveSpace(id: appModel.immersiveSpaceID)
+                        if case .opened = result {
+                            print("Immersive space opened")
+                        } else {
+                            print("ImmersiveSpace open failed or canceled.")
                         }
                     }
                 }
             }
             .padding()
         }
-        .background(Color.black.opacity(0.8))
-        .cornerRadius(12)
-        .padding()
-    }
-}
-
-struct ModelSelectionView_Previews: PreviewProvider {
-    static var previews: some View {
-        // Use a sample ModelManager for preview purposes.
-        ModelSelectionView(modelManager: ModelManager())
-            .previewLayout(.sizeThatFits)
-            .padding()
+        .onAppear {
+            modelManager.loadModelTypes()
+        }
     }
 }

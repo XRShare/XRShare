@@ -2,7 +2,12 @@ import SwiftUI
 import MultipeerConnectivity
 
 enum SessionPage {
-    case mainMenu, joinSession, hostSession, hostEntityEditor, inSession
+    case mainMenu
+    case joinSession
+    case hostSession
+    case hostEntityEditor
+    case modelSelection
+    case inSession
 }
 
 enum ImmersiveSpaceState {
@@ -17,7 +22,7 @@ final class AppModel: ObservableObject {
     // For the UI in “JoinSession”
     @Published var availableSessions: [(peerID: MCPeerID, sessionName: String)] = []
     
-    // Store your AR session ID, name, role, etc.
+    // Store your AR session info
     var sessionID: String = ""
     var sessionName: String = ""
     var userRole: UserRole = .openSession
@@ -25,29 +30,17 @@ final class AppModel: ObservableObject {
     // The ID for the immersive space
     let immersiveSpaceID: String = "ImmersiveSpace"
     
-    
     // MARK: - Hosting
     func hostSession() {
-        // Example: set ID and name
         sessionID = UUID().uuidString
         if sessionName.isEmpty {
             sessionName = "visionOS-Hosted"
         }
-        
-        // Forward to ARViewModel or custom connectivity service
-        // arViewModel?.startHosting(sessionID: sessionID, sessionName: sessionName)
         print("Hosting session: ID=\(sessionID), Name=\(sessionName)")
     }
     
     // MARK: - Joining
     func joinSession() {
-        // Forward to ARViewModel or custom connectivity service
-        // arViewModel?.startBrowsingForSessions()
         print("Joining a session (browsing).")
     }
-    
-    // You could add callbacks from MyCustomConnectivityService here:
-    // e.g., foundPeer, lostPeer, etc., to update `availableSessions`.
-    // The difference is that it’s no longer the direct MultipeerSessionDelegate.
 }
- 

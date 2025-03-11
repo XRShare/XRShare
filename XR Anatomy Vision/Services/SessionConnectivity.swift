@@ -1,11 +1,3 @@
-//
-//  SessionConnectivity.swift
-//  XR Anatomy
-//
-//  Created by XR Anatomy on 2025-03-11.
-//
-
-
 import RealityKit
 import ARKit
 import MultipeerConnectivity
@@ -14,21 +6,17 @@ import _RealityKit_SwiftUI
 /// Handles anchor management, HUD positioning, and transform broadcast
 final class SessionConnectivity: ObservableObject {
     
-    // Reuse or create methods for anchor setup
     func addAnchorsIfNeeded(headAnchor: AnchorEntity,
                             modelAnchor: AnchorEntity,
                             content: RealityViewContent) {
-        // 1. Add the HUD anchor entity (headAnchor) to the AR scene.
         if headAnchor.parent == nil {
             content.add(headAnchor)
         }
-        // 2. Add the world anchor entity (modelAnchor) for placed models.
         if modelAnchor.parent == nil {
             content.add(modelAnchor)
         }
     }
     
-    // Reuse or create method for 3D HUD setup
     func setupHUD(_ hudEntity: Entity, headAnchor: AnchorEntity) {
         hudEntity.setPosition([0, 0.2, -1], relativeTo: headAnchor)
         if hudEntity.parent == nil {

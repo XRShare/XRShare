@@ -4,17 +4,22 @@ import SwiftUI
 struct XRAnatomy_visionOSApp: App {
     @StateObject private var appModel = AppModel()
     @StateObject private var arViewModel = ARViewModel()
+    @StateObject private var modelManager = ModelManager()
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            
+            ContentView(modelManager: modelManager)
                 .environmentObject(appModel)
                 .environmentObject(arViewModel)
+                .onAppear {
+                    appModel.immersiveSpaceState = .closed
+                }
         }
         .windowStyle(.volumetric)
 
         ImmersiveSpace(id: appModel.immersiveSpaceID) {
-            InSession()
+            InSession( modelManager: modelManager)
                 .environmentObject(appModel)
                 .environmentObject(arViewModel)
                 .onAppear {

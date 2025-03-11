@@ -1,9 +1,3 @@
-//
-//  SessionNameInputAlert.swift
-//  XR Anatomy
-//
-//  Created by Ali Kara on 2025-02-26.
-//
 import SwiftUI
 
 struct SessionNameInputAlert: View {
@@ -14,14 +8,12 @@ struct SessionNameInputAlert: View {
     var body: some View {
         if isPresented {
             ZStack {
-                // Semi-transparent overlay
                 Color.black.opacity(0.4)
                     .ignoresSafeArea()
                     .onTapGesture {
                         isPresented = false
                     }
 
-                // Alert dialog
                 VStack(spacing: 20) {
                     Text("Enter Session Name")
                         .font(.headline)
@@ -38,7 +30,6 @@ struct SessionNameInputAlert: View {
 
                         Button("OK") {
                             isPresented = false
-                            
                             onComplete()
                         }
                         .padding(.horizontal)
@@ -50,6 +41,6 @@ struct SessionNameInputAlert: View {
                 .shadow(radius: 10)
                 .padding(.horizontal, 40)
             }
-        } 
+        }
     }
 }

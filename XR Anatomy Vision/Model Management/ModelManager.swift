@@ -1,18 +1,5 @@
-//
-//  ModelManager.swift
-//  XR Anatomy
-//
-//  Created by XR Anatomy on 2025-03-11.
-//
-
-
 import SwiftUI
 import RealityKit
-
-/// Stores the last known transforms of Entities for comparison
-final class TransformCache: ObservableObject {
-    @Published var lastTransforms: [Entity.ID: simd_float4x4] = [:]
-}
 
 /// Manages placed models, gestures, and related logic
 final class ModelManager: ObservableObject {
@@ -20,49 +7,47 @@ final class ModelManager: ObservableObject {
     @Published var modelDict: [Entity: Model] = [:]
     @Published var entityInitialRotations: [Entity: simd_quatf] = [:]
     @Published var modelTypes: [ModelType] = []
-    
-    // Cache last transforms
+
     var transformCache = TransformCache()
     
     init() {
         loadModelTypes()
     }
-    
-    // MARK: - Model Type Loading
-    
+
     func loadModelTypes() {
         self.modelTypes = ModelType.allCases()
         print("Loaded model types: \(modelTypes.map { $0.rawValue })")
     }
-    
-    // MARK: - Public Model Methods
-    
-    func loadModel(for modelType: ModelType, headAnchor: AnchorEntity, arViewModel: ARViewModel?) {
+
+    // MARK: - Loading a ModelEntity
+    func loadModel(for modelType: ModelType, arViewModel: ARViewModel?) {
         Task {
             print("Attempting to load model: \(modelType.rawValue).usdz")
             let model = await Model.load(modelType: modelType)
             if let entity = model.modelEntity {
-                modelDict[entity] = model
-                placedModels.append(model)
-                
-                // Default position if not already set
-                if await entity.position == SIMD3<Float>(repeating: 0.0) {
-                    await entity.setPosition([0, 0, -1], relativeTo: headAnchor)
-                    model.position = await entity.position
+                // Add to placedModels
+                await MainActor.run {
+                    self.modelDict[entity] = model
+                    self.placedModels.append(model)
                 }
-                
-                // Register with the synchronization service
-                if let customService =
-                    await arViewModel?.currentScene?.synchronizationService as? MyCustomConnectivityService {
+                // Optionally register with custom sync
+                if let customService = await arViewModel?.currentScene?.synchronizationService
+                    as? MyCustomConnectivityService {
                     customService.registerEntity(entity)
                 }
-                
-                print("\(modelType.rawValue) chosen – model ready for placement")
-                print("Placed \(modelType.rawValue) at position: \(await entity.transform.translation)")
+                print("\(modelType.rawValue) chosen – model loaded (not placed yet)")
             } else {
                 print("Failed to load model entity for \(modelType.rawValue).usdz")
             }
         }
+    }
+
+    // MARK: - Remove a Single Model
+    func removeModel(_ model: Model) {
+        guard let entity = model.modelEntity else { return }
+        entity.removeFromParent()
+        placedModels.removeAll { $0.id == model.id }
+        modelDict = modelDict.filter { $0.value.id != model.id }
     }
     
     func reset() {
@@ -72,8 +57,7 @@ final class ModelManager: ObservableObject {
         transformCache.lastTransforms.removeAll()
     }
     
-    // MARK: - AR/RealityKit Updates
-    
+    // MARK: - Update the 3D Scene
     func updatePlacedModels(
         content: RealityViewContent,
         modelAnchor: AnchorEntity,
@@ -81,21 +65,22 @@ final class ModelManager: ObservableObject {
         arViewModel: ARViewModel
     ) {
         for model in placedModels {
-            guard !model.isLoading(), let entity = model.modelEntity else {
-                continue
-            }
-            // If not positioned yet, place in front of model anchor
-            if entity.transform.translation == SIMD3<Float>(repeating: 0) {
+            guard let entity = model.modelEntity else { continue }
+            
+            // If entity has never been positioned, place it in front of modelAnchor
+            if entity.transform.translation == .zero {
                 DispatchQueue.main.async {
                     entity.setPosition([0, 0, -1], relativeTo: modelAnchor)
                     model.position = entity.position
                 }
             }
-            // Ensure entity is a child of the modelAnchor
+            
+            // Ensure the entity is a child of modelAnchor
             if entity.parent == nil {
                 modelAnchor.addChild(entity)
                 content.add(entity)
             }
+            
             // Check for transform changes; broadcast if changed
             let currentMatrix = entity.transform.matrix
             if let lastMatrix = transformCache.lastTransforms[entity.id],
@@ -105,14 +90,14 @@ final class ModelManager: ObservableObject {
                     self.transformCache.lastTransforms[entity.id] = currentMatrix
                 }
             } else if transformCache.lastTransforms[entity.id] == nil {
-                // First time tracking this entity
+                // first time tracking
                 DispatchQueue.main.async {
                     self.transformCache.lastTransforms[entity.id] = currentMatrix
                 }
             }
         }
     }
-    
+
     // MARK: - Gestures
     
     var dragGesture: some Gesture {

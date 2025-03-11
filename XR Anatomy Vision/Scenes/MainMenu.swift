@@ -4,9 +4,7 @@ struct MainMenu: View {
     @EnvironmentObject var appModel: AppModel
     @EnvironmentObject var arViewModel: ARViewModel
     
-    // Add environment values to open/dismiss immersive space
     @Environment(\.openImmersiveSpace) private var openImmersiveSpace
-    // @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace // if needed
     
     @State private var isJoiningSession = false
     @State private var isEnteringSessionName = false
@@ -20,7 +18,6 @@ struct MainMenu: View {
             bgColor.ignoresSafeArea()
             
             VStack(spacing: 20) {
-                // Your existing "logo_white"
                 Image("logo_white")
                     .resizable()
                     .scaledToFit()
@@ -36,12 +33,9 @@ struct MainMenu: View {
                         .foregroundColor(.black)
                         .padding()
                     
-                    // List discovered sessions
                     List(arViewModel.availableSessions, id: \.self) { session in
                         Button {
-                            // Connect to the chosen session
                             arViewModel.invitePeer(session)
-                            // Once invitation is sent, hide UI and open the immersive space
                             isJoiningSession = false
                             moveToInSession()
                         } label: {
@@ -67,19 +61,16 @@ struct MainMenu: View {
                     .padding()
                     
                 } else {
-                    // The three main options
                     ForEach(["Host session", "Join session", "Open session"], id: \.self) { title in
                         Button {
                             switch title {
                             case "Host session":
-                                // Prompt user to enter a session name
                                 isEnteringSessionName = true
                             case "Join session":
                                 arViewModel.userRole = .viewer
                                 arViewModel.startMultipeerServices()
                                 isJoiningSession = true
                             case "Open session":
-                                // “Open” meaning you broadcast publicly with a default session
                                 arViewModel.userRole = .openSession
                                 arViewModel.sessionName = "OpenSession"
                                 arViewModel.sessionID = UUID().uuidString
@@ -99,7 +90,7 @@ struct MainMenu: View {
                 }
             }
             
-            // If the user wants to host and must enter a custom session name
+            // Session name input overlay
             if isEnteringSessionName {
                 SessionNameInputAlert(
                     isPresented: $isEnteringSessionName,
@@ -111,19 +102,7 @@ struct MainMenu: View {
                     arViewModel.sessionID = UUID().uuidString
                     arViewModel.startMultipeerServices()
                     
-                    // Trigger immersive space opening before transitioning
                     Task { @MainActor in
-                        let res = await openImmersiveSpace(id: appModel.immersiveSpaceID)
-                        switch res {
-                        case .opened:
-                            print("immersive space opened")
-                        case .error:
-                            print("error opening immersive space")
-                        case .userCancelled:
-                            print("user cancelled")
-                        @unknown default:
-                            break
-                        }
                         moveToInSession()
                     }
                 }
@@ -131,10 +110,8 @@ struct MainMenu: View {
         }
     }
     
-    /// Moves the app to the “in session” screen.
     private func moveToInSession() {
-        // Set the high-level app flow
-        appModel.currentPage = .inSession
+        appModel.currentPage = .modelSelection
     }
 }
 
