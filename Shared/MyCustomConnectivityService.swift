@@ -1,141 +1,385 @@
-#if os(visionOS)
 import Foundation
 import RealityKit
 import MultipeerConnectivity
 
-/// Typealias matching Apple’s internal Identifier.
-public typealias Identifier = Entity.ID
+#if os(iOS)
+import ARKit
+#endif
 
-/// A minimal custom peer type conforming to `SynchronizationPeerID`.
+// MARK: - Custom PeerID
 public final class CustomPeerID: SynchronizationPeerID, Hashable {
     private let uuid = UUID()
     
     public static func == (lhs: CustomPeerID, rhs: CustomPeerID) -> Bool {
         lhs.uuid == rhs.uuid
     }
-    
     public func hash(into hasher: inout Hasher) {
         hasher.combine(uuid)
     }
 }
 
-/// A custom connectivity service to replicate Apple’s MultipeerConnectivityService for visionOS.
-public final class MyCustomConnectivityService: NSObject, SynchronizationService {
+// MARK: - MyCustomConnectivityService
+/// A custom connectivity service for RealityKit scene synchronization
+class MyCustomConnectivityService: NSObject, RealityKit.SceneSynchronizationService {
+    // MARK: - Properties
+    private var multipeerSession: MultipeerSession
+    weak var arViewModel: ARViewModel?
+    weak var modelManager: ModelManager?
     
-    // MARK: - Public Types & Properties
+    // Entity tracking
+    private var entityLookup: [UUID: Entity] = [:]
+    private var locallyOwnedEntities: Set<UUID> = []
     
-    public typealias Identifier = Entity.ID
-    public let session: MCSession
-    public var localPeerIdentifier: any SynchronizationPeerID { localPeer }
-    
-    // MARK: - Private Storage
-    
-    private var entityLookup: [Identifier: Entity] = [:]
-    private var entityOwners: [Identifier: CustomPeerID] = [:]
-    public let localPeer = CustomPeerID()
-    private var isSyncing = false
+    // Queue for handling received data
+    private let receivingQueue = DispatchQueue(label: "com.xranatomy.receivingQueue")
     
     // MARK: - Initialization
     
-    public init(session: MCSession) throws {
-        self.session = session
+    init(multipeerSession: MultipeerSession, arViewModel: ARViewModel?, modelManager: ModelManager? = nil) {
+        self.multipeerSession = multipeerSession
+        self.arViewModel = arViewModel
+        self.modelManager = modelManager
         super.init()
-        self.session.delegate = self
+        
+        print("MyCustomConnectivityService initialized")
     }
     
-    // MARK: - Public Synchronization Methods
+    // MARK: - Entity Registration & Tracking
     
-    public func startSync() {
-        guard !isSyncing else { return }
-        isSyncing = true
-        print("MyCustomConnectivityService: startSync() called.")
-    }
-    
-    public func stopSync() {
-        guard isSyncing else { return }
-        isSyncing = false
-        print("MyCustomConnectivityService: stopSync() called.")
-    }
-    
-    public func setHandshake(count: UInt32, timeoutMs: UInt32) {
-        print("Configured handshake: count=\(count), timeout=\(timeoutMs)ms")
-    }
-    
-    // MARK: - SynchronizationService Protocol Conformance
-    
-    public func entity(for identifier: Identifier) -> Entity? {
-        return entityLookup[identifier]
-    }
-    
-    public func owner(of entity: Entity) -> (any SynchronizationPeerID)? {
-        return entityOwners[entity.id]
-    }
-    
-    @discardableResult
-    public func giveOwnership(of entity: Entity, toPeer: any SynchronizationPeerID) -> Bool {
-        guard let newOwner = toPeer as? CustomPeerID else {
-            return false
+    /// Register an entity with the service for synchronization
+    func registerEntity(_ entity: Entity, modelType: ModelType? = nil, ownedByLocalPeer: Bool = true) {
+        let entityId = entity.id
+        entityLookup[entityId] = entity
+        
+        if ownedByLocalPeer {
+            locallyOwnedEntities.insert(entityId)
+            
+            // If this is an anchor entity, mark all its children as locally owned too
+            if entity is AnchorEntity {
+                for child in entity.children {
+                    locallyOwnedEntities.insert(child.id)
+                    entityLookup[child.id] = child
+                }
+            }
         }
-        entityOwners[entity.id] = newOwner
-        return true
-    }
-    
-    // MARK: - Entity Management
-    
-    public func registerEntity(_ entity: Entity) {
-        entityLookup[entity.id] = entity
-        entityOwners[entity.id] = localPeer
-    }
-    
-    // MARK: - Bridging Methods (Simplified)
-    
-    /// Converts a peer ID into its core pointer representation.
-    public func __fromCore(peerID: __PeerIDRef) -> (any SynchronizationPeerID)? {
-        let rawPointer = unsafeBitCast(peerID, to: UnsafeRawPointer.self)
-        return Unmanaged<CustomPeerID>.fromOpaque(rawPointer).takeUnretainedValue()
-    }
-
-    public func __toCore(peerID: any SynchronizationPeerID) -> __PeerIDRef {
-        guard let customID = peerID as? CustomPeerID else {
-            fatalError("Unexpected peer type for bridging.")
+        
+        // Add model type component if available
+        if let modelType = modelType, entity is ModelEntity {
+            entity.components[ModelTypeComponent.self] = ModelTypeComponent(type: modelType)
         }
-        let rawPointer = UnsafeRawPointer(Unmanaged.passUnretained(customID).toOpaque())
-        return unsafeBitCast(rawPointer, to: __PeerIDRef.self)
+        
+        print("Registered entity: \(entityId) (locally owned: \(ownedByLocalPeer))")
+    }
+    
+    /// Unregister an entity from the service
+    func unregisterEntity(_ entity: Entity) {
+        let entityId = entity.id
+        entityLookup.removeValue(forKey: entityId)
+        locallyOwnedEntities.remove(entityId)
+        
+        // If this is an anchor entity, unregister all its children too
+        if entity is AnchorEntity {
+            for child in entity.children {
+                entityLookup.removeValue(forKey: child.id)
+                locallyOwnedEntities.remove(child.id)
+            }
+        }
+        
+        print("Unregistered entity: \(entityId)")
+    }
+    
+    // MARK: - SceneSynchronizationService Protocol Methods
+    
+    func addProvider(provider: NSObjectProtocol) {
+        // Not used in this implementation
+    }
+    
+    func removeProvider(provider: NSObjectProtocol) {
+        // Not used in this implementation
+    }
+    
+    func synchronize(clientId: MCPeerID, snapshot: RealityKit.SceneSnapshot) {
+        // We don't use RealityKit's built-in sync mechanism
+        // Instead we build our own sync through our custom protocol
+    }
+    
+    // MARK: - Data Sending Methods
+    
+    /// Send model transform to all peers
+    func sendModelTransform(entity: Entity, modelType: ModelType? = nil) {
+        guard multipeerSession.session.connectedPeers.count > 0 else { return }
+        
+        let transformArray = entity.transform.matrix.toArray()
+        let modelTypeString = modelType?.rawValue
+        let modelID = "model-\(entity.id)"
+        
+        let payload = ModelTransformPayload(
+            modelID: modelID,
+            transform: transformArray,
+            modelType: modelTypeString
+        )
+        
+        do {
+            let data = try JSONEncoder().encode(payload)
+            multipeerSession.sendToAllPeers(data, dataType: .modelTransform)
+            
+            // Debug messages slowing things down? Comment out or limit frequency.
+            // print("Sent model transform: \(modelID)")
+        } catch {
+            print("Error encoding model transform: \(error)")
+        }
+    }
+    
+    /// Broadcast creation of an anchor with optional model
+    func broadcastAnchorCreation(_ anchor: AnchorEntity, modelType: ModelType? = nil) {
+        guard multipeerSession.session.connectedPeers.count > 0 else { return }
+        
+        // Get all ModelEntity children
+        let modelEntities = anchor.children.compactMap { $0 as? ModelEntity }
+        guard !modelEntities.isEmpty || modelType != nil else {
+            print("Warning: Trying to broadcast anchor without model entities or model type")
+            return
+        }
+        
+        let anchorTransform = anchor.transform.matrix.toArray()
+        let modelID = "anchor-\(anchor.id)"
+        let modelTypeString = modelType?.rawValue ?? modelEntities.first?.components[ModelTypeComponent.self]?.type.rawValue
+        
+        // Use empty Data if no ARKit anchor
+        let anchorData = Data()
+        
+        let payload = AnchorTransformPayload(
+            anchorData: anchorData,
+            modelID: modelID,
+            transform: anchorTransform,
+            modelType: modelTypeString
+        )
+        
+        do {
+            let data = try JSONEncoder().encode(payload)
+            multipeerSession.sendToAllPeers(data, dataType: .anchorWithTransform)
+            print("Broadcast anchor creation with model type: \(modelTypeString ?? "unknown")")
+        } catch {
+            print("Error encoding anchor creation: \(error)")
+        }
+    }
+    
+    #if os(iOS)
+    /// Broadcast ARKit anchor removal
+    func broadcastAnchorRemoval(_ anchor: ARAnchor) {
+        guard multipeerSession.session.connectedPeers.count > 0 else { return }
+        
+        do {
+            let data = try NSKeyedArchiver.archivedData(withRootObject: anchor.identifier.uuidString, requiringSecureCoding: true)
+            multipeerSession.sendToAllPeers(data, dataType: .removeAnchors)
+            print("Broadcast anchor removal: \(anchor.identifier)")
+        } catch {
+            print("Error encoding anchor removal: \(error)")
+        }
+    }
+    #endif
+    
+    // MARK: - Data Receiving Methods
+    
+    /// Handle incoming multipeer data
+    func handleReceivedData(_ data: Data, from peerID: MCPeerID) {
+        // Process received data on a background queue
+        receivingQueue.async {
+            guard let dataType = DataType(rawValue: data[0]),
+                  data.count > 1 else {
+                print("Invalid data received")
+                return
+            }
+            
+            let payload = data.subdata(in: 1..<data.count)
+            
+            // Handle based on data type
+            switch dataType {
+            case .modelTransform:
+                self.handleModelTransform(payload, from: peerID)
+            case .anchorWithTransform:
+                self.handleAnchorWithTransform(payload, from: peerID)
+            case .collaborationData:
+                #if os(iOS)
+                self.handleCollaborationData(payload, from: peerID)
+                #endif
+            case .removeAnchors:
+                #if os(iOS)
+                self.handleRemoveAnchors(payload, from: peerID)
+                #endif
+            default:
+                print("Received unsupported data type: \(dataType)")
+            }
+        }
     }
 }
 
-// MARK: - MCSessionDelegate Implementation
-
-extension MyCustomConnectivityService: MCSessionDelegate {
-    public func session(_ session: MCSession, peer peerID: MCPeerID, didChange state: MCSessionState) {
-        print("Peer \(peerID.displayName) changed state to \(state)")
-    }
-    
-    public func session(_ session: MCSession, didReceive data: Data, fromPeer peerID: MCPeerID) {
-        print("Received data from peer \(peerID.displayName)")
-    }
-    
-    public func session(_ session: MCSession, didReceive stream: InputStream, withName streamName: String, fromPeer peerID: MCPeerID) {
-        print("Received unexpected stream '\(streamName)' from \(peerID.displayName); ignoring.")
-    }
-    
-    public func session(_ session: MCSession,
-                        didStartReceivingResourceWithName resourceName: String,
-                        fromPeer peerID: MCPeerID,
-                        with progress: Progress) {
-        print("Started receiving resource '\(resourceName)' from \(peerID.displayName).")
-    }
-    
-    public func session(_ session: MCSession,
-                        didFinishReceivingResourceWithName resourceName: String,
-                        fromPeer peerID: MCPeerID,
-                        at localURL: URL?,
-                        withError error: Error?) {
-        if let error = error {
-            print("Error receiving resource '\(resourceName)' from \(peerID.displayName): \(error.localizedDescription)")
-        } else {
-            print("Finished receiving resource '\(resourceName)' from \(peerID.displayName).")
+// MARK: - Data Type Handlers
+private extension MyCustomConnectivityService {
+    func handleReceivedData(dataType: DataType, payload: Data, from peerID: MCPeerID) {
+        switch dataType {
+        case .anchorWithTransform:
+            handleAnchorWithTransform(payload, from: peerID)
+        case .modelTransform:
+            handleModelTransform(payload, from: peerID)
+        #if os(iOS)
+        case .collaborationData:
+            handleCollaborationData(payload, from: peerID)
+        case .removeAnchors:
+            handleRemoveAnchors(payload, from: peerID)
+        #endif
+        default:
+            print("Received data type \(dataType) which is unimplemented.")
         }
     }
+    
+    func handleAnchorWithTransform(_ data: Data, from peerID: MCPeerID) {
+        do {
+            let payload = try JSONDecoder().decode(AnchorTransformPayload.self, from: data)
+            print("handleAnchorWithTransform: modelID=\(payload.modelID)")
+            
+            let matrix = simd_float4x4.fromArray(payload.transform)
+            let anchor = AnchorEntity()
+            anchor.transform.matrix = matrix
+            
+            // If we have a model type, load and attach the model
+            if let modelTypeStr = payload.modelType,
+               let modelType = ModelType(rawValue: modelTypeStr) {
+                
+                // On the main thread, attempt to load and place the model
+                DispatchQueue.main.async {
+                    Task {
+                        // First check if we already have this model loaded in our arViewModel
+                        if let arViewModel = self.arViewModel,
+                           let existingModel = arViewModel.models.first(where: { $0.modelType.rawValue.lowercased() == modelTypeStr.lowercased() }),
+                           let modelEntity = existingModel.modelEntity?.clone(recursive: true) {
+                            
+                            // Use the existing model
+                            anchor.addChild(modelEntity)
+                            
+                            // Register entities
+                            self.registerEntity(anchor, ownedByLocalPeer: false)
+                            self.registerEntity(modelEntity, modelType: existingModel.modelType, ownedByLocalPeer: false)
+                            
+                            // Add to scene
+                            self.arViewModel?.currentScene?.addAnchor(anchor)
+                            
+                            print("Added anchor from peer using existing model")
+                        } else {
+                            // Otherwise load the model
+                            let model = await Model.load(modelType: modelType)
+                            
+                            if let modelEntity = model.modelEntity {
+                                await MainActor.run {
+                                    anchor.addChild(modelEntity)
+                                    
+                                    // Register entities
+                                    self.registerEntity(anchor, ownedByLocalPeer: false)
+                                    self.registerEntity(modelEntity, modelType: modelType, ownedByLocalPeer: false)
+                                    
+                                    // Add to scene
+                                    self.arViewModel?.currentScene?.addAnchor(anchor)
+                                    
+                                    // Add to model manager if available
+                                    if let modelManager = self.modelManager {
+                                        modelManager.modelDict[modelEntity] = model
+                                        modelManager.placedModels.append(model)
+                                    }
+                                    
+                                    print("Added anchor from peer with newly loaded model")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch {
+            print("Error decoding AnchorTransformPayload: \(error)")
+        }
+    }
+    
+    func handleModelTransform(_ data: Data, from peerID: MCPeerID) {
+        do {
+            let payload = try JSONDecoder().decode(ModelTransformPayload.self, from: data)
+            
+            // Process on main thread for UI updates
+            DispatchQueue.main.async {
+                let matrix = simd_float4x4.fromArray(payload.transform)
+                
+                // Try to find the entity by its model type first
+                if let modelTypeStr = payload.modelType {
+                    // First check model manager
+                    if let modelManager = self.modelManager {
+                        for (entity, model) in modelManager.modelDict {
+                            if model.modelType.rawValue.lowercased() == modelTypeStr.lowercased() {
+                                entity.transform.matrix = matrix
+                                return
+                            }
+                        }
+                    }
+                    
+                    // Then check if any matching entities in the lookup
+                    for (_, entity) in self.entityLookup {
+                        if let component = entity.components[ModelTypeComponent.self],
+                           component.type.rawValue.lowercased() == modelTypeStr.lowercased() {
+                            entity.transform.matrix = matrix
+                            return
+                        }
+                    }
+                }
+                
+                // Fallback to entity ID lookup
+                for (entityID, entity) in self.entityLookup {
+                    if "model-\(entityID)" == payload.modelID {
+                        entity.transform.matrix = matrix
+                        return
+                    }
+                }
+            }
+        } catch {
+            print("Error decoding ModelTransformPayload: \(error)")
+        }
+    }
+    
+    #if os(iOS)
+    func handleCollaborationData(_ data: Data, from peerID: MCPeerID) {
+        guard let arView = arViewModel?.arView else { return }
+        
+        do {
+            if let collaborationData = try NSKeyedUnarchiver.unarchivedObject(
+                ofClass: ARSession.CollaborationData.self,
+                from: data) {
+                
+                arView.session.update(with: collaborationData)
+            }
+        } catch {
+            print("Error decoding collaboration data: \(error)")
+        }
+    }
+    
+    func handleRemoveAnchors(_ data: Data, from peerID: MCPeerID) {
+        guard let arView = arViewModel?.arView else { return }
+        
+        do {
+            if let uuidString = try NSKeyedUnarchiver.unarchivedObject(
+                ofClass: NSString.self,
+                from: data) as String?,
+               let uuid = UUID(uuidString: uuidString) {
+                
+                // Find and remove the anchor
+                if let anchor = arView.session.currentFrame?.anchors.first(where: { $0.identifier == uuid }) {
+                    arView.session.remove(anchor: anchor)
+                    print("Removed anchor: \(uuid)")
+                }
+                
+                // Remove from arViewModel's tracked anchors
+                if let index = arViewModel?.placedAnchors.firstIndex(where: { $0.identifier == uuid }) {
+                    arViewModel?.placedAnchors.remove(at: index)
+                }
+            }
+        } catch {
+            print("Error decoding anchor removal data: \(error)")
+        }
+    }
+    #endif
 }
-#endif

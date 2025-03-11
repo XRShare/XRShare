@@ -23,7 +23,7 @@ final class ModelManager: ObservableObject {
     func loadModel(for modelType: ModelType, arViewModel: ARViewModel?) {
         Task {
             print("Attempting to load model: \(modelType.rawValue).usdz")
-            let model = await Model.load(modelType: modelType)
+            let model = await Model.load(modelType: modelType, arViewModel: arViewModel)
             if let entity = model.modelEntity {
                 // Add to placedModels
                 await MainActor.run {
@@ -33,7 +33,7 @@ final class ModelManager: ObservableObject {
                 // Optionally register with custom sync
                 if let customService = await arViewModel?.currentScene?.synchronizationService
                     as? MyCustomConnectivityService {
-                    customService.registerEntity(entity)
+                    customService.registerEntity(entity, modelType: modelType)
                 }
                 print("\(modelType.rawValue) chosen – model loaded (not placed yet)")
             } else {
@@ -118,6 +118,10 @@ final class ModelManager: ObservableObject {
             .onEnded { value in
                 guard let model = self.modelDict[value.entity] else { return }
                 model.position = value.entity.position
+                // Broadcast transform change
+                if let arViewModel = model.arViewModel {
+                    arViewModel.sendTransform(for: value.entity)
+                }
                 print("Drag gesture ended for \(value.entity.name)")
             }
     }
@@ -137,6 +141,10 @@ final class ModelManager: ObservableObject {
                 guard let model = self.modelDict[value.entity] else { return }
                 model.scale = value.entity.scale
                 model.updateCollisionBox()
+                // Broadcast transform change
+                if let arViewModel = model.arViewModel {
+                    arViewModel.sendTransform(for: value.entity)
+                }
                 print("Scaling gesture ended")
             }
     }
@@ -162,6 +170,11 @@ final class ModelManager: ObservableObject {
             .onEnded { value in
                 let entity = value.entity
                 self.entityInitialRotations.removeValue(forKey: entity)
+                // Broadcast transform change
+                if let model = self.modelDict[entity],
+                   let arViewModel = model.arViewModel {
+                    arViewModel.sendTransform(for: entity)
+                }
                 print("Rotation gesture ended for \(entity.name)")
             }
     }

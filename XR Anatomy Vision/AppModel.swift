@@ -4,7 +4,6 @@ import MultipeerConnectivity
 enum SessionPage {
     case mainMenu
     case modelSelection
-    case inSession
 }
 
 enum ImmersiveSpaceState {

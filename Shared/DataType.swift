@@ -2,8 +2,10 @@
 //  DataType.swift
 //  XR Anatomy
 //
-//  Created by Ali Kara on 2025-02-12.
+//  Created by ...
 //
+
+import Foundation
 
 enum DataType: UInt8 {
     case arWorldMap = 0
@@ -11,7 +13,12 @@ enum DataType: UInt8 {
     case collaborationData = 2
     case modelTransform = 3
     case removeAnchors = 4
+    
+    /// We'll use this one to send anchor + transform in one go.
     case anchorWithTransform = 5
+    
     case permissionUpdate = 6
     case textMessage = 7
+    
+    // Add others if needed...
 }

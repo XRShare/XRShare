@@ -1,10 +1,12 @@
 import SwiftUI
+import ARKit
 
 @main
 struct XRAnatomy_visionOSApp: App {
     @StateObject private var appModel = AppModel()
     @StateObject private var arViewModel = ARViewModel()
     @StateObject private var modelManager = ModelManager()
+    @State var session = ARKitSession()
 
     var body: some Scene {
         WindowGroup {

@@ -12,12 +12,6 @@ struct ContentView: View {
             
         case .modelSelection:
             ModelSelectionScreen(modelManager: modelManager)
-            
-        case .inSession:
-            VStack {
-                Text("In-session is displayed in the ImmersiveSpace.")
-                    .padding()
-            }
         }
     }
 }

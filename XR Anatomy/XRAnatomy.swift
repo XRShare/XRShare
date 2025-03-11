@@ -5,10 +5,17 @@ import SwiftUI
 @main
 struct XRAnatomyApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-
+    @StateObject private var arViewModel = ARViewModel()
+    
     var body: some Scene {
         WindowGroup {
-            XRAnatomyView()  // <-- the first view that loads. Think of this as the real entrypoint of the app.
+            XRAnatomyView()
+                .environmentObject(arViewModel)
+                .onAppear {
+                    // Initialize the model loading process but don't start multipeer automatically
+                    arViewModel.deferMultipeerServicesUntilModelsLoad()
+                    arViewModel.loadModels()
+                }
         }
     }
 }

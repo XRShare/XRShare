@@ -11,10 +11,12 @@ import Foundation
 struct ModelTransformPayload: Codable {
     let modelID: String
     let transform: [Float] // a 16-element array representing a 4x4 matrix
+    let modelType: String?
 }
 
 struct AnchorTransformPayload: Codable {
     let anchorData: Data
     let modelID: String
     let transform: [Float]
+    let modelType: String?
 }
