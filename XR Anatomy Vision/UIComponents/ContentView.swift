@@ -10,15 +10,6 @@ struct ContentView: View {
         case .mainMenu:
             MainMenu()
             
-        case .joinSession:
-            JoinSession()
-            
-        case .hostSession:
-            HostSession()
-            
-        case .hostEntityEditor:
-            HostEntityEditorView()
-            
         case .modelSelection:
             ModelSelectionScreen(modelManager: modelManager)
             

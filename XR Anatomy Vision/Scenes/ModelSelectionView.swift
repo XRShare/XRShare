@@ -5,9 +5,10 @@ struct ModelSelectionScreen: View {
     @EnvironmentObject var appModel: AppModel
     @EnvironmentObject var arViewModel: ARViewModel
     @ObservedObject var modelManager: ModelManager
-    
+
     @Environment(\.openImmersiveSpace) private var openImmersiveSpace
-    
+    @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace  // Added to dismiss immersive view
+
     var body: some View {
         VStack(spacing: 20) {
             Text("Select Your Models")
@@ -38,7 +39,15 @@ struct ModelSelectionScreen: View {
             
             HStack {
                 Button("Back to Main") {
+                    // Clear models
                     modelManager.reset()
+                    // Reset multipeer services
+                    arViewModel.stopMultipeerServices()
+                    // Exit the immersive view
+                    task{
+                        await dismissImmersiveSpace()
+                    }
+                    // Switch the app page back to main
                     appModel.currentPage = .mainMenu
                 }
                 

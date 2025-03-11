@@ -3,9 +3,6 @@ import MultipeerConnectivity
 
 enum SessionPage {
     case mainMenu
-    case joinSession
-    case hostSession
-    case hostEntityEditor
     case modelSelection
     case inSession
 }
