@@ -28,10 +28,8 @@ struct InSession: View {
             let headAnchor = AnchorEntity(.head)
             content.add(headAnchor)
             
-            // Important: Set the scene in ARViewModel for synchronization
-            if let scene = RealityViewContent.scene {
-                arViewModel.setCurrentScene(scene)
-            }
+            // Removed invalid cast to RealityKit.Scene.
+            // RealityViewContent is not a RealityKit.Scene, so we no longer set the current scene.
             
             sessionConnectivity.addAnchorsIfNeeded(
                 headAnchor: headAnchor,
@@ -53,7 +51,7 @@ struct InSession: View {
         .onAppear {
             print("InSession has appeared. ModelManager has \(modelManager.placedModels.count) models loaded.")
             // Start multipeer services when the immersive space appears
-            arViewModel.setupAR(modelManager: modelManager)
+            arViewModel.startMultipeerServices(modelManager: modelManager)
         }
         .onDisappear {
             // Clean up when the immersive space is dismissed

@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum DataType: UInt8 {
+enum DataType: UInt8, Codable {
     case arWorldMap = 0
     case anchor = 1
     case collaborationData = 2

@@ -85,7 +85,7 @@ class Utilities {
     static func restart() {
         AppLoadTracker.hasRestarted = true
         guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let window = scene.windows.first
+              let _ = scene.windows.first
         else { return }
 //        #if os(visionOS)
 //        window.rootViewController = UIHostingController(rootView: ContentView(modelManager: modelManager))

@@ -1,12 +1,14 @@
 import Foundation
 import RealityKit
 import SwiftUI
+import Combine
 
 /// Handles session connectivity and synchronization for models in the scene
 class SessionConnectivity: ObservableObject {
     
     /// Track which entities have been registered for synchronization
     private var registeredEntities = Set<Entity.ID>()
+    private var transformCancellables = [AnyCancellable]()
     
     /// Add essential anchors to the RealityView content
     func addAnchorsIfNeeded(
@@ -54,7 +56,7 @@ class SessionConnectivity: ObservableObject {
     func broadcastAnchorCreation(_ anchorEntity: AnchorEntity, modelType: ModelType? = nil) {
         let transformArr = anchorEntity.transform.matrix.toArray()
         let modelID = modelType?.rawValue ?? "anchor-\(UUID())"
-        let payload = AnchorTransformPayload(
+        _ = AnchorTransformPayload(
             anchorData: Data(),
             modelID: modelID,
             transform: transformArr,
@@ -63,26 +65,34 @@ class SessionConnectivity: ObservableObject {
         // ...
     }
     
-    private func setupTransformObserver(for entity: ModelEntity) {
-        entity.transform.observe { [weak self] transform in
-            guard let self = self,
-                  !self.isApplyingRemoteTransform, // Skip if applying remote transform
-                  let arViewModel = self.arViewModel else { return }
+    private func setupTransformObserver(for entity: ModelEntity, arViewModel: ARViewModel) {
+        // Ensure the entity is part of a scene
+        guard let scene = entity.scene else {
+            // If the entity is not attached to a scene, we cannot observe updates
+            return
+        }
+
+        let cancellable = scene.subscribe(to: SceneEvents.Update.self) { [weak self] (event: SceneEvents.Update) in
+            guard let self = self, !self.isApplyingRemoteTransform else { return }
+
+            // Retrieve the current transform from the entity
+            let newTransform: Transform = entity.transform
+            let currentMatrix = newTransform.matrix
             
-            // Only broadcast if the change is significant
-            let currentMatrix = transform.matrix
+            // Check if the transform has changed significantly
             if let lastMatrix = entity.components[LastTransformComponent.self]?.matrix,
                !simd_almost_equal_elements(currentMatrix, lastMatrix, 0.0001) {
                 arViewModel.sendTransform(for: entity)
             }
-            
-            // Update the last known transform
+
+            // Update the last known transform component
             entity.components[LastTransformComponent.self] = LastTransformComponent(matrix: currentMatrix)
         }
+        transformCancellables.append(cancellable as! AnyCancellable)
     }
     
     private var isApplyingRemoteTransform = false
 
     func applyRemoteTransform(_ matrix: simd_float4x4, to entity: Entity) {
-    } 
+    }
 }

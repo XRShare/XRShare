@@ -18,17 +18,24 @@ public final class CustomPeerID: SynchronizationPeerID, Hashable {
     }
 }
 
+// MARK: - UUID Conversion Methods
+extension Entity.ID {
+    var stringValue: String {
+        return "\(self)"
+    }
+}
+
 // MARK: - MyCustomConnectivityService
 /// A custom connectivity service for RealityKit scene synchronization
-class MyCustomConnectivityService: NSObject, RealityKit.SceneSynchronizationService {
+class MyCustomConnectivityService: NSObject {
     // MARK: - Properties
     private var multipeerSession: MultipeerSession
     weak var arViewModel: ARViewModel?
     weak var modelManager: ModelManager?
     
     // Entity tracking
-    private var entityLookup: [UUID: Entity] = [:]
-    private var locallyOwnedEntities: Set<UUID> = []
+    private var entityLookup: [Entity.ID: Entity] = [:]
+    private var locallyOwnedEntities: Set<Entity.ID> = []
     
     // Queue for handling received data
     private let receivingQueue = DispatchQueue(label: "com.xranatomy.receivingQueue")
@@ -73,9 +80,8 @@ class MyCustomConnectivityService: NSObject, RealityKit.SceneSynchronizationServ
     
     /// Unregister an entity from the service
     func unregisterEntity(_ entity: Entity) {
-        let entityId = entity.id
-        entityLookup.removeValue(forKey: entityId)
-        locallyOwnedEntities.remove(entityId)
+        entityLookup.removeValue(forKey: entity.id)
+        locallyOwnedEntities.remove(entity.id)
         
         // If this is an anchor entity, unregister all its children too
         if entity is AnchorEntity {
@@ -85,22 +91,7 @@ class MyCustomConnectivityService: NSObject, RealityKit.SceneSynchronizationServ
             }
         }
         
-        print("Unregistered entity: \(entityId)")
-    }
-    
-    // MARK: - SceneSynchronizationService Protocol Methods
-    
-    func addProvider(provider: NSObjectProtocol) {
-        // Not used in this implementation
-    }
-    
-    func removeProvider(provider: NSObjectProtocol) {
-        // Not used in this implementation
-    }
-    
-    func synchronize(clientId: MCPeerID, snapshot: RealityKit.SceneSnapshot) {
-        // We don't use RealityKit's built-in sync mechanism
-        // Instead we build our own sync through our custom protocol
+        print("Unregistered entity: \(entity.id)")
     }
     
     // MARK: - Data Sending Methods
@@ -111,7 +102,7 @@ class MyCustomConnectivityService: NSObject, RealityKit.SceneSynchronizationServ
         
         let transformArray = entity.transform.matrix.toArray()
         let modelTypeString = modelType?.rawValue
-        let modelID = "model-\(entity.id)"
+        let modelID = "model-\(entity.id.stringValue)"
         
         let payload = ModelTransformPayload(
             modelID: modelID,
@@ -142,7 +133,7 @@ class MyCustomConnectivityService: NSObject, RealityKit.SceneSynchronizationServ
         }
         
         let anchorTransform = anchor.transform.matrix.toArray()
-        let modelID = "anchor-\(anchor.id)"
+        let modelID = "anchor-\(anchor.id.stringValue)"
         let modelTypeString = modelType?.rawValue ?? modelEntities.first?.components[ModelTypeComponent.self]?.type.rawValue
         
         // Use empty Data if no ARKit anchor
@@ -185,8 +176,7 @@ class MyCustomConnectivityService: NSObject, RealityKit.SceneSynchronizationServ
     func handleReceivedData(_ data: Data, from peerID: MCPeerID) {
         // Process received data on a background queue
         receivingQueue.async {
-            guard let dataType = DataType(rawValue: data[0]),
-                  data.count > 1 else {
+            guard data.count > 0, let dataType = DataType(rawValue: data[0]) else {
                 print("Invalid data received")
                 return
             }
@@ -243,8 +233,8 @@ private extension MyCustomConnectivityService {
             anchor.transform.matrix = matrix
             
             // If we have a model type, load and attach the model
-            if let modelTypeStr = payload.modelType,
-               let modelType = ModelType(rawValue: modelTypeStr) {
+    if let modelTypeStr = payload.modelType {
+                let modelType = ModelType(rawValue: modelTypeStr)
                 
                 // On the main thread, attempt to load and place the model
                 DispatchQueue.main.async {
@@ -261,11 +251,17 @@ private extension MyCustomConnectivityService {
                             self.registerEntity(anchor, ownedByLocalPeer: false)
                             self.registerEntity(modelEntity, modelType: existingModel.modelType, ownedByLocalPeer: false)
                             
-                            // Add to scene
-                            self.arViewModel?.currentScene?.addAnchor(anchor)
+                    // Add to scene
+                    if let scene = self.arViewModel?.currentScene {
+                        #if os(iOS)
+                        scene.addAnchor(anchor)
+                        #elseif os(visionOS)
+                        // For visionOS, manual anchor addition is not supported; no action taken
+                        #endif
+                    }
                             
                             print("Added anchor from peer using existing model")
-                        } else {
+            } else {
                             // Otherwise load the model
                             let model = await Model.load(modelType: modelType)
                             
@@ -277,8 +273,14 @@ private extension MyCustomConnectivityService {
                                     self.registerEntity(anchor, ownedByLocalPeer: false)
                                     self.registerEntity(modelEntity, modelType: modelType, ownedByLocalPeer: false)
                                     
-                                    // Add to scene
-                                    self.arViewModel?.currentScene?.addAnchor(anchor)
+                        // Add to scene
+                        if let scene = self.arViewModel?.currentScene {
+                            #if os(iOS)
+                            scene.addAnchor(anchor)
+                            #elseif os(visionOS)
+                            // For visionOS, manual anchor addition is not supported; no action taken
+                            #endif
+                        }
                                     
                                     // Add to model manager if available
                                     if let modelManager = self.modelManager {
@@ -329,8 +331,10 @@ private extension MyCustomConnectivityService {
                 }
                 
                 // Fallback to entity ID lookup
+                let idStr = payload.modelID.replacingOccurrences(of: "model-", with: "")
+                // Try to match by string representation
                 for (entityID, entity) in self.entityLookup {
-                    if "model-\(entityID)" == payload.modelID {
+                    if entityID.stringValue == idStr {
                         entity.transform.matrix = matrix
                         return
                     }

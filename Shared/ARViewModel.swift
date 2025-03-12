@@ -79,62 +79,54 @@ class ARViewModel: NSObject, ObservableObject {
     
     // MARK: - Model Loading
     
-    /// Loads all available 3D models
-    func loadModels() {
-        guard models.isEmpty else { 
+    /// Loads all available 3D models sequentially on the main actor
+    func loadModels() async {
+        guard models.isEmpty else {
             print("Models already loaded, skipping loadModels()")
-            return 
+            return
         }
-        
+
         print("Starting to load models...")
         let modelTypes = ModelType.allCases()
         guard !modelTypes.isEmpty else {
-            DispatchQueue.main.async {
-                self.alertItem = AlertItem(
-                    title: "No Models Found",
-                    message: "No 3D model files were found. Please add .usdz files to the 'models' folder."
-                )
-                self.loadingProgress = 1.0 // Mark as complete even though there are no models
-            }
+            self.alertItem = AlertItem(
+                title: "No Models Found",
+                message: "No 3D model files were found. Please add .usdz files to the 'models' folder."
+            )
+            self.loadingProgress = 1.0
             return
         }
-        
+
         let totalModels = modelTypes.count
         var loadedModels = 0
         var failedModels = 0
-        
+
         for mt in modelTypes {
-            let model = Model(modelType: mt, arViewModel: self)
+            let model = await Model(modelType: mt, arViewModel: self)
             models.append(model)
             
-            Task {
-                await model.loadModelEntity()
-                
-                await MainActor.run {
-                    switch model.loadingState {
-                    case .loaded:
-                        loadedModels += 1
-                        self.updateLoadingProgress(loaded: loadedModels, failed: failedModels, total: totalModels)
-                        print("Loaded model: \(mt.rawValue) [\(loadedModels)/\(totalModels)]")
-                    case .failed(let error):
-                        failedModels += 1
-                        self.updateLoadingProgress(loaded: loadedModels, failed: failedModels, total: totalModels)
-                        print("Failed to load model: \(mt.rawValue) - \(error.localizedDescription)")
-                        self.alertItem = AlertItem(
-                            title: "Failed to Load Model",
-                            message: "\(mt.rawValue.capitalized): \(error.localizedDescription)"
-                        )
-                    default:
-                        break
-                    }
-                    
-                    // Start multipeer if all models are processed and it was requested
-                    let totalProcessed = loadedModels + failedModels
-                    if totalProcessed >= totalModels && self.shouldStartMultipeerAfterModelsLoad {
-                        self.startMultipeerServices()
-                        self.shouldStartMultipeerAfterModelsLoad = false
-                    }
-                }
+            await model.loadModelEntity()
+            
+            switch await model.loadingState {
+            case .loaded:
+                loadedModels += 1
+                self.updateLoadingProgress(loaded: loadedModels, failed: failedModels, total: totalModels)
+                print("Loaded model: \(mt.rawValue) [\(loadedModels)/\(totalModels)]")
+            case .failed(let error):
+                failedModels += 1
+                self.updateLoadingProgress(loaded: loadedModels, failed: failedModels, total: totalModels)
+                print("Failed to load model: \(mt.rawValue) - \(error.localizedDescription)")
+                self.alertItem = AlertItem(
+                    title: "Failed to Load Model",
+                    message: "\(mt.rawValue.capitalized): \(error.localizedDescription)"
+                )
+            default:
+                break
+            }
+            
+            if (loadedModels + failedModels) >= totalModels && self.shouldStartMultipeerAfterModelsLoad {
+                self.startMultipeerServices()
+                self.shouldStartMultipeerAfterModelsLoad = false
             }
         }
     }
@@ -154,69 +146,44 @@ class ARViewModel: NSObject, ObservableObject {
     
     // MARK: - Multipeer Connectivity
     
-    /// Starts multipeer services immediately
-    func startMultipeerServices() {
-        guard multipeerSession == nil else {
-            print("Multipeer session already active, skipping startMultipeerServices()")
-            return
-        }
-        
-        print("Starting multipeer services...")
-        
-        // Create multipeer session with proper metadata
-        let metadataDict: [String: String] = [
-            "sessionID": sessionID,
-            "sessionName": sessionName.isEmpty ? "Default Session" : sessionName,
-            "userRole": userRole.rawValue
-        ]
-        
-        #if os(iOS)
-        let peerID = MCPeerID(displayName: UIDevice.current.name)
-        #else
-        let peerID = MCPeerID(displayName: "visionOS Device")
-        #endif
-        
-        let session = MultipeerSession(
-            serviceType: "xr-anatomy",
-            peerID: peerID,
-            metadata: metadataDict,
-            delegate: self
-        )
-        self.multipeerSession = session
-        
-        // Initialize custom connectivity service
-        if let mpSession = multipeerSession {
-            customService = MyCustomConnectivityService(
-                multipeerSession: mpSession,
-                arViewModel: self
-            )
-            
-            #if os(iOS)
-            // Attach to ARView scene if available
-            if let arView = arView {
-                do {
-                    let syncService = try customService ?? RealityKit.MultipeerConnectivityService(session: mpSession.session)
-                    arView.scene.synchronizationService = syncService
-                    print("Attached synchronization service to ARView scene")
-                } catch {
-                    print("Error creating sync service: \(error)")
-                }
-            }
-            #endif
-        }
-        
-        print("Multipeer services started")
+    /// Set the current scene for synchronization
+    func setCurrentScene(_ scene: RealityKit.Scene) {
+        currentScene = scene
+        print("Set current scene for ARViewModel")
     }
     
-    /// Stops all multipeer services
+    /// Start multipeer services with an optional model manager
+    func startMultipeerServices(modelManager: ModelManager? = nil) {
+        // Create multipeer session if it doesn't exist
+        if multipeerSession == nil {
+            let displayName = UIDevice.current.name
+            sessionName = displayName
+            multipeerSession = MultipeerSession(serviceName: "xr-anatomy", displayName: displayName)
+            multipeerSession?.delegate = self
+            print("Created multipeer session with name: \(displayName)")
+        }
+        
+        // Create connectivity service if it doesn't exist
+        if customService == nil {
+            customService = MyCustomConnectivityService(
+                multipeerSession: multipeerSession!, 
+                arViewModel: self,
+                modelManager: modelManager
+            )
+            print("Created custom connectivity service")
+        }
+        
+        // Start broadcasting
+        multipeerSession?.startBrowsingAndAdvertising()
+        print("Started browsing and advertising for peers")
+    }
+    
+    /// Stop multipeer services
     func stopMultipeerServices() {
-        print("Stopping multipeer services")
-        multipeerSession?.session.disconnect()
+        multipeerSession?.stopBrowsingAndAdvertising()
         multipeerSession = nil
         customService = nil
-        connectedPeers.removeAll()
-        availableSessions.removeAll()
-        print("Multipeer services stopped")
+        print("Stopped multipeer services")
     }
     
     /// Defers multipeer service start until models are loaded
@@ -366,6 +333,13 @@ class ARViewModel: NSObject, ObservableObject {
             customService.sendModelTransform(entity: entity, modelType: modelType)
         }
     }
+    
+    /// Send model transform to peers
+    func broadcastModelTransform(entity: Entity, modelType: ModelType) {
+        guard let customService = customService else { return }
+        
+        customService.sendModelTransform(entity: entity, modelType: modelType)
+    }
     #endif
 }
 
@@ -400,44 +374,36 @@ extension ARViewModel: ARSessionDelegate {
 
 // MARK: - MultipeerSessionDelegate
 extension ARViewModel: MultipeerSessionDelegate {
-    func receivedData(_ data: Data, from peerID: MCPeerID) {
-        print("ARViewModel: receivedData from \(peerID.displayName)")
-        // Let the custom service handle the data parsing
+    func session(_ session: MultipeerSession, didReceiveData data: Data, from peerID: MCPeerID) {
+        // Pass received data to the custom connectivity service
         customService?.handleReceivedData(data, from: peerID)
     }
     
-    func peerDidChangeState(peerID: MCPeerID, state: MCSessionState) {
+    func session(_ session: MultipeerSession, peer peerID: MCPeerID, didChange state: MCSessionState) {
         DispatchQueue.main.async {
             switch state {
             case .connected:
                 if !self.connectedPeers.contains(peerID) {
                     self.connectedPeers.append(peerID)
-                    print("Peer \(peerID.displayName) connected. Total peers: \(self.connectedPeers.count)")
                 }
+                print("Peer connected: \(peerID.displayName)")
+            case .connecting:
+                print("Peer connecting: \(peerID.displayName)")
             case .notConnected:
-                if let idx = self.connectedPeers.firstIndex(of: peerID) {
-                    self.connectedPeers.remove(at: idx)
-                    print("Peer \(peerID.displayName) disconnected. Remaining peers: \(self.connectedPeers.count)")
+                if let index = self.connectedPeers.firstIndex(of: peerID) {
+                    self.connectedPeers.remove(at: index)
                 }
-            default:
-                print("Peer \(peerID.displayName) connection state changed to \(state)")
-                break
+                print("Peer disconnected: \(peerID.displayName)")
+            @unknown default:
+                print("Unknown peer state: \(peerID.displayName)")
             }
         }
     }
     
-    func didReceiveInvitation(from peerID: MCPeerID,
-                              invitationHandler: @escaping (Bool, MCSession?) -> Void) {
-        DispatchQueue.main.async {
-            self.alertItem = AlertItem(
-                title: "Invitation Received",
-                message: "Would you like to join \(peerID.displayName)'s session?"
-            )
-            
-            // Here we auto-accept for simplicity
-            // In a real app, you might want to show a confirmation dialog
-            invitationHandler(true, self.multipeerSession?.session)
-        }
+    func didReceiveInvitation(from peerID: MCPeerID, invitationHandler: @escaping (Bool, MCSession?) -> Void) {
+        // Auto-accept invitations for simplicity
+        invitationHandler(true, multipeerSession?.session)
+        print("Accepted invitation from: \(peerID.displayName)")
     }
     
     func foundPeer(peerID: MCPeerID, sessionID: String, sessionName: String) {
@@ -451,4 +417,16 @@ extension ARViewModel: MultipeerSessionDelegate {
             }
         }
     }
+    
+    func sendTransform(for entity: Entity) {
+        guard let modelManager = customService?.modelManager,
+              let model = modelManager.modelDict[entity] else {
+            customService?.sendModelTransform(entity: entity)
+            return
+        }
+        
+        customService?.sendModelTransform(entity: entity, modelType: model.modelType)
+    }
 }
+
+

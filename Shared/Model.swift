@@ -4,7 +4,8 @@ import Foundation
 import Combine
 
 /// Represents a 3D anatomical model with loading and placement capabilities
-final class Model: ObservableObject, Identifiable {
+@MainActor
+final class Model: ObservableObject, @preconcurrency Identifiable {
     enum LoadingState: Equatable {
         case notStarted, loading, loaded, failed(Error)
         
@@ -58,7 +59,8 @@ final class Model: ObservableObject, Identifiable {
     
     // MARK: - Loading
     
-    /// Loads the modelEntity asynchronously.
+    /// Loads the modelEntity asynchronously on the main actor.
+    @MainActor
     func loadModelEntity() async {
         // Skip if we're already loaded or loading
         guard case .notStarted = loadingState else { return }
@@ -91,8 +93,8 @@ final class Model: ObservableObject, Identifiable {
                 entity.components[ModelTypeComponent.self] = ModelTypeComponent(type: modelType)
                 entity.components[LastTransformComponent.self] = LastTransformComponent(matrix: entity.transform.matrix)
                 
-                // Setup transform observer for sync
-                setupTransformObserver(for: entity)
+                // Note: We don't use transform.observe as it's not available
+                // Instead we'll manually update transforms in the gesture handlers
             }
             
             await MainActor.run {
@@ -107,22 +109,30 @@ final class Model: ObservableObject, Identifiable {
         }
     }
     
-    private func setupTransformObserver(for entity: ModelEntity) {
-        // Observe transform changes for synchronization
-        entity.transform.observe { [weak self] transform in
-            guard let self = self,
-                  let arViewModel = self.arViewModel else { return }
+    // MARK: - Transform Updates
+    
+    /// Update the transform and notify peers of the change
+    @MainActor
+    func updateTransformAndNotify() {
+        guard let entity = modelEntity else { return }
+        
+        // Store last known transform matrix
+        let currentMatrix = entity.transform.matrix
+        
+        // Get the last stored matrix
+        if let lastMatrix = entity.components[LastTransformComponent.self]?.matrix,
+           !simd_almost_equal_elements(currentMatrix, lastMatrix, 0.0001) {
             
-            // Only broadcast if the change is significant
-            let currentMatrix = transform.matrix
-            if let lastMatrix = entity.components[LastTransformComponent.self]?.matrix,
-               !simd_almost_equal_elements(currentMatrix, lastMatrix, 0.0001) {
-                // Update the cached transform
-                entity.components[LastTransformComponent.self] = LastTransformComponent(matrix: currentMatrix)
-                
-                // Inform ARViewModel to send the transform to peers
-                arViewModel.sendTransform(for: entity)
+            // Update the cached transform
+            entity.components[LastTransformComponent.self] = LastTransformComponent(matrix: currentMatrix)
+            
+            // Broadcast the transform change
+            #if os(iOS)
+            if let arViewModel = self.arViewModel {
+                // We'll implement broadcastTransform in ARViewModel
+                arViewModel.broadcastModelTransform(entity: entity, modelType: modelType)
             }
+            #endif
         }
     }
     
@@ -155,10 +165,13 @@ final class Model: ObservableObject, Identifiable {
     }
     
     /// Updates collision shapes for the model entity
+    @MainActor
     func updateCollisionBox() {
         guard let entity = modelEntity else { return }
-        entity.generateCollisionShapes(recursive: true)
-        print("Updated collision shapes for \(modelType.rawValue)")
+        Task {
+            entity.generateCollisionShapes(recursive: true)
+            print("Updated collision shapes for \(modelType.rawValue)")
+        }
     }
 }
 

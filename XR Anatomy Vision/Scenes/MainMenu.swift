@@ -35,7 +35,7 @@ struct MainMenu: View {
                     
                     List(arViewModel.availableSessions, id: \.self) { session in
                         Button {
-                            arViewModel.invitePeer(session)
+                            arViewModel.multipeerSession?.invitePeer(session.peerID)
                             isJoiningSession = false
                             moveToInSession()
                         } label: {

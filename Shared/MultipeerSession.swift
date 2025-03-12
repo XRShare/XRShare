@@ -9,8 +9,8 @@ import MultipeerConnectivity
 import Foundation
 
 protocol MultipeerSessionDelegate: AnyObject {
-    func receivedData(_ data: Data, from peerID: MCPeerID)
-    func peerDidChangeState(peerID: MCPeerID, state: MCSessionState)
+    func session(_ session: MultipeerSession, didReceiveData data: Data, from peerID: MCPeerID)
+    func session(_ session: MultipeerSession, peer peerID: MCPeerID, didChange state: MCSessionState)
     func didReceiveInvitation(from peerID: MCPeerID, invitationHandler: @escaping (Bool, MCSession?) -> Void)
     func foundPeer(peerID: MCPeerID, sessionID: String, sessionName: String)
 }
@@ -27,35 +27,22 @@ class MultipeerSession: NSObject {
     
     // MARK: - Initialization
     
-    init(serviceType: String = "xr-anatomy",
-         peerID: MCPeerID? = nil,
-         metadata: [String: String] = [:],
-         delegate: MultipeerSessionDelegate? = nil) {
+    init(serviceName: String = "xr-anatomy", displayName: String) {
+        self.metadata = [:]
         
-        self.metadata = metadata
-        self.delegate = delegate
-        
-        // Set up peer ID
-        if let peerID = peerID {
-            self.myPeerID = peerID
-        } else {
-            #if os(iOS)
-            self.myPeerID = MCPeerID(displayName: UIDevice.current.name)
-            #else
-            self.myPeerID = MCPeerID(displayName: "visionOS Device")
-            #endif
-        }
+        #if os(iOS)
+        self.myPeerID = MCPeerID(displayName: displayName)
+        #else
+        self.myPeerID = MCPeerID(displayName: displayName)
+        #endif
         
         // Create the session
         self.session = MCSession(peer: myPeerID, securityIdentity: nil, encryptionPreference: .required)
         
-        // Convert metadata to Data for advertisement
-        let metadataData = try? JSONSerialization.data(withJSONObject: metadata, options: [])
-        
         // Create advertiser
         self.advertiser = MCNearbyServiceAdvertiser(
             peer: myPeerID,
-            discoveryInfo: metadata,
+            discoveryInfo: nil,
             serviceType: serviceType
         )
         
@@ -72,24 +59,26 @@ class MultipeerSession: NSObject {
         advertiser.delegate = self
         browser.delegate = self
         
-        // Start services
-        advertiser.startAdvertisingPeer()
-        browser.startBrowsingForPeers()
-        
-        print("MultipeerSession started - ID: \(myPeerID.displayName)")
+        print("MultipeerSession initialized - ID: \(myPeerID.displayName)")
     }
     
     deinit {
-        stopServices()
+        stopBrowsingAndAdvertising()
     }
     
     // MARK: - Public Methods
     
-    func stopServices() {
+    func startBrowsingAndAdvertising() {
+        advertiser.startAdvertisingPeer()
+        browser.startBrowsingForPeers()
+        print("Started browsing and advertising")
+    }
+    
+    func stopBrowsingAndAdvertising() {
         advertiser.stopAdvertisingPeer()
         browser.stopBrowsingForPeers()
         session.disconnect()
-        print("MultipeerSession services stopped")
+        print("Stopped browsing and advertising")
     }
     
     func sendToPeer(_ data: Data, peerID: MCPeerID, dataType: DataType, reliable: Bool = true) {
@@ -133,21 +122,13 @@ class MultipeerSession: NSObject {
 extension MultipeerSession: MCSessionDelegate {
     func session(_ session: MCSession, peer peerID: MCPeerID, didChange state: MCSessionState) {
         DispatchQueue.main.async {
-            self.delegate?.peerDidChangeState(peerID: peerID, state: state)
+            self.delegate?.session(self, peer: peerID, didChange: state)
         }
     }
     
     func session(_ session: MCSession, didReceive data: Data, fromPeer peerID: MCPeerID) {
-        guard data.count > 1 else {
-            print("Received invalid data: too short")
-            return
-        }
-        
-        let typeRaw = data[0]
-        let content = data.subdata(in: 1..<data.count)
-        
         DispatchQueue.main.async {
-            self.delegate?.receivedData(content, from: peerID)
+            self.delegate?.session(self, didReceiveData: data, from: peerID)
         }
     }
     
