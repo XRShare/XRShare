@@ -11,6 +11,9 @@
 		0D64C6A12CE0076A00D34085 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0D64C6A02CE0076A00D34085 /* SwiftUI.framework */; };
 		0D64C6A32CE0077200D34085 /* RealityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0D64C6A22CE0077200D34085 /* RealityKit.framework */; };
 		0D64C6A52CE0077B00D34085 /* MultipeerConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0D64C6A42CE0077B00D34085 /* MultipeerConnectivity.framework */; };
+		117D585D2D80D006009DA059 /* RealityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6679B7932D6CE2AC006EB279 /* RealityKit.framework */; };
+		117D585E2D80D07C009DA059 /* RealityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6679B7932D6CE2AC006EB279 /* RealityKit.framework */; };
+		117D59522D80D160009DA059 /* RealityKitContent in Frameworks */ = {isa = PBXBuildFile; productRef = 117D59512D80D160009DA059 /* RealityKitContent */; };
 		6679B79D2D6CFFAA006EB279 /* MultipeerConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6679B79C2D6CFFAA006EB279 /* MultipeerConnectivity.framework */; };
 		6E0B06EF2D80942E00632152 /* RealityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6679B7932D6CE2AC006EB279 /* RealityKit.framework */; };
 		6E0B07E62D80944500632152 /* RealityKitContent in Frameworks */ = {isa = PBXBuildFile; productRef = 6E0B07E52D80944500632152 /* RealityKitContent */; };
@@ -77,6 +80,7 @@
 			files = (
 				0D64C6A32CE0077200D34085 /* RealityKit.framework in Frameworks */,
 				0D64C6A52CE0077B00D34085 /* MultipeerConnectivity.framework in Frameworks */,
+				117D59522D80D160009DA059 /* RealityKitContent in Frameworks */,
 				0D64C6A12CE0076A00D34085 /* SwiftUI.framework in Frameworks */,
 				0D64C69F2CE0075B00D34085 /* ARKit.framework in Frameworks */,
 			);
@@ -88,7 +92,9 @@
 			files = (
 				6E0B06EF2D80942E00632152 /* RealityKit.framework in Frameworks */,
 				6E0B07E62D80944500632152 /* RealityKitContent in Frameworks */,
+				117D585D2D80D006009DA059 /* RealityKit.framework in Frameworks */,
 				6679B79D2D6CFFAA006EB279 /* MultipeerConnectivity.framework in Frameworks */,
+				117D585E2D80D07C009DA059 /* RealityKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -159,6 +165,7 @@
 			);
 			name = "XR Anatomy";
 			packageProductDependencies = (
+				117D59512D80D160009DA059 /* RealityKitContent */,
 			);
 			productName = CollaborativeARApp;
 			productReference = 0D64C65C2CE003FE00D34085 /* XR Anatomy.app */;
@@ -542,6 +549,10 @@
 /* End XCConfigurationList section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		117D59512D80D160009DA059 /* RealityKitContent */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = RealityKitContent;
+		};
 		6E0B07E52D80944500632152 /* RealityKitContent */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = RealityKitContent;
