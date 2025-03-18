@@ -21,12 +21,23 @@ struct InSession: View {
 
     var body: some View {
         RealityView { content in
+            // Set up initial scene content
+            content.add(modelAnchor)
+            
+            // Set up head anchor for spatial awareness
+            let headAnchor = AnchorEntity(.head)
+            content.add(headAnchor)
+            
+            // Removed invalid cast to RealityKit.Scene.
+            // RealityViewContent is not a RealityKit.Scene, so we no longer set the current scene.
+            
             sessionConnectivity.addAnchorsIfNeeded(
-                headAnchor: AnchorEntity(.head),
+                headAnchor: headAnchor,
                 modelAnchor: modelAnchor,
                 content: content
             )
         } update: { content in
+            // Update model transforms and check for changes
             modelManager.updatePlacedModels(
                 content: content,
                 modelAnchor: modelAnchor,
@@ -39,6 +50,17 @@ struct InSession: View {
         .simultaneousGesture(modelManager.rotationGesture)
         .onAppear {
             print("InSession has appeared. ModelManager has \(modelManager.placedModels.count) models loaded.")
+            // Start multipeer services when the immersive space appears
+            arViewModel.startMultipeerServices(modelManager: modelManager)
+        }
+        .onDisappear {
+            // Clean up when the immersive space is dismissed
+            arViewModel.stopMultipeerServices()
+            modelManager.reset()
+            sessionConnectivity.reset()
+            Task {
+                await dismissImmersiveSpace()
+            }
         }
     }
 }

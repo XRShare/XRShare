@@ -10,34 +10,82 @@ import Foundation
 import SwiftUI
 import UIKit
 
-struct Utilities {
-    private static let lastBundleModificationDateKey = "lastBundleModificationDate"
+/// Utility functions for app functionality
+class Utilities {
+    // UserDefaults keys
+    private static let lastBuildVersionKey = "LastBuildVersion"
+    private static let lastUpdateDateKey = "LastUpdateDate"
+    private static let hasCompletedFirstLaunchKey = "HasCompletedFirstLaunch"
     
+    /// The current app build version
+    private static var currentBuildVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1.0.0"
+    }
     
+    /// Check if this is the first launch after a new build was installed
     static func isFirstLaunchForNewBuild() -> Bool {
-        let currentDate = getBundleModificationDate()
-        let storedDate = UserDefaults.standard.object(forKey: lastBundleModificationDateKey) as? Date
-        return (storedDate == nil || storedDate != currentDate)
-    }
-    
-    static func getBundleModificationDate() -> Date? {
-        guard let url = Bundle.main.url(forResource: "Info", withExtension: "plist"),
-              let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
-              let modDate = attrs[.modificationDate] as? Date
-        else { return nil }
-        return modDate
-    }
-    
-    static func updateStoredModificationDate() {
-        if let date = getBundleModificationDate() {
-            UserDefaults.standard.set(date, forKey: lastBundleModificationDateKey)
+        let defaults = UserDefaults.standard
+        
+        // Get the last saved build version
+        let lastBuildVersion = defaults.string(forKey: lastBuildVersionKey)
+        
+        // First run check
+        if lastBuildVersion == nil {
+            print("First ever app launch detected")
+            // Store the current build version immediately
+            defaults.set(currentBuildVersion, forKey: lastBuildVersionKey)
+            return true
         }
+        
+        // Check if this is a new build
+        if lastBuildVersion != currentBuildVersion {
+            print("New build detected: Previous=\(lastBuildVersion ?? "nil"), Current=\(currentBuildVersion)")
+            // Update to the current build version
+            defaults.set(currentBuildVersion, forKey: lastBuildVersionKey)
+            // Reset first launch completion flag for new build
+            defaults.set(false, forKey: hasCompletedFirstLaunchKey)
+            return true
+        }
+        
+        // Check if we've completed the first launch sequence for this build
+        let hasCompletedFirstLaunch = defaults.bool(forKey: hasCompletedFirstLaunchKey)
+        if !hasCompletedFirstLaunch {
+            return true
+        }
+        
+        return false
+    }
+    
+    /// Mark the app as having completed the first launch sequence
+    static func markFirstLaunchComplete() {
+        UserDefaults.standard.set(true, forKey: hasCompletedFirstLaunchKey)
+    }
+    
+    /// Update the stored modification date (e.g. after loading models)
+    static func updateStoredModificationDate() {
+        let currentDate = Date().timeIntervalSince1970
+        UserDefaults.standard.set(currentDate, forKey: lastUpdateDateKey)
+        // Also mark first launch as complete
+        markFirstLaunchComplete()
+    }
+    
+    /// Reset all app settings and storage
+    static func resetAllSettings() {
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: lastBuildVersionKey)
+        defaults.removeObject(forKey: lastUpdateDateKey)
+        defaults.removeObject(forKey: hasCompletedFirstLaunchKey)
+        
+        // Force defaults to sync
+        defaults.synchronize()
+        
+        print("All app settings have been reset")
     }
     
     static func restart() {
         AppLoadTracker.hasRestarted = true
         guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let window = scene.windows.first
+              let _ = scene.windows.first
         else { return }
 //        #if os(visionOS)
 //        window.rootViewController = UIHostingController(rootView: ContentView(modelManager: modelManager))

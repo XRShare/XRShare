@@ -1,59 +1,98 @@
+import Foundation
 import RealityKit
-import ARKit
-import MultipeerConnectivity
-import _RealityKit_SwiftUI
+import SwiftUI
+import Combine
 
-/// Handles anchor management, HUD positioning, and transform broadcast
-final class SessionConnectivity: ObservableObject {
+/// Handles session connectivity and synchronization for models in the scene
+class SessionConnectivity: ObservableObject {
     
-    func addAnchorsIfNeeded(headAnchor: AnchorEntity,
-                            modelAnchor: AnchorEntity,
-                            content: RealityViewContent) {
-        if headAnchor.parent == nil {
+    /// Track which entities have been registered for synchronization
+    private var registeredEntities = Set<Entity.ID>()
+    private var transformCancellables = [AnyCancellable]()
+    
+    /// Add essential anchors to the RealityView content
+    func addAnchorsIfNeeded(
+        headAnchor: AnchorEntity,
+        modelAnchor: AnchorEntity,
+        content: RealityViewContent
+    ) {
+        // Make sure we only add these anchors once
+        if !content.entities.contains(where: { $0.id == headAnchor.id }) {
             content.add(headAnchor)
         }
-        if modelAnchor.parent == nil {
+        
+        if !content.entities.contains(where: { $0.id == modelAnchor.id }) {
             content.add(modelAnchor)
         }
     }
     
-    func setupHUD(_ hudEntity: Entity, headAnchor: AnchorEntity) {
-        hudEntity.setPosition([0, 0.2, -1], relativeTo: headAnchor)
-        if hudEntity.parent == nil {
-            headAnchor.addChild(hudEntity)
-        }
-    }
-    
-    // MARK: - Broadcasting Transform
-    
+    /// Broadcast transform changes if needed
     func broadcastTransformIfNeeded(entity: Entity, arViewModel: ARViewModel) {
-        if let customService = arViewModel.currentScene?.synchronizationService as? MyCustomConnectivityService {
-            let localPointer: __PeerIDRef = customService.__toCore(peerID: customService.localPeerIdentifier)
-            if let owner = customService.owner(of: entity) as? CustomPeerID,
-               let localOwner = customService.__fromCore(peerID: localPointer) as? CustomPeerID,
-               owner == localOwner {
-                broadcastTransform(entity, arViewModel: arViewModel)
+        // Register the entity for synchronization if not already done
+        if !registeredEntities.contains(entity.id) {
+            if let modelTypeComponent = entity.components[ModelTypeComponent.self] {
+                // Register with model type
+                arViewModel.customService?.registerEntity(
+                    entity,
+                    modelType: modelTypeComponent.type,
+                    ownedByLocalPeer: true
+                )
+            } else {
+                // Register without model type
+                arViewModel.customService?.registerEntity(entity, ownedByLocalPeer: true)
             }
+            registeredEntities.insert(entity.id)
         }
+        
+        // Send transform update
+        arViewModel.sendTransform(for: entity)
     }
     
-    private func broadcastTransform(_ entity: Entity, arViewModel: ARViewModel) {
-        let matrixArray = entity.transform.matrix.toArray()
-        
-        var data = Data()
-        let idString = "\(entity.id)"
-        if let idData = idString.data(using: .utf8) {
-            var length = UInt8(idData.count)
-            data.append(&length, count: 1)
-            data.append(idData)
+    /// Reset all tracking
+    func reset() {
+        registeredEntities.removeAll()
+    }
+    
+    func broadcastAnchorCreation(_ anchorEntity: AnchorEntity, modelType: ModelType? = nil) {
+        let transformArr = anchorEntity.transform.matrix.toArray()
+        let modelID = modelType?.rawValue ?? "anchor-\(UUID())"
+        _ = AnchorTransformPayload(
+            anchorData: Data(),
+            modelID: modelID,
+            transform: transformArr,
+            modelType: modelType?.rawValue
+        )
+        // ...
+    }
+    
+    private func setupTransformObserver(for entity: ModelEntity, arViewModel: ARViewModel) {
+        // Ensure the entity is part of a scene
+        guard let scene = entity.scene else {
+            // If the entity is not attached to a scene, we cannot observe updates
+            return
         }
-        matrixArray.withUnsafeBufferPointer { buffer in
-            data.append(Data(buffer: buffer))
+
+        let cancellable = scene.subscribe(to: SceneEvents.Update.self) { [weak self] (event: SceneEvents.Update) in
+            guard let self = self, !self.isApplyingRemoteTransform else { return }
+
+            // Retrieve the current transform from the entity
+            let newTransform: Transform = entity.transform
+            let currentMatrix = newTransform.matrix
+            
+            // Check if the transform has changed significantly
+            if let lastMatrix = entity.components[LastTransformComponent.self]?.matrix,
+               !simd_almost_equal_elements(currentMatrix, lastMatrix, 0.0001) {
+                arViewModel.sendTransform(for: entity)
+            }
+
+            // Update the last known transform component
+            entity.components[LastTransformComponent.self] = LastTransformComponent(matrix: currentMatrix)
         }
-        var packet = Data([DataType.modelTransform.rawValue])
-        packet.append(data)
-        
-        arViewModel.multipeerSession.sendToAllPeers(packet, dataType: .modelTransform)
-        print("Broadcasted transform for entity \(entity.id)")
+        transformCancellables.append(cancellable as! AnyCancellable)
+    }
+    
+    private var isApplyingRemoteTransform = false
+
+    func applyRemoteTransform(_ matrix: simd_float4x4, to entity: Entity) {
     }
 }

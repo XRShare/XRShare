@@ -1,10 +1,12 @@
 import SwiftUI
+import ARKit
 
 @main
 struct XRAnatomy_visionOSApp: App {
     @StateObject private var appModel = AppModel()
     @StateObject private var arViewModel = ARViewModel()
     @StateObject private var modelManager = ModelManager()
+    @State var session = ARKitSession()
 
     var body: some Scene {
         WindowGroup {
@@ -15,6 +17,7 @@ struct XRAnatomy_visionOSApp: App {
                 .onAppear {
                     appModel.immersiveSpaceState = .closed
                 }
+                
         }
         .windowStyle(.volumetric)
 
