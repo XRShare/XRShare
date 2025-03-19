@@ -110,133 +110,33 @@ struct InSession: View {
             .gesture(modelManager.scaleGesture)
             .gesture(modelManager.rotationGesture)
             
-            // 3D debug panel that's visible in the scene
-            RealityView { content in
-                // Add a debug panel entity that floats in 3D space
-                let panelMesh = MeshResource.generatePlane(width: 0.25, height: 0.12)
-                let panelMaterial = SimpleMaterial(color: .blue, isMetallic: false)
-                let debugPanel = ModelEntity(mesh: panelMesh, materials: [panelMaterial])
+            // Minimal status indicator
+            Text("Session active: \(modelManager.placedModels.count) models")
+                .font(.caption)
+                .padding(8)
+                .background(.ultraThinMaterial)
+                .cornerRadius(12)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+                .opacity(0.8)
                 
-                // Position panel in front of user but offset to the side
-                debugPanel.position = SIMD3<Float>(-0.25, 0.05, -0.5)
-                
-                // Make panel face the user
-                debugPanel.orientation = simd_quatf(angle: 0, axis: [0, 1, 0])
-                
-                // Add to scene
-                content.add(debugPanel)
-                
-                // Make panel interactive for movement
-                debugPanel.collision = CollisionComponent(shapes: [.generateBox(size: debugPanel.visualBounds(relativeTo: nil).extents)])
-                debugPanel.components.set(InputTargetComponent())
-                debugPanel.components.set(HoverEffectComponent())
-                
-                // Store reference to the panel
-                debugPanel.name = "DebugPanel"
-            } update: { _ in 
-                // Panel updates handled by SwiftUI overlay
-            }
-            
-            // SwiftUI overlay for debug info that stays in your field of view
-            VStack(spacing: 8) {
-                HStack(spacing: 12) {
-                    Text("XR Anatomy")
-                        .font(.headline.bold())
-                        .foregroundColor(.white)
-                    
-                    Text(modelStats)
-                        .font(.subheadline)
-                        .foregroundColor(.white)
-                    
-                    Spacer()
-                    
-                    Button(action: {
-                        showDebugInfo.toggle()
-                    }) {
-                        Label(showDebugInfo ? "Hide Controls" : "Show Controls", 
-                              systemImage: showDebugInfo ? "eye.slash" : "eye")
-                            .labelStyle(.iconOnly)
-                            .font(.title3)
-                    }
-                    .buttonStyle(.borderless)
+            // Debug panel button
+            Button(action: {
+                Task { @MainActor in
+                    async let _ = openWindow(id: "debugPanel")
+                }
+            }) {
+                Label("Debug", systemImage: "wrench.and.screwdriver.fill")
+                    .font(.caption)
+                    .padding(8)
+                    .background(Color.blue)
+                    .cornerRadius(8)
                     .foregroundColor(.white)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Color.blue.opacity(0.8))
-                .cornerRadius(20)
-                .shadow(radius: 5)
-                
-                if showDebugInfo {
-                    HStack(spacing: 12) {
-                        // Control panel button
-                        Button(action: {
-                            Task { @MainActor in
-                                async let _ = openWindow(id: "controlPanel")
-                            }
-                        }) {
-                            VStack {
-                                Image(systemName: "slider.horizontal.3")
-                                    .font(.title2)
-                                Text("Controls")
-                                    .font(.caption)
-                            }
-                            .frame(width: 70, height: 60)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        
-                        // Reset position button
-                        Button(action: {
-                            if let firstModel = modelManager.placedModels.first,
-                               let entity = firstModel.modelEntity {
-                                entity.position = SIMD3<Float>(0, 0, -0.5)
-                                firstModel.position = entity.position
-                                
-                                // Force update for multiplayer
-                                if let arViewModel = firstModel.arViewModel {
-                                    arViewModel.sendTransform(for: entity)
-                                }
-                            }
-                        }) {
-                            VStack {
-                                Image(systemName: "arrow.counterclockwise")
-                                    .font(.title2)
-                                Text("Reset")
-                                    .font(.caption)
-                            }
-                            .frame(width: 70, height: 60)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.orange)
-                        
-                        // Add model button
-                        Button(action: {
-                            if let heartType = modelManager.modelTypes.first(where: { $0.rawValue == "Heart" }) {
-                                modelManager.loadModel(for: heartType, arViewModel: arViewModel)
-                            } else if let firstModel = modelManager.modelTypes.first {
-                                modelManager.loadModel(for: firstModel, arViewModel: arViewModel)
-                            }
-                        }) {
-                            VStack {
-                                Image(systemName: "plus.circle")
-                                    .font(.title2)
-                                Text("Add")
-                                    .font(.caption)
-                            }
-                            .frame(width: 70, height: 60)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.green)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(20)
-                    .shadow(radius: 5)
-                }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .padding(.top, 50)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
         }
         .onAppear {
             print("InSession has appeared. ModelManager has \(modelManager.placedModels.count) models loaded.")
@@ -247,11 +147,12 @@ struct InSession: View {
             // Start multipeer services when the immersive space appears
             arViewModel.startMultipeerServices(modelManager: modelManager)
             
-            // Open the control panel window programmatically
+            // Open both control panels programmatically
             // Using async let to properly handle the async operation
             Task {
-                async let _ = openWindow(id: "controlPanel")
-                print("Opened control panel window")
+                async let controlPanel = openWindow(id: "controlPanel")
+                async let debugPanel = openWindow(id: "debugPanel")
+                print("Opening UI windows")
             }
             
             // Timer counter is now a class property

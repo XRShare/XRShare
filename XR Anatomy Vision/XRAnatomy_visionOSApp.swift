@@ -27,6 +27,15 @@ struct XRAnatomy_visionOSApp: App {
         .windowStyle(.automatic)
         .defaultSize(width: 400, height: 600)
         .windowResizability(.automatic)
+        
+        // Add a debug controls window
+        WindowGroup(id: "debugPanel") {
+            DebugControlsView(modelManager: modelManager, arViewModel: arViewModel)
+                .environmentObject(appModel)
+        }
+        .windowStyle(.automatic)
+        .defaultSize(width: 300, height: 200)
+        .windowResizability(.automatic)
 
         ImmersiveSpace(id: appModel.immersiveSpaceID) {
             InSession(modelManager: modelManager)
