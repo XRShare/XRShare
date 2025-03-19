@@ -33,6 +33,7 @@ struct InSession: View {
     @State private var modelStats = ""
     @State private var showDebugInfo = true
     @State private var refreshTimer: Timer? = nil
+    @State private var timerCounter = 0
 
     var body: some View {
         ZStack {
@@ -197,8 +198,13 @@ struct InSession: View {
                 print("Opened control panel window")
             }
             
+            // Timer counter is now a class property
+            
             // Set a timer to update the debug info periodically
             refreshTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { timer in
+                // Increment the counter 
+                timerCounter += 1
+                
                 // Update status message with current time
                 lastGestureEvent = "Updated: \(Date().formatted(date: .omitted, time: .standard))"
                 
@@ -208,7 +214,7 @@ struct InSession: View {
                 
                 // Log model positions for debugging, but less frequently
                 Task { @MainActor in
-                    if modelCount > 0 && timer.fireCount % 3 == 0 {  // Only log every 15 seconds
+                    if modelCount > 0 && timerCounter % 3 == 0 {  // Only log every 15 seconds
                         let modelInfo = modelManager.placedModels.map { model -> String in
                             if model.isLoaded(), let entity = model.modelEntity {
                                 let pos = entity.position
