@@ -10,19 +10,25 @@ struct XRAnatomy_visionOSApp: App {
 
     var body: some Scene {
         WindowGroup {
-            
             ContentView(modelManager: modelManager)
                 .environmentObject(appModel)
                 .environmentObject(arViewModel)
                 .onAppear {
                     appModel.immersiveSpaceState = .closed
                 }
-                
         }
         .windowStyle(.volumetric)
+        
+        // Add a separate window for model controls
+        WindowGroup(id: "controlPanel") {
+            ControlPanelView(modelManager: modelManager, arViewModel: arViewModel)
+                .environmentObject(appModel)
+        }
+        .windowStyle(.plain)
+        .defaultSize(width: 400, height: 600)
 
         ImmersiveSpace(id: appModel.immersiveSpaceID) {
-            InSession( modelManager: modelManager)
+            InSession(modelManager: modelManager)
                 .environmentObject(appModel)
                 .environmentObject(arViewModel)
                 .onAppear {

@@ -83,18 +83,34 @@ final class Model: ObservableObject, @preconcurrency Identifiable {
             if let entity = self.modelEntity {
                 entity.generateCollisionShapes(recursive: true)
                 
+                // Add input target component for gesture interaction
+                entity.components.set(InputTargetComponent())
+                
+                // Add hover effect to show interactivity
+                entity.components.set(HoverEffectComponent())
+                
                 // Apply Z-axis rotation correction if needed
                 if modelType.shouldRotateAroundZAxis {
                     // Rotate to correct initial orientation
                     entity.orientation = simd_quatf(angle: .pi/2, axis: SIMD3<Float>(1, 0, 0))
                 }
                 
+                // Apply materials if not already applied
+                if entity.model?.materials.isEmpty == true {
+                    entity.model?.materials = [SimpleMaterial(color: .white, isMetallic: false)]
+                }
+                
+                // Set initial scale to something visible but not too large
+                entity.scale = [0.15, 0.15, 0.15]
+                
                 // Add components for synchronization
                 entity.components[ModelTypeComponent.self] = ModelTypeComponent(type: modelType)
                 entity.components[LastTransformComponent.self] = LastTransformComponent(matrix: entity.transform.matrix)
                 
-                // Note: We don't use transform.observe as it's not available
-                // Instead we'll manually update transforms in the gesture handlers
+                // Add collision component for interaction
+                if entity.collision == nil {
+                    entity.collision = CollisionComponent(shapes: [.generateBox(size: entity.visualBounds(relativeTo: nil).extents)])
+                }
             }
             
             await MainActor.run {
