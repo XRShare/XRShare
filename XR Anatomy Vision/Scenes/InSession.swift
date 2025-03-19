@@ -136,7 +136,7 @@ struct InSession: View {
                 
                 // Log model positions for debugging
                 let modelInfo = modelManager.placedModels.map { model -> String in
-                    if let entity = model.modelEntity {
+                    if model.isLoaded(), let entity = model.modelEntity {
                         return "\(model.modelType.rawValue): pos=\(entity.position), vis=\(entity.isEnabled), par=\(entity.parent != nil)"
                     } else {
                         return "\(model.modelType.rawValue): No entity"

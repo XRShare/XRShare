@@ -186,6 +186,18 @@ class ARViewModel: NSObject, ObservableObject {
         print("Stopped multipeer services")
     }
     
+    /// Invite a peer to join the session
+    func invitePeer(_ session: Session) {
+        guard let multipeerSession = multipeerSession else {
+            print("Cannot invite peer - no multipeer session available")
+            return
+        }
+        
+        print("Inviting peer: \(session.peerID.displayName)")
+        multipeerSession.invitePeer(session.peerID)
+        selectedSession = session
+    }
+    
     /// Defers multipeer service start until models are loaded
     func deferMultipeerServicesUntilModelsLoad() {
         print("Deferring multipeer services until models load")
