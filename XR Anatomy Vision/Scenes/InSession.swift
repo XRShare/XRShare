@@ -13,6 +13,7 @@ struct InSession: View {
     @EnvironmentObject var appModel: AppModel
     @EnvironmentObject var arViewModel: ARViewModel
     @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
+    @Environment(\.openWindow) private var openWindow
     
     @ObservedObject var modelManager: ModelManager
     @StateObject private var sessionConnectivity = SessionConnectivity()
@@ -108,14 +109,48 @@ struct InSession: View {
             .gesture(modelManager.scaleGesture)
             .gesture(modelManager.rotationGesture)
             
-            // Just a small status indicator
-            Text("Models: \(modelManager.placedModels.count) | Gestures active")
-                .font(.caption)
-                .padding(8)
+            // Debug status panel with toggle
+            ZStack {
+                // Debug info panel
+                VStack(spacing: 10) {
+                    HStack {
+                        Text("XR Anatomy Debug Info")
+                            .font(.headline)
+                        
+                        Spacer()
+                        
+                        Button(action: {
+                            showDebugInfo.toggle()
+                        }) {
+                            Image(systemName: showDebugInfo ? "eye.slash" : "eye")
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.bottom, 5)
+                    
+                    if showDebugInfo {
+                        Text("Models: \(modelManager.placedModels.count) | Gestures active")
+                            .font(.body)
+                        
+                        Text(lastGestureEvent)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Text(modelStats)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(16)
                 .background(.ultraThinMaterial)
-                .cornerRadius(8)
-                .position(x: 100, y: 40)
-                .opacity(0.7)
+                .cornerRadius(16)
+                .shadow(radius: 5)
+            }
+            // Position fixed at the top of the view
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .padding(.top, 50)
+            .opacity(0.85)
         }
         .onAppear {
             print("InSession has appeared. ModelManager has \(modelManager.placedModels.count) models loaded.")
@@ -125,6 +160,12 @@ struct InSession: View {
             
             // Start multipeer services when the immersive space appears
             arViewModel.startMultipeerServices(modelManager: modelManager)
+            
+            // Open the control panel window programmatically
+            Task {
+                await openWindow(id: "controlPanel")
+                print("Opened control panel window")
+            }
             
             // Set a timer to update the debug info periodically
             refreshTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { timer in
