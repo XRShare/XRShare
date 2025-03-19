@@ -55,6 +55,10 @@ struct ControlPanelView: View {
                             Button("-0.05") {
                                 entity.position.x -= 0.05
                                 model.position = entity.position
+                                // Force model update
+                                if let arViewModel = model.arViewModel {
+                                    arViewModel.sendTransform(for: entity)
+                                }
                                 lastAction = "Moved \(model.modelType.rawValue) left"
                             }
                             .buttonStyle(.bordered)
@@ -63,6 +67,10 @@ struct ControlPanelView: View {
                             Button("+0.05") {
                                 entity.position.x += 0.05
                                 model.position = entity.position
+                                // Force model update
+                                if let arViewModel = model.arViewModel {
+                                    arViewModel.sendTransform(for: entity)
+                                }
                                 lastAction = "Moved \(model.modelType.rawValue) right"
                             }
                             .buttonStyle(.bordered)
@@ -75,6 +83,10 @@ struct ControlPanelView: View {
                             Button("-0.05") {
                                 entity.position.y -= 0.05
                                 model.position = entity.position
+                                // Force model update
+                                if let arViewModel = model.arViewModel {
+                                    arViewModel.sendTransform(for: entity)
+                                }
                                 lastAction = "Moved \(model.modelType.rawValue) down"
                             }
                             .buttonStyle(.bordered)
@@ -83,6 +95,10 @@ struct ControlPanelView: View {
                             Button("+0.05") {
                                 entity.position.y += 0.05
                                 model.position = entity.position
+                                // Force model update
+                                if let arViewModel = model.arViewModel {
+                                    arViewModel.sendTransform(for: entity)
+                                }
                                 lastAction = "Moved \(model.modelType.rawValue) up"
                             }
                             .buttonStyle(.bordered)
@@ -95,6 +111,10 @@ struct ControlPanelView: View {
                             Button("-0.05") {
                                 entity.position.z -= 0.05
                                 model.position = entity.position
+                                // Force model update
+                                if let arViewModel = model.arViewModel {
+                                    arViewModel.sendTransform(for: entity)
+                                }
                                 lastAction = "Moved \(model.modelType.rawValue) closer"
                             }
                             .buttonStyle(.bordered)
@@ -103,6 +123,10 @@ struct ControlPanelView: View {
                             Button("+0.05") {
                                 entity.position.z += 0.05
                                 model.position = entity.position
+                                // Force model update
+                                if let arViewModel = model.arViewModel {
+                                    arViewModel.sendTransform(for: entity)
+                                }
                                 lastAction = "Moved \(model.modelType.rawValue) away"
                             }
                             .buttonStyle(.bordered)
@@ -117,6 +141,10 @@ struct ControlPanelView: View {
                             Button("÷2") {
                                 entity.scale *= 0.5
                                 model.scale = entity.scale
+                                // Force model update
+                                if let arViewModel = model.arViewModel {
+                                    arViewModel.sendTransform(for: entity)
+                                }
                                 lastAction = "Halved \(model.modelType.rawValue) scale"
                             }
                             .buttonStyle(.bordered)
@@ -125,6 +153,10 @@ struct ControlPanelView: View {
                             Button("×2") {
                                 entity.scale *= 2.0
                                 model.scale = entity.scale
+                                // Force model update
+                                if let arViewModel = model.arViewModel {
+                                    arViewModel.sendTransform(for: entity)
+                                }
                                 lastAction = "Doubled \(model.modelType.rawValue) scale"
                             }
                             .buttonStyle(.bordered)
@@ -137,6 +169,11 @@ struct ControlPanelView: View {
                             Button("X") {
                                 let rotation = simd_quatf(angle: .pi/2, axis: [1, 0, 0])
                                 entity.transform.rotation = rotation
+                                model.rotation = rotation
+                                // Force model update
+                                if let arViewModel = model.arViewModel {
+                                    arViewModel.sendTransform(for: entity)
+                                }
                                 lastAction = "Rotated \(model.modelType.rawValue) X"
                             }
                             .buttonStyle(.bordered)
@@ -145,6 +182,11 @@ struct ControlPanelView: View {
                             Button("Y") {
                                 let rotation = simd_quatf(angle: .pi/2, axis: [0, 1, 0])
                                 entity.transform.rotation = rotation
+                                model.rotation = rotation
+                                // Force model update
+                                if let arViewModel = model.arViewModel {
+                                    arViewModel.sendTransform(for: entity)
+                                }
                                 lastAction = "Rotated \(model.modelType.rawValue) Y"
                             }
                             .buttonStyle(.bordered)
@@ -153,6 +195,11 @@ struct ControlPanelView: View {
                             Button("Z") {
                                 let rotation = simd_quatf(angle: .pi/2, axis: [0, 0, 1])
                                 entity.transform.rotation = rotation
+                                model.rotation = rotation
+                                // Force model update
+                                if let arViewModel = model.arViewModel {
+                                    arViewModel.sendTransform(for: entity)
+                                }
                                 lastAction = "Rotated \(model.modelType.rawValue) Z"
                             }
                             .buttonStyle(.bordered)
@@ -166,6 +213,11 @@ struct ControlPanelView: View {
                             model.position = entity.position
                             model.scale = entity.scale
                             model.rotation = entity.transform.rotation
+                            
+                            // Force model update
+                            if let arViewModel = model.arViewModel {
+                                arViewModel.sendTransform(for: entity)
+                            }
                             lastAction = "Reset \(model.modelType.rawValue) transform"
                         }
                         .buttonStyle(.bordered)

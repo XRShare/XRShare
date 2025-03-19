@@ -109,48 +109,77 @@ struct InSession: View {
             .gesture(modelManager.scaleGesture)
             .gesture(modelManager.rotationGesture)
             
-            // Debug status panel with toggle
-            ZStack {
-                // Debug info panel
-                VStack(spacing: 10) {
+            // Compact debug status panel with toggle
+            VStack(spacing: 5) {
+                HStack {
+                    Text("XR Anatomy")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        showDebugInfo.toggle()
+                    }) {
+                        Image(systemName: showDebugInfo ? "info.circle.fill" : "info.circle")
+                            .foregroundColor(.white)
+                    }
+                    .buttonStyle(.plain)
+                }
+                
+                if showDebugInfo {
+                    Divider()
+                        .background(Color.white.opacity(0.5))
+                        .padding(.vertical, 2)
+                    
                     HStack {
-                        Text("XR Anatomy Debug Info")
-                            .font(.headline)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(modelStats)
+                                .font(.caption)
+                                .foregroundColor(.white)
+                            
+                            Text(lastGestureEvent)
+                                .font(.caption2)
+                                .foregroundColor(.white.opacity(0.7))
+                        }
                         
                         Spacer()
                         
-                        Button(action: {
-                            showDebugInfo.toggle()
-                        }) {
-                            Image(systemName: showDebugInfo ? "eye.slash" : "eye")
-                                .foregroundColor(.secondary)
+                        // Control buttons
+                        HStack(spacing: 10) {
+                            Button(action: {
+                                Task { @MainActor in
+                                    async let _ = openWindow(id: "controlPanel")
+                                }
+                            }) {
+                                Image(systemName: "slider.horizontal.3")
+                                    .foregroundColor(.white)
+                            }
+                            .buttonStyle(.plain)
+                            
+                            Button(action: {
+                                if let firstModel = modelManager.placedModels.first,
+                                   let entity = firstModel.modelEntity {
+                                    entity.position = SIMD3<Float>(0, 0, -0.5)
+                                    firstModel.position = entity.position
+                                }
+                            }) {
+                                Image(systemName: "arrow.counterclockwise")
+                                    .foregroundColor(.white)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.bottom, 5)
-                    
-                    if showDebugInfo {
-                        Text("Models: \(modelManager.placedModels.count) | Gestures active")
-                            .font(.body)
-                        
-                        Text(lastGestureEvent)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        Text(modelStats)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
                     }
                 }
-                .padding(16)
-                .background(.ultraThinMaterial)
-                .cornerRadius(16)
-                .shadow(radius: 5)
             }
+            .padding(12)
+            .background(Color.blue.opacity(0.6))
+            .cornerRadius(12)
+            .shadow(radius: 3)
             // Position fixed at the top of the view
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .padding(.top, 50)
-            .opacity(0.85)
+            .padding(.top, 30)
+            .padding(.horizontal, 20)
         }
         .onAppear {
             print("InSession has appeared. ModelManager has \(modelManager.placedModels.count) models loaded.")
@@ -162,31 +191,34 @@ struct InSession: View {
             arViewModel.startMultipeerServices(modelManager: modelManager)
             
             // Open the control panel window programmatically
+            // Using async let to properly handle the async operation
             Task {
-                await openWindow(id: "controlPanel")
+                async let _ = openWindow(id: "controlPanel")
                 print("Opened control panel window")
             }
             
             // Set a timer to update the debug info periodically
-            refreshTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { timer in
+            refreshTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { timer in
                 // Update status message with current time
-                lastGestureEvent = "Scene active: \(Date().formatted(date: .omitted, time: .standard))"
+                lastGestureEvent = "Updated: \(Date().formatted(date: .omitted, time: .standard))"
                 
                 // Update model stats for UI display
-                modelStats = "Models: \(modelManager.placedModels.count)"
+                let modelCount = modelManager.placedModels.count
+                modelStats = "Active models: \(modelCount)"
                 
-                // Log model positions for debugging using Task to respect actor isolation
+                // Log model positions for debugging, but less frequently
                 Task { @MainActor in
-                    let modelInfo = modelManager.placedModels.map { model -> String in
-                        if model.isLoaded(), let entity = model.modelEntity {
-                            return "\(model.modelType.rawValue): pos=\(entity.position), vis=\(entity.isEnabled), par=\(entity.parent != nil)"
-                        } else {
-                            return "\(model.modelType.rawValue): No entity"
-                        }
-                    }.joined(separator: "\n")
-                    
-                    if !modelInfo.isEmpty {
-                        print("Current models:\n\(modelInfo)")
+                    if modelCount > 0 && timer.fireCount % 3 == 0 {  // Only log every 15 seconds
+                        let modelInfo = modelManager.placedModels.map { model -> String in
+                            if model.isLoaded(), let entity = model.modelEntity {
+                                let pos = entity.position
+                                return "\(model.modelType.rawValue): pos=(\(String(format: "%.2f", pos.x)), \(String(format: "%.2f", pos.y)), \(String(format: "%.2f", pos.z)))"
+                            } else {
+                                return "\(model.modelType.rawValue): No entity"
+                            }
+                        }.joined(separator: "\n")
+                        
+                        print("Models update [\(Date().formatted(date: .omitted, time: .standard))]:\n\(modelInfo)")
                     }
                 }
                 
