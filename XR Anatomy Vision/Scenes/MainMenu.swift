@@ -15,50 +15,62 @@ struct MainMenu: View {
     
     var body: some View {
         ZStack {
-            bgColor.ignoresSafeArea()
             
             VStack(spacing: 20) {
                 Image("logo_white")
                     .resizable()
                     .scaledToFit()
                     .frame(height: 360)
+                    .clipShape(RoundedRectangle(cornerRadius: 20))
                     .padding(.top, 40)
                     .padding(.bottom, 30)
                 
-                Spacer()
-                
+            
                 if isJoiningSession {
-                    Text("Available Sessions:")
-                        .font(.title2)
-                        .foregroundColor(.black)
-                        .padding()
                     
-                    List(arViewModel.availableSessions, id: \.self) { session in
-                        Button {
-                            arViewModel.multipeerSession?.invitePeer(session.peerID)
-                            isJoiningSession = false
-                            moveToInSession()
-                        } label: {
-                            Text(session.sessionName)
-                                .foregroundColor(.blue)
+                    
+                    VStack(spacing: 20) {
+                        
+                        Text("Available Sessions:")
+                            .font(.title2)
+                            .foregroundColor(.black)
+                            .padding()
+                            
+                        
+                        
+                        List(arViewModel.availableSessions, id: \.self) { session in
+                            Button {
+                                arViewModel.invitePeer(session)
+                                isJoiningSession = false
+                                moveToInSession()
+                            } label: {
+                                Text(session.sessionName)
+                                    .foregroundColor(.blue)
+                            }
                         }
+                        .listStyle(.plain)
+                        .frame(maxWidth: .infinity)
+                        
+                        
+                        
+                        Spacer()
+                        
+                        Button("Cancel") {
+                            isJoiningSession = false
+                        }
+                        .foregroundColor(.red)
+                        .padding()
+                        
                     }
-                    .listStyle(.plain)
-                    .frame(maxWidth: .infinity)
-                    
-                    Spacer()
-                    
-                    Button("Cancel") {
-                        isJoiningSession = false
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 50)
-                    .foregroundColor(.red)
-                    .background(bgColor)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 9)
-                            .stroke(Color.black, lineWidth: 2)
-                    )
+        
+                    .background(Color.white.opacity(0.3))
+                    .frame(maxWidth: 600, minHeight: 100)
+                    .cornerRadius(30)
                     .padding()
+                    
+                    
+                    
+                    
                     
                 } else {
                     ForEach(["Host session", "Join session", "Open session"], id: \.self) { title in
@@ -82,10 +94,12 @@ struct MainMenu: View {
                         } label: {
                             Text(title)
                                 .font(.title2)
+                                .fontWeight(.bold)
+                                .frame(maxWidth: 400, minHeight: 25)
                                 .foregroundColor(.black)
-                                .frame(maxWidth: .infinity, minHeight: 25)
                                 .padding()
                         }
+                        .background(RoundedRectangle(cornerRadius:30).fill(Color.white.opacity(0.3)))
                     }
                 }
             }
