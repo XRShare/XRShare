@@ -24,8 +24,9 @@ struct XRAnatomy_visionOSApp: App {
             ControlPanelView(modelManager: modelManager, arViewModel: arViewModel)
                 .environmentObject(appModel)
         }
-        .windowStyle(.plain)
+        .windowStyle(.automatic)
         .defaultSize(width: 400, height: 600)
+        .windowResizability(.automatic)
 
         ImmersiveSpace(id: appModel.immersiveSpaceID) {
             InSession(modelManager: modelManager)

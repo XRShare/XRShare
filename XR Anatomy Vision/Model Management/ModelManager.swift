@@ -164,35 +164,43 @@ final class ModelManager: ObservableObject {
             .onChanged { value in
                 Task { @MainActor in
                     let entity = value.entity
-                    // We don't need to check if it's a model for this handler
+                    let name = entity.name.isEmpty ? "unnamed entity" : entity.name
                     
-                    // Get dampened scale factor (reduce sensitivity)
+                    // Get the scale factor with MUCH stronger dampening
                     let rawScaleFactor = Float(value.gestureValue.magnification)
-                    let scaleFactor = 1.0 + (rawScaleFactor - 1.0) * 0.05 // Apply only 5% of scale changes
+                    // Only apply 1% of scale changes for finer control
+                    let scaleFactor = 1.0 + (rawScaleFactor - 1.0) * 0.01
                     
-                    // The current scale to modify
+                    // The current scale to modify (from model if available)
                     let currentScale = self.modelDict[entity]?.scale ?? entity.scale
                     
                     // Calculate new scale with limits
                     let newScale = currentScale * scaleFactor
                     
-                    // Ensure minimum scale for visibility
+                    // Ensure minimum scale for visibility and maximum for usability
                     let minScale: Float = 0.02
+                    let maxScale: Float = 2.0
+                    
                     entity.scale = SIMD3<Float>(
-                        max(newScale.x, minScale),
-                        max(newScale.y, minScale),
-                        max(newScale.z, minScale)
+                        min(max(newScale.x, minScale), maxScale),
+                        min(max(newScale.y, minScale), maxScale),
+                        min(max(newScale.z, minScale), maxScale)
                     )
                     
+                    // Update model scale immediately
+                    if let model = self.modelDict[entity] {
+                        model.scale = entity.scale
+                    }
+                    
                     // Logging
-                    print("🔍 SCALE: \(entity.name) by \(scaleFactor) × current")
+                    print("🔍 SCALE: \(name) to \(entity.scale)")
                 }
             }
             .onEnded { value in
                 Task { @MainActor in
                     let entity = value.entity
                     
-                    // Update model scale if this is a model
+                    // Final update to model scale
                     if let model = self.modelDict[entity] {
                         model.scale = entity.scale
                         model.updateCollisionBox()
@@ -216,11 +224,10 @@ final class ModelManager: ObservableObject {
                 Task { @MainActor in
                     let entity = value.entity
                     let name = entity.name.isEmpty ? "unnamed entity" : entity.name
-                    // No need to check isModel here
                     
-                    // Get dampened rotation (reduce sensitivity by 80%)
+                    // Get extremely dampened rotation (reduce sensitivity by 95%)
                     let originalAngle = Float(value.rotation.radians)
-                    let dampedAngle = originalAngle * 0.2
+                    let dampedAngle = originalAngle * 0.05
                     
                     // Store initial rotation when gesture begins
                     if self.entityInitialRotations[entity] == nil {
@@ -239,13 +246,16 @@ final class ModelManager: ObservableObject {
                             rotationAxis = [0, 1, 0] // Y-axis for most objects
                         }
                         
-                        // Apply rotation gradually
-                        let targetRotation = initialRotation * simd_quatf(angle: dampedAngle, axis: rotationAxis)
-                        let currentRotation = entity.transform.rotation
-                        let newRotation = simd_slerp(currentRotation, targetRotation, 0.3)
+                        // Create a direct rotation rather than incremental slerp for more predictable results
+                        let newRotation = simd_quatf(angle: dampedAngle, axis: rotationAxis)
                         entity.transform.rotation = newRotation
                         
-                        print("🔄 ROTATE: \(name) by \(dampedAngle) radians (original: \(originalAngle))")
+                        // Update model immediately for better feedback
+                        if let model = self.modelDict[entity] {
+                            model.rotation = entity.transform.rotation
+                        }
+                        
+                        print("🔄 ROTATE: \(name) to angle \(dampedAngle)")
                     }
                 }
             }
