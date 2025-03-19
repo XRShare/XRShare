@@ -52,12 +52,33 @@ struct ModelSelectionScreen: View {
                 }
                 
                 Spacer()
+                
+                // Debug mode toggle with manual action to handle MainActor requirements
+                Button(action: {
+                    // Debounce to prevent multiple toggles
+                    guard !appModel.controlPanelVisible || !appModel.debugModeEnabled else { 
+                        print("Debug panel already visible")
+                        return 
+                    }
+                    
+                    // Toggle debug mode with UI update
+                    appModel.toggleDebugModeUI()
+                }) {
+                    Label(
+                        appModel.debugModeEnabled ? "Debug Console: Open" : "Debug Console: Closed", 
+                        systemImage: "ladybug"
+                    )
+                    .padding(.horizontal, 4)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(appModel.debugModeEnabled ? .green : .blue)
+                .disabled(appModel.controlPanelVisible && appModel.debugModeEnabled)
+                
                 .onAppear {
                     Task {
                         _ = await openImmersiveSpace(id: appModel.immersiveSpaceID)
                     }
                 }
-                
             }
             .padding()
         }

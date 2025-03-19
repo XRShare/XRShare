@@ -13,28 +13,20 @@ struct XRAnatomy_visionOSApp: App {
             ContentView(modelManager: modelManager)
                 .environmentObject(appModel)
                 .environmentObject(arViewModel)
+                .withWindowOpener() // Add our window opener capability
                 .onAppear {
                     appModel.immersiveSpaceState = .closed
                 }
         }
         .windowStyle(.volumetric)
         
-        // Add a separate window for model controls
+        // Single unified debug/control panel
         WindowGroup(id: "controlPanel") {
-            ControlPanelView(modelManager: modelManager, arViewModel: arViewModel)
-                .environmentObject(appModel)
-        }
-        .windowStyle(.automatic)
-        .defaultSize(width: 400, height: 600)
-        .windowResizability(.automatic)
-        
-        // Add a debug controls window
-        WindowGroup(id: "debugPanel") {
             DebugControlsView(modelManager: modelManager, arViewModel: arViewModel)
                 .environmentObject(appModel)
         }
         .windowStyle(.automatic)
-        .defaultSize(width: 300, height: 200)
+        .defaultSize(width: 400, height: 600)
         .windowResizability(.automatic)
 
         ImmersiveSpace(id: appModel.immersiveSpaceID) {

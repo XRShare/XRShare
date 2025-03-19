@@ -21,7 +21,7 @@ struct InSession: View {
     // Create anchor entity at a more visible distance
     let modelAnchor = AnchorEntity(world: [0, 0, -0.5])
     
-    // Create reference objects at different positions for debugging
+    // Reference objects only shown in debug mode
     let referenceObjects = [
         (position: SIMD3<Float>(0.2, 0, -0.5), color: UIColor.red),
         (position: SIMD3<Float>(-0.2, 0, -0.5), color: UIColor.green),
@@ -39,48 +39,51 @@ struct InSession: View {
         ZStack {
             // Main RealityView content
             RealityView { content in
-                // Add visible reference spheres at different positions to confirm render space
-                for (index, refObj) in referenceObjects.enumerated() {
-                    let referenceSphere = ModelEntity(
-                        mesh: .generateSphere(radius: 0.03),
-                        materials: [SimpleMaterial(color: refObj.color, isMetallic: true)]
-                    )
-                    referenceSphere.position = refObj.position
-                    referenceSphere.name = "ReferenceSphere\(index)"
-                    referenceSphere.generateCollisionShapes(recursive: true)
+                // Only add reference spheres if in debug mode
+                if appModel.debugModeEnabled {
+                    // Add visible reference spheres at different positions to confirm render space
+                    for (index, refObj) in referenceObjects.enumerated() {
+                        let referenceSphere = ModelEntity(
+                            mesh: .generateSphere(radius: 0.03),
+                            materials: [SimpleMaterial(color: refObj.color, isMetallic: true)]
+                        )
+                        referenceSphere.position = refObj.position
+                        referenceSphere.name = "ReferenceSphere\(index)"
+                        referenceSphere.generateCollisionShapes(recursive: true)
+                        
+                        // Make sure it has collision for interaction
+                        referenceSphere.collision = CollisionComponent(shapes: [.generateSphere(radius: 0.03)])
+                        
+                        // Add input target component for interactivity
+                        referenceSphere.components.set(InputTargetComponent())
+                        
+                        // Add hover effect to show interactivity
+                        referenceSphere.components.set(HoverEffectComponent())
+                        
+                        // Add directly to the content
+                        content.add(referenceSphere)
+                        print("Added interactive reference sphere \(index) at \(refObj.position)")
+                    }
                     
-                    // Make sure it has collision for interaction
-                    referenceSphere.collision = CollisionComponent(shapes: [.generateSphere(radius: 0.03)])
+                    // Add a main reference sphere with high visibility
+                    let mainSphere = ModelEntity(
+                        mesh: .generateSphere(radius: 0.05),
+                        materials: [SimpleMaterial(color: .red, isMetallic: true)]
+                    )
+                    mainSphere.position = [0, 0, -0.5]
+                    mainSphere.name = "MainSphere"
+                    mainSphere.generateCollisionShapes(recursive: true)
+                    mainSphere.collision = CollisionComponent(shapes: [.generateSphere(radius: 0.05)])
                     
                     // Add input target component for interactivity
-                    referenceSphere.components.set(InputTargetComponent())
+                    mainSphere.components.set(InputTargetComponent())
                     
                     // Add hover effect to show interactivity
-                    referenceSphere.components.set(HoverEffectComponent())
+                    mainSphere.components.set(HoverEffectComponent())
                     
-                    // Add directly to the content
-                    content.add(referenceSphere)
-                    print("Added interactive reference sphere \(index) at \(refObj.position)")
+                    content.add(mainSphere)
+                    print("Added interactive main sphere at \(mainSphere.position)")
                 }
-                
-                // Add a main reference sphere with high visibility
-                let mainSphere = ModelEntity(
-                    mesh: .generateSphere(radius: 0.05),
-                    materials: [SimpleMaterial(color: .red, isMetallic: true)]
-                )
-                mainSphere.position = [0, 0, -0.5]
-                mainSphere.name = "MainSphere"
-                mainSphere.generateCollisionShapes(recursive: true)
-                mainSphere.collision = CollisionComponent(shapes: [.generateSphere(radius: 0.05)])
-                
-                // Add input target component for interactivity
-                mainSphere.components.set(InputTargetComponent())
-                
-                // Add hover effect to show interactivity
-                mainSphere.components.set(HoverEffectComponent())
-                
-                content.add(mainSphere)
-                print("Added interactive main sphere at \(mainSphere.position)")
                 
                 // Add model anchor
                 content.add(modelAnchor)
@@ -105,39 +108,36 @@ struct InSession: View {
                 arViewModel: arViewModel
             )
             }
-            // Use the simplest possible gesture configuration
+            // Add tap gesture first for selection, then the manipulation gestures
+            .gesture(modelManager.tapGesture)
             .gesture(modelManager.dragGesture)
             .gesture(modelManager.scaleGesture)
             .gesture(modelManager.rotationGesture)
             
-            // Minimal status indicator
-            Text("Session active: \(modelManager.placedModels.count) models")
-                .font(.caption)
-                .padding(8)
-                .background(.ultraThinMaterial)
-                .cornerRadius(12)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(.horizontal, 20)
-                .padding(.top, 20)
-                .opacity(0.8)
-                
-            // Debug panel button
-            Button(action: {
-                Task { @MainActor in
-                    async let _ = openWindow(id: "debugPanel")
-                }
-            }) {
-                Label("Debug", systemImage: "wrench.and.screwdriver.fill")
+            // Status indicator with selection info
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Session active: \(modelManager.placedModels.count) models")
                     .font(.caption)
-                    .padding(8)
-                    .background(Color.blue)
-                    .cornerRadius(8)
-                    .foregroundColor(.white)
+                
+                if let selectedID = modelManager.selectedModelID {
+                    Text("Selected: \(selectedID.rawValue)")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                } else if !modelManager.placedModels.isEmpty {
+                    Text("Tap a model to select it")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            .padding(8)
+            .background(.ultraThinMaterial)
+            .cornerRadius(12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .padding(.horizontal, 20)
             .padding(.top, 20)
+            .opacity(0.8)
         }
+        .withWindowOpener() // Add window opening capability
         .onAppear {
             print("InSession has appeared. ModelManager has \(modelManager.placedModels.count) models loaded.")
             
@@ -147,13 +147,8 @@ struct InSession: View {
             // Start multipeer services when the immersive space appears
             arViewModel.startMultipeerServices(modelManager: modelManager)
             
-            // Open both control panels programmatically
-            // Using async let to properly handle the async operation
-            Task {
-                async let controlPanel = openWindow(id: "controlPanel")
-                async let debugPanel = openWindow(id: "debugPanel")
-                print("Opening UI windows")
-            }
+            // Debug panel managed entirely from ModelSelectionView
+            // No automatic panel opening here
             
             // Timer counter is now a class property
             

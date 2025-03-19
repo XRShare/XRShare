@@ -1,5 +1,6 @@
 import SwiftUI
 import RealityKit
+import UIKit
 
 /// Manages placed models, gestures, and related logic
 final class ModelManager: ObservableObject {
@@ -7,6 +8,7 @@ final class ModelManager: ObservableObject {
     @Published var modelDict: [Entity: Model] = [:]
     @Published var entityInitialRotations: [Entity: simd_quatf] = [:]
     @Published var modelTypes: [ModelType] = []
+    @Published var selectedModelID: ModelType? = nil
 
     var transformCache = TransformCache()
     
@@ -29,12 +31,15 @@ final class ModelManager: ObservableObject {
                 await MainActor.run {
                     self.modelDict[entity] = model
                     self.placedModels.append(model)
+                    
+                    // Automatically select newly loaded model
+                    self.selectedModelID = modelType
                 }
                 let customService = await MainActor.run { arViewModel?.currentScene?.synchronizationService }
                 if let customService = customService as? MyCustomConnectivityService {
                     customService.registerEntity(entity, modelType: modelType)
                 }
-                print("\(modelType.rawValue) chosen – model loaded (not placed yet)")
+                print("\(modelType.rawValue) chosen – model loaded and selected")
             } else {
                 print("Failed to load model entity for \(modelType.rawValue).usdz")
             }
@@ -44,20 +49,59 @@ final class ModelManager: ObservableObject {
     // MARK: - Remove a Single Model
     @MainActor func removeModel(_ model: Model) {
         guard let entity = model.modelEntity else { return }
+        
+        // Clean up entity properly
+        // Remove any highlight entities first
+        if let highlight = entity.findEntity(named: "selectionHighlight") {
+            highlight.removeFromParent()
+        }
+        
+        // Clear components that might cause networking issues
+        if entity.components[SelectionComponent.self] != nil {
+            entity.components.remove(SelectionComponent.self)
+        }
+        
+        // Remove from parent after cleanup
         entity.removeFromParent()
+        
+        // Update collections
         placedModels.removeAll { $0.id == model.id }
         modelDict = modelDict.filter { $0.value.id != model.id }
+        
+        // If we removed the selected model, select another model if available
+        if selectedModelID == model.modelType {
+            selectedModelID = placedModels.first?.modelType
+        }
+        
+        print("Removed model: \(model.modelType.rawValue)")
     }
     
     @MainActor func reset() {
-        // Remove all from the scene
+        // Clean up entities properly before removing
         placedModels.forEach { model in
-            model.modelEntity?.removeFromParent()
+            // Remove highlights first to avoid unbound component errors
+            if let entity = model.modelEntity {
+                // Remove any highlight entities first
+                if let highlight = entity.findEntity(named: "selectionHighlight") {
+                    highlight.removeFromParent()
+                }
+                
+                // Clear components that might cause networking issues
+                if entity.components[SelectionComponent.self] != nil {
+                    entity.components.remove(SelectionComponent.self)
+                }
+                
+                // Remove from parent last
+                entity.removeFromParent()
+            }
         }
+        
+        // Clear all collections
         placedModels.removeAll()
         modelDict.removeAll()
         entityInitialRotations.removeAll()
         transformCache.lastTransforms.removeAll()
+        selectedModelID = nil
     }
     
     // MARK: - Update the 3D Scene
@@ -82,6 +126,77 @@ final class ModelManager: ObservableObject {
                 content.add(entity)
             }
             
+            // Visual highlight for selected model
+            if model.modelType == selectedModelID {
+                // If this model is selected, make it visually distinct
+                if entity.components[SelectionComponent.self] == nil {
+                    entity.components.set(SelectionComponent())
+                    
+                    // Create a visual highlight around the selected model
+                    // No need to cast, just use the entity directly
+                    
+                    // Check if we already have a highlight entity
+                    if entity.findEntity(named: "selectionHighlight") == nil {
+                        // Create a simple highlight
+                        let bounds = entity.visualBounds(relativeTo: nil)
+                        let highlightSize = SIMD3<Float>(
+                            bounds.extents.x * 1.05,
+                            bounds.extents.y * 1.05,
+                            bounds.extents.z * 1.05
+                        )
+                        
+                        // Create a simple blue wireframe box
+                        let boxMaterial = SimpleMaterial(
+                            color: .blue,
+                            roughness: 0.5,
+                            isMetallic: false
+                        )
+                        
+                        let boxMesh = MeshResource.generateBox(
+                            size: highlightSize,
+                            cornerRadius: 0.01
+                        )
+                        
+                        let highlightEntity = ModelEntity(
+                            mesh: boxMesh,
+                            materials: [boxMaterial]
+                        )
+                        
+                        // Name it for later reference
+                        highlightEntity.name = "selectionHighlight"
+                        
+                        // Position at the same center as the model
+                        highlightEntity.position = SIMD3<Float>(0, 0, 0)
+                        
+                        // Set transparency for the material
+                        let transparentMaterial = SimpleMaterial(
+                            color: UIColor.blue.withAlphaComponent(0.3),
+                            roughness: 0.5,
+                            isMetallic: false
+                        )
+                        
+                        // Apply the transparent material
+                        highlightEntity.model?.materials = [transparentMaterial]
+                        
+                        // Add it as a child
+                        entity.addChild(highlightEntity)
+                    }
+                    
+                    print("Added selection highlight to \(model.modelType.rawValue)")
+                }
+            } else {
+                // If this model was previously selected but isn't anymore, remove the highlight
+                if entity.components[SelectionComponent.self] != nil {
+                    entity.components.remove(SelectionComponent.self)
+                    
+                    // Remove the highlight entity
+                    if let highlightEntity = entity.findEntity(named: "selectionHighlight") {
+                        highlightEntity.removeFromParent()
+                        print("Removed selection highlight from \(model.modelType.rawValue)")
+                    }
+                }
+            }
+            
             // Check for transform changes; broadcast if changed
             let currentMatrix = entity.transform.matrix
             if let lastMatrix = transformCache.lastTransforms[entity.id],
@@ -95,6 +210,25 @@ final class ModelManager: ObservableObject {
     }
 
     // MARK: - Gestures
+    
+    // Tap gesture for model selection
+    var tapGesture: some Gesture {
+        SpatialTapGesture()
+            .targetedToAnyEntity()
+            .onEnded { value in
+                Task { @MainActor in
+                    let entity = value.entity
+                    let name = entity.name.isEmpty ? "unnamed entity" : entity.name
+                    
+                    // Only handle actual models, not reference spheres
+                    if let model = self.modelDict[entity] {
+                        // Set this model as selected
+                        self.selectedModelID = model.modelType
+                        print("🎯 SELECT: Tapped \(name) - now selected")
+                    }
+                }
+            }
+    }
     
     // Drag gesture with extremely reduced sensitivity
     var dragGesture: some Gesture {
@@ -133,6 +267,9 @@ final class ModelManager: ObservableObject {
                     // Update model position if this is a model
                     if let model = self.modelDict[entity] {
                         model.position = entity.position
+                        
+                        // If this entity was interacted with, select it
+                        self.selectedModelID = model.modelType
                     }
                     
                     print("🔵 DRAG: \(name) from \(oldPosition) to \(entity.position)")
@@ -145,6 +282,9 @@ final class ModelManager: ObservableObject {
                     // Update model data if this is a model
                     if let model = self.modelDict[entity] {
                         model.position = entity.position
+                        
+                        // Make sure this model remains selected
+                        self.selectedModelID = model.modelType
                         
                         // Send transform to peers if needed
                         if let arViewModel = model.arViewModel {
@@ -190,6 +330,9 @@ final class ModelManager: ObservableObject {
                     // Update model scale immediately
                     if let model = self.modelDict[entity] {
                         model.scale = entity.scale
+                        
+                        // If this entity was interacted with, select it
+                        self.selectedModelID = model.modelType
                     }
                     
                     // Logging
@@ -204,6 +347,9 @@ final class ModelManager: ObservableObject {
                     if let model = self.modelDict[entity] {
                         model.scale = entity.scale
                         model.updateCollisionBox()
+                        
+                        // Make sure this model remains selected
+                        self.selectedModelID = model.modelType
                         
                         // Send transform to peers if needed
                         if let arViewModel = model.arViewModel {
@@ -235,7 +381,7 @@ final class ModelManager: ObservableObject {
                         print("Initial rotation recorded for \(name)")
                     }
                     
-                    if let initialRotation = self.entityInitialRotations[entity] {
+                    if self.entityInitialRotations[entity] != nil {
                         // Choose rotation axis based on model type or default to Y-axis
                         let rotationAxis: SIMD3<Float>
                         
@@ -253,6 +399,9 @@ final class ModelManager: ObservableObject {
                         // Update model immediately for better feedback
                         if let model = self.modelDict[entity] {
                             model.rotation = entity.transform.rotation
+                            
+                            // If this entity was interacted with, select it
+                            self.selectedModelID = model.modelType
                         }
                         
                         print("🔄 ROTATE: \(name) to angle \(dampedAngle)")
@@ -266,6 +415,9 @@ final class ModelManager: ObservableObject {
                     // Update model rotation if this is a model
                     if let model = self.modelDict[entity] {
                         model.rotation = entity.transform.rotation
+                        
+                        // Make sure this model remains selected
+                        self.selectedModelID = model.modelType
                         
                         // Send transform to peers if needed
                         if let arViewModel = model.arViewModel {

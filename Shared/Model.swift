@@ -89,6 +89,9 @@ final class Model: ObservableObject, @preconcurrency Identifiable {
                 // Add hover effect to show interactivity
                 entity.components.set(HoverEffectComponent())
                 
+                // Name the entity meaningfully for better identification
+                entity.name = "Model_\(modelType.rawValue)"
+                
                 // Apply Z-axis rotation correction if needed
                 if modelType.shouldRotateAroundZAxis {
                     // Rotate to correct initial orientation
@@ -199,3 +202,6 @@ struct ModelTypeComponent: Component {
 struct LastTransformComponent: Component {
     var matrix: simd_float4x4
 }
+
+// Component to mark a model as currently selected
+struct SelectionComponent: Component {}
