@@ -216,7 +216,6 @@ final class ModelManager: ObservableObject {
                 Task { @MainActor in
                     let entity = value.entity
                     let name = entity.name.isEmpty ? "unnamed entity" : entity.name
-                    let isModel = self.modelDict[entity] != nil
                     
                     // Get dampened rotation (reduce sensitivity by 80%)
                     let originalAngle = Float(value.rotation.radians)

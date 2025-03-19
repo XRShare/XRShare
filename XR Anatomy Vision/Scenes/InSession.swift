@@ -134,21 +134,19 @@ struct InSession: View {
                 // Update model stats for UI display
                 modelStats = "Models: \(modelManager.placedModels.count)"
                 
-                // Log model positions for debugging
-                let modelInfo = Task { @MainActor in
-                    modelManager.placedModels.map { model -> String in
+                // Log model positions for debugging using Task to respect actor isolation
+                Task { @MainActor in
+                    let modelInfo = modelManager.placedModels.map { model -> String in
                         if model.isLoaded(), let entity = model.modelEntity {
                             return "\(model.modelType.rawValue): pos=\(entity.position), vis=\(entity.isEnabled), par=\(entity.parent != nil)"
                         } else {
                             return "\(model.modelType.rawValue): No entity"
                         }
                     }.joined(separator: "\n")
-                }
-                
-                Task { @MainActor in
-                    let info = await modelInfo
-                    // A Task can't be empty, but the string inside it can
-                    print("Current models:\n\(info)")
+                    
+                    if !modelInfo.isEmpty {
+                        print("Current models:\n\(modelInfo)")
+                    }
                 }
                 
                 // Auto-add a model if none are present after 5 seconds
