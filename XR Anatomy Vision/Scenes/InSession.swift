@@ -135,16 +135,20 @@ struct InSession: View {
                 modelStats = "Models: \(modelManager.placedModels.count)"
                 
                 // Log model positions for debugging
-                let modelInfo = modelManager.placedModels.map { model -> String in
-                    if model.isLoaded(), let entity = model.modelEntity {
-                        return "\(model.modelType.rawValue): pos=\(entity.position), vis=\(entity.isEnabled), par=\(entity.parent != nil)"
-                    } else {
-                        return "\(model.modelType.rawValue): No entity"
-                    }
-                }.joined(separator: "\n")
+                let modelInfo = Task { @MainActor in
+                    modelManager.placedModels.map { model -> String in
+                        if model.isLoaded(), let entity = model.modelEntity {
+                            return "\(model.modelType.rawValue): pos=\(entity.position), vis=\(entity.isEnabled), par=\(entity.parent != nil)"
+                        } else {
+                            return "\(model.modelType.rawValue): No entity"
+                        }
+                    }.joined(separator: "\n")
+                }
                 
-                if !modelInfo.isEmpty {
-                    print("Current models:\n\(modelInfo)")
+                Task { @MainActor in
+                    let info = await modelInfo
+                    // A Task can't be empty, but the string inside it can
+                    print("Current models:\n\(info)")
                 }
                 
                 // Auto-add a model if none are present after 5 seconds

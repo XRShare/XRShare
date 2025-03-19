@@ -105,7 +105,7 @@ final class ModelManager: ObservableObject {
                     // Try to get the model, but also support reference spheres
                     let entity = value.entity
                     let name = entity.name.isEmpty ? "unnamed entity" : entity.name
-                    let isModel = self.modelDict[entity] != nil
+                    // Check if this is a model (used for logging)
                     
                     // Get translation in world space with MUCH lower sensitivity
                     let translation = value.translation3D
@@ -164,14 +164,14 @@ final class ModelManager: ObservableObject {
             .onChanged { value in
                 Task { @MainActor in
                     let entity = value.entity
-                    let isModel = self.modelDict[entity] != nil
+                    // We don't need to check if it's a model for this handler
                     
                     // Get dampened scale factor (reduce sensitivity)
                     let rawScaleFactor = Float(value.gestureValue.magnification)
                     let scaleFactor = 1.0 + (rawScaleFactor - 1.0) * 0.05 // Apply only 5% of scale changes
                     
                     // The current scale to modify
-                    let currentScale = isModel ? self.modelDict[entity]!.scale : entity.scale
+                    let currentScale = self.modelDict[entity]?.scale ?? entity.scale
                     
                     // Calculate new scale with limits
                     let newScale = currentScale * scaleFactor
