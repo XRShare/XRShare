@@ -19,8 +19,9 @@ struct XRAnatomy_visionOSApp: App {
                     appModel.immersiveSpaceState = .closed
                 }
         }
-        .windowStyle(.volumetric)
+        .windowStyle(.plain)
         .windowResizability(.automatic)
+        
         
         // Single unified debug/control panel
         WindowGroup(id: "controlPanel") {
@@ -33,9 +34,11 @@ struct XRAnatomy_visionOSApp: App {
         
         
         WindowGroup(id: "AddModelWindow"){
+                
             AddModelView(modelManager: modelManager)
                 .environmentObject(arViewModel)
                 .environmentObject(appModel)
+            
         }
         .windowStyle(.automatic)
         .defaultSize(width: 400, height: 600)

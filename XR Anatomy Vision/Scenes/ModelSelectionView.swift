@@ -3,6 +3,7 @@ import RealityKit
 
 struct ModelSelectionScreen: View {
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.dismissWindow) private var dismissWindow
     @EnvironmentObject var appModel: AppModel
     @EnvironmentObject var arViewModel: ARViewModel
     @ObservedObject var modelManager: ModelManager
@@ -15,6 +16,10 @@ struct ModelSelectionScreen: View {
             
             HStack{
                 Button("Back to Main") {
+                    
+                    dismissWindow(id: "AddModelWindow")
+                    dismissWindow(id: "InSessionView")
+                    
                     // Clear models
                     modelManager.reset()
                     // Reset multipeer services

@@ -64,8 +64,6 @@ struct MainMenu: View {
                         .padding()
                         
                     }
-        
-                    .background(Color.white.opacity(0.3))
                     .frame(maxWidth: 600, minHeight: 270)
                     .cornerRadius(30)
                     .padding()
@@ -124,8 +122,8 @@ struct MainMenu: View {
                 }
             }
         }
-        
     }
+  
     
     private func moveToInSession() {
         appModel.currentPage = .modelSelection

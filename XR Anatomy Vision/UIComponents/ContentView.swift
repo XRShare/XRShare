@@ -109,26 +109,22 @@ struct ContentView: View {
     @ObservedObject var modelManager: ModelManager
     
     var body: some View {
-    
-        Color.clear
         
-            .onChange(of: appModel.currentPage){_, newPage in
-                switch newPage{
-                case .mainMenu:
-                    openWindow(id: "MainMenuView")
-                case .modelSelection:
-                    openWindow(id: "InSessionView")
+        ZStack{
+        
+        switch appModel.currentPage{
+        case .mainMenu:
+            MainMenu()
+            
+        case .modelSelection:
+            EmptyView()
+        }
+    }
+        .onChange(of: appModel.currentPage){_, newPage in
+            if newPage == .modelSelection{
+                openWindow(id: "InSessionView")
             }
             
         }
-            .onAppear{
-                switch appModel.currentPage{
-                case .mainMenu:
-                    openWindow(id: "MainMenuView")
-                
-                case .modelSelection:
-                    openWindow(id: "InSessionView")
-                }
-            }
     }
 }
