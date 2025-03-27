@@ -10,7 +10,7 @@ import SwiftUI
 import RealityKit
 
 struct InSession: View {
-    @EnvironmentObject var appModel: AppModel
+    @EnvironmentObject var appModel: AppModel 
     @EnvironmentObject var arViewModel: ARViewModel
     @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
     @Environment(\.openWindow) private var openWindow
@@ -214,3 +214,4 @@ struct InSession: View {
         }
     }
 }
+

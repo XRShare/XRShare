@@ -4,6 +4,8 @@ struct MainMenu: View {
     @EnvironmentObject var appModel: AppModel
     @EnvironmentObject var arViewModel: ARViewModel
     
+    @Environment(\.openWindow) private var openWindow
+    
     @Environment(\.openImmersiveSpace) private var openImmersiveSpace
     
     @State private var isJoiningSession = false
@@ -64,7 +66,7 @@ struct MainMenu: View {
                     }
         
                     .background(Color.white.opacity(0.3))
-                    .frame(maxWidth: 600, minHeight: 100)
+                    .frame(maxWidth: 600, minHeight: 270)
                     .cornerRadius(30)
                     .padding()
                     
@@ -122,6 +124,7 @@ struct MainMenu: View {
                 }
             }
         }
+        
     }
     
     private func moveToInSession() {

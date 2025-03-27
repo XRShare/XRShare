@@ -103,17 +103,32 @@ extension View {
 }
 
 struct ContentView: View {
+    @Environment(\.openWindow) private var openWindow
     @EnvironmentObject var appModel: AppModel
     @EnvironmentObject var arViewModel: ARViewModel
     @ObservedObject var modelManager: ModelManager
     
     var body: some View {
-        switch appModel.currentPage {
-        case .mainMenu:
-            MainMenu()
+    
+        Color.clear
+        
+            .onChange(of: appModel.currentPage){_, newPage in
+                switch newPage{
+                case .mainMenu:
+                    openWindow(id: "MainMenuView")
+                case .modelSelection:
+                    openWindow(id: "InSessionView")
+            }
             
-        case .modelSelection:
-            ModelSelectionScreen(modelManager: modelManager)
         }
+            .onAppear{
+                switch appModel.currentPage{
+                case .mainMenu:
+                    openWindow(id: "MainMenuView")
+                
+                case .modelSelection:
+                    openWindow(id: "InSessionView")
+                }
+            }
     }
 }

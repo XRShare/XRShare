@@ -2,6 +2,7 @@ import SwiftUI
 import RealityKit
 
 struct ModelSelectionScreen: View {
+    @Environment(\.openWindow) private var openWindow
     @EnvironmentObject var appModel: AppModel
     @EnvironmentObject var arViewModel: ARViewModel
     @ObservedObject var modelManager: ModelManager
@@ -11,8 +12,39 @@ struct ModelSelectionScreen: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Text("Select Your Models")
-                .font(.largeTitle)
+            
+            HStack{
+                Button("Back to Main") {
+                    // Clear models
+                    modelManager.reset()
+                    // Reset multipeer services
+                    arViewModel.stopMultipeerServices()
+                    // Exit the immersive view
+                    Task {
+                        await dismissImmersiveSpace()
+                    }
+                    // Switch the app page back to main
+                    appModel.currentPage = .mainMenu
+                }
+                .background(RoundedRectangle(cornerRadius:30).fill(Color.white.opacity(0.3)))
+                
+                Spacer()
+                
+                Text("Session Name:")
+                    .font(.largeTitle)
+                
+                Spacer()
+                
+                Button("Add a model"){
+                    print("add a model selected")
+                    openWindow(id: "AddModelWindow")
+                }
+                .background(RoundedRectangle(cornerRadius:30).fill(Color.white.opacity(0.6)))
+                
+                
+            }
+            .padding(35)
+            
             
             ScrollView {
                 ForEach(modelManager.modelTypes, id: \.id) { modelType in
@@ -38,18 +70,6 @@ struct ModelSelectionScreen: View {
             }
             
             HStack {
-                Button("Back to Main") {
-                    // Clear models
-                    modelManager.reset()
-                    // Reset multipeer services
-                    arViewModel.stopMultipeerServices()
-                    // Exit the immersive view
-                    Task {
-                        await dismissImmersiveSpace()
-                    }
-                    // Switch the app page back to main
-                    appModel.currentPage = .mainMenu
-                }
                 
                 Spacer()
                 
@@ -82,6 +102,8 @@ struct ModelSelectionScreen: View {
             }
             .padding()
         }
+        .background((Color.black).opacity(0.2))
+        .cornerRadius(30)
         .onAppear {
             modelManager.loadModelTypes()
         }
@@ -94,4 +116,13 @@ struct ModelSelectionScreen: View {
             }
         }
     }
+}
+
+struct ModelSelectionView : PreviewProvider {
+    static var previews: some View {
+        ModelSelectionScreen(modelManager : ModelManager())
+            .environmentObject(AppModel())
+            .environmentObject(ARViewModel())
+    }
+    
 }
