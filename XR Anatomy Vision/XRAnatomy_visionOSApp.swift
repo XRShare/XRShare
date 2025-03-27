@@ -31,6 +31,7 @@ struct XRAnatomy_visionOSApp: App {
         .defaultSize(width: 400, height: 600)
         .windowResizability(.automatic)
         
+        
         WindowGroup(id: "AddModelWindow"){
             AddModelView(modelManager: modelManager)
                 .environmentObject(arViewModel)
@@ -40,14 +41,17 @@ struct XRAnatomy_visionOSApp: App {
         .defaultSize(width: 400, height: 600)
         .windowResizability(.automatic)
         
+        
         WindowGroup(id: "MainMenuView"){
             MainMenu()
                 .environmentObject(arViewModel)
                 .environmentObject(appModel)
                 .onAppear {
                     dismiss(id: "InSessionView")
+                    dismiss(id: "AddModelWindow")
                 }
         }
+        
         
         WindowGroup(id: "InSessionView"){
             ModelSelectionScreen(modelManager: modelManager)

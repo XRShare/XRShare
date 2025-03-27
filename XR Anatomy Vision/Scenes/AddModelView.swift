@@ -21,8 +21,35 @@ struct AddModelView: View {
 
     var body: some View {
         VStack{
+            
             Text("Models")
                 .font(.title)
+                .padding(30)
+            
+            Spacer()
+            
+            List(modelManager.modelTypes, id: \.id){ modelType in
+                Button{
+                    modelManager.loadModel(for: modelType, arViewModel: arViewModel)
+                } label:{
+                    HStack{
+                        Text(modelType.rawValue)
+                            .foregroundColor(.primary)
+                        
+                        Spacer()
+                        
+                        Image(systemName: "chevron.right")
+                            .foregroundColor(.white)
+                        
+                    }
+                    .padding(.vertical, 8)
+                }
+                
+                .listRowBackground(Color.clear)
+                
+            }
+            .listStyle(.plain)
+        
         }
         
     }

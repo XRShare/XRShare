@@ -44,16 +44,7 @@ struct ModelSelectionScreen: View {
                 
             }
             .padding(35)
-            
-            
-            ScrollView {
-                ForEach(modelManager.modelTypes, id: \.id) { modelType in
-                    Button(modelType.rawValue) {
-                        modelManager.loadModel(for: modelType, arViewModel: arViewModel)
-                    }
-                }
-            }
-            .frame(height: 200)
+        
 
             Text("Loaded Models: \(modelManager.placedModels.count)")
 
@@ -102,7 +93,6 @@ struct ModelSelectionScreen: View {
             }
             .padding()
         }
-        .background((Color.black).opacity(0.2))
         .cornerRadius(30)
         .onAppear {
             modelManager.loadModelTypes()
