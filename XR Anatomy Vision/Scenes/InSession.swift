@@ -8,15 +8,20 @@
 
 import SwiftUI
 import RealityKit
+import ARKit
 
 struct InSession: View {
     @EnvironmentObject var appModel: AppModel 
     @EnvironmentObject var arViewModel: ARViewModel
+    @EnvironmentObject var appState: AppState
     @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
     @Environment(\.openWindow) private var openWindow
     
     @ObservedObject var modelManager: ModelManager
     @StateObject private var sessionConnectivity = SessionConnectivity()
+    
+    // Passed Properties
+    var session: ARKitSession // Receive the ARKitSession instance
     
     // Create anchor entity at a more visible distance
     let modelAnchor = AnchorEntity(world: [0, 0, -0.5])
@@ -85,8 +90,15 @@ struct InSession: View {
                     print("Added interactive main sphere at \(mainSphere.position)")
                 }
                 
-                // Add model anchor
+                // Add both anchors to the scene (guaranteed present)
                 content.add(modelAnchor)
+                content.add(arViewModel.sharedAnchorEntity)
+                
+                // Make sure they're enabled
+                modelAnchor.isEnabled = true
+                arViewModel.sharedAnchorEntity.isEnabled = true
+                
+                print("Added both world and image anchors to scene")
                 
                 // Set up head anchor for spatial awareness
                 let headAnchor = AnchorEntity(.head)

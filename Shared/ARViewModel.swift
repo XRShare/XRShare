@@ -2,10 +2,15 @@ import SwiftUI
 import Combine
 import MultipeerConnectivity
 import RealityKit
-
-#if os(iOS)
 import ARKit
-#endif
+
+/// Defines the synchronization modes for the AR experience.
+enum SyncMode: String, Codable, CaseIterable {
+    /// Synchronizes absolute world transforms. Relies on ARKit world alignment.
+    case world = "World Space Sync"
+    /// Synchronizes transforms relative to a detected physical image target.
+    case imageTarget = "Image Target Sync"
+}
 
 /// User roles in the application
 public enum UserRole: String, Codable {
@@ -36,6 +41,12 @@ class ARViewModel: NSObject, ObservableObject {
     @Published var connectedPeers: [MCPeerID] = []
     @Published var availableSessions: [Session] = []
     
+    // MARK: - Sync Mode Properties
+    @Published var currentSyncMode: SyncMode = .world // Default mode
+    let sharedAnchorEntity = AnchorEntity(.world(transform: matrix_identity_float4x4)) // Initialize as world anchor at origin
+    @Published var isImageTracked: Bool = false // Track if the target image is currently tracked
+    var imageTrackingProvider: ImageTrackingProvider? = nil
+    
     // iOS ARKit references
     #if os(iOS)
     weak var arView: ARView?
@@ -64,6 +75,9 @@ class ARViewModel: NSObject, ObservableObject {
     
     // Multipeer state flags
     private var shouldStartMultipeerAfterModelsLoad: Bool = false
+    
+    // Reference to ModelManager
+    weak var modelManager: ModelManager?
     
     // MARK: - Initialization
     override init() {
@@ -342,7 +356,30 @@ class ARViewModel: NSObject, ObservableObject {
         }
         
         if let modelType = modelType {
-            customService.sendModelTransform(entity: entity, modelType: modelType)
+            sendTransform(for: entity, modelType: modelType)
+        } else {
+            customService.sendModelTransform(entity: entity)
+        }
+    }
+    
+    /// Send model transform to peers with specified model type
+    func sendTransform(for entity: Entity, modelType: ModelType) {
+        guard let customService = customService else { return }
+        
+        // Use different transform methods based on the sync mode
+        if currentSyncMode == .imageTarget {
+            // In image target mode, transforms are relative to the image anchor
+            customService.sendModelTransform(
+                entity: entity,
+                modelType: modelType,
+                relativeToImageAnchor: true
+            )
+        } else {
+            // In world mode, use absolute world transforms
+            customService.sendModelTransform(
+                entity: entity,
+                modelType: modelType
+            )
         }
     }
     

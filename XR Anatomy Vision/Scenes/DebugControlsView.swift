@@ -5,6 +5,7 @@ struct DebugControlsView: View {
     @ObservedObject var modelManager: ModelManager
     @ObservedObject var arViewModel: ARViewModel
     @EnvironmentObject var appModel: AppModel
+    @EnvironmentObject var appState: AppState
     @Environment(\.openWindow) private var openWindow
     
     @State private var lastAction = "Debug panel opened"
@@ -198,6 +199,41 @@ struct DebugControlsView: View {
                         }
                     }
                 }
+                
+                // Sync Mode Selector
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Sync Mode:")
+                        .font(.headline)
+                    
+                    Picker("Sync Mode", selection: $arViewModel.currentSyncMode) {
+                        ForEach(SyncMode.allCases, id: \.self) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .onChange(of: arViewModel.currentSyncMode) { _ in
+                        // Post notification for sync mode change
+                        NotificationCenter.default.post(name: Notification.Name("syncModeChanged"), object: nil)
+                        lastAction = "Switched to \(arViewModel.currentSyncMode.rawValue)"
+                    }
+                    
+                    // Show image tracking status when in image target mode
+                    if arViewModel.currentSyncMode == .imageTarget {
+                        HStack {
+                            Circle()
+                                .fill(appState.isImageTracked ? Color.green : Color.red)
+                                .frame(width: 10, height: 10)
+                            
+                            Text(appState.isImageTracked ? "Image Target Detected" : "Searching for Image Target...")
+                                .font(.caption)
+                                .foregroundColor(appState.isImageTracked ? .primary : .secondary)
+                        }
+                        .padding(.top, 4)
+                    }
+                }
+                .padding(.vertical, 8)
+                .background(Color.secondary.opacity(0.1))
+                .cornerRadius(8)
                 
                 Text("Status: \(lastAction)")
                     .font(.caption)

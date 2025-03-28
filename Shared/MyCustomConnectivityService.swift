@@ -97,17 +97,28 @@ class MyCustomConnectivityService: NSObject {
     // MARK: - Data Sending Methods
     
     /// Send model transform to all peers
-    func sendModelTransform(entity: Entity, modelType: ModelType? = nil) {
+    func sendModelTransform(entity: Entity, modelType: ModelType? = nil, relativeToImageAnchor: Bool = false) {
         guard multipeerSession.session.connectedPeers.count > 0 else { return }
         
-        let transformArray = entity.transform.matrix.toArray()
+        // Get the appropriate transform based on sync mode
+        let transformMatrix: simd_float4x4
+        if relativeToImageAnchor, let arViewModel = arViewModel {
+            // For image target mode, send the transform relative to the shared image anchor
+            transformMatrix = entity.transformMatrix(relativeTo: arViewModel.sharedAnchorEntity)
+        } else {
+            // For world mode, use the default world transform
+            transformMatrix = entity.transform.matrix
+        }
+        
+        let transformArray = transformMatrix.toArray()
         let modelTypeString = modelType?.rawValue
         let modelID = "model-\(entity.id.stringValue)"
         
         let payload = ModelTransformPayload(
             modelID: modelID,
             transform: transformArray,
-            modelType: modelTypeString
+            modelType: modelTypeString,
+            isRelativeToImageAnchor: relativeToImageAnchor
         )
         
         do {
@@ -307,6 +318,7 @@ private extension MyCustomConnectivityService {
             // Process on main thread for UI updates
             DispatchQueue.main.async {
                 let matrix = simd_float4x4.fromArray(payload.transform)
+                let isRelativeToImageAnchor = payload.isRelativeToImageAnchor ?? false
                 
                 // Try to find the entity by its model type first
                 if let modelTypeStr = payload.modelType {
@@ -314,7 +326,25 @@ private extension MyCustomConnectivityService {
                     if let modelManager = self.modelManager {
                         for (entity, model) in modelManager.modelDict {
                             if model.modelType.rawValue.lowercased() == modelTypeStr.lowercased() {
-                                entity.transform.matrix = matrix
+                                if isRelativeToImageAnchor, let arViewModel = self.arViewModel {
+                                    // In image target mode, transform is relative to the image anchor
+                                    // We need to apply it differently
+                                    if let sharedAnchor = entity.parent, sharedAnchor === arViewModel.sharedAnchorEntity {
+                                        entity.transform.matrix = matrix
+                                    } else {
+                                        // Entity needs to be reparented to the image anchor first
+                                        // Save world transform if possible
+                                        let worldTransform = entity.transformMatrix(relativeTo: nil)
+                                        entity.removeFromParent()
+                                        arViewModel.sharedAnchorEntity.addChild(entity)
+                                        
+                                        // Now apply the transform relative to the image anchor
+                                        entity.transform.matrix = matrix
+                                    }
+                                } else {
+                                    // In world mode, just apply the transform directly
+                                    entity.transform.matrix = matrix
+                                }
                                 return
                             }
                         }
@@ -324,7 +354,18 @@ private extension MyCustomConnectivityService {
                     for (_, entity) in self.entityLookup {
                         if let component = entity.components[ModelTypeComponent.self],
                            component.type.rawValue.lowercased() == modelTypeStr.lowercased() {
-                            entity.transform.matrix = matrix
+                            if isRelativeToImageAnchor, let arViewModel = self.arViewModel {
+                                // Same logic as above for image target mode
+                                if let sharedAnchor = entity.parent, sharedAnchor === arViewModel.sharedAnchorEntity {
+                                    entity.transform.matrix = matrix
+                                } else {
+                                    entity.removeFromParent()
+                                    arViewModel.sharedAnchorEntity.addChild(entity)
+                                    entity.transform.matrix = matrix
+                                }
+                            } else {
+                                entity.transform.matrix = matrix
+                            }
                             return
                         }
                     }
@@ -335,7 +376,18 @@ private extension MyCustomConnectivityService {
                 // Try to match by string representation
                 for (entityID, entity) in self.entityLookup {
                     if entityID.stringValue == idStr {
-                        entity.transform.matrix = matrix
+                        if isRelativeToImageAnchor, let arViewModel = self.arViewModel {
+                            // Same logic as above for image target mode
+                            if let sharedAnchor = entity.parent, sharedAnchor === arViewModel.sharedAnchorEntity {
+                                entity.transform.matrix = matrix
+                            } else {
+                                entity.removeFromParent()
+                                arViewModel.sharedAnchorEntity.addChild(entity)
+                                entity.transform.matrix = matrix
+                            }
+                        } else {
+                            entity.transform.matrix = matrix
+                        }
                         return
                     }
                 }

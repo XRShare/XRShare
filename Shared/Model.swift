@@ -2,6 +2,7 @@ import RealityKit
 import SwiftUI
 import Foundation
 import Combine
+import ARKit
 
 /// Represents a 3D anatomical model with loading and placement capabilities
 @MainActor

@@ -111,19 +111,41 @@ final class ModelManager: ObservableObject {
         connectivity: SessionConnectivity,
         arViewModel: ARViewModel
     ) {
+        // SIMPLIFIED APPROACH - REVERT TO ORIGINAL WORKING VERSION
+        
+        // Always use the world model anchor for placement
+        let anchorToUse = modelAnchor
+        
+        // Make sure both anchors are in the scene
+        if modelAnchor.parent == nil && !content.entities.contains(where: { $0.id == modelAnchor.id }) {
+            content.add(modelAnchor)
+            print("Added missing modelAnchor to scene")
+        }
+        
+        if arViewModel.sharedAnchorEntity.parent == nil && !content.entities.contains(where: { $0.id == arViewModel.sharedAnchorEntity.id }) {
+            content.add(arViewModel.sharedAnchorEntity)
+            print("Added missing sharedAnchorEntity to scene")
+        }
+        
+        // Check all models
         for model in placedModels {
             guard let entity = model.modelEntity else { continue }
             
-            // If entity has never been positioned, place it in front of modelAnchor
-            if entity.transform.translation == .zero {
-                entity.setPosition([0, 0, -1], relativeTo: modelAnchor)
-                model.position = entity.position
-            }
+            // Make sure entity is visible
+            entity.isEnabled = true
             
-            // Ensure the entity is a child of modelAnchor
-            if entity.parent == nil {
-                modelAnchor.addChild(entity)
-                content.add(entity)
+            // If entity has never been positioned or has no parent, place it in front of the user
+            if entity.transform.translation == .zero || entity.parent == nil {
+                // If no parent, add to the model anchor
+                if entity.parent == nil {
+                    anchorToUse.addChild(entity)
+                    print("Added \(entity.name) to scene")
+                }
+                
+                // Position in front of user (world space)
+                entity.setPosition([0, 0, -0.5], relativeTo: anchorToUse)
+                model.position = entity.position
+                print("Positioned \(entity.name) at \(entity.position)")
             }
             
             // Visual highlight for selected model
@@ -170,13 +192,16 @@ final class ModelManager: ObservableObject {
                         
                         // Set transparency for the material
                         let transparentMaterial = SimpleMaterial(
-                            color: UIColor.blue.withAlphaComponent(0.3),
+                            color: UIColor.blue.withAlphaComponent(0.2),
                             roughness: 0.5,
                             isMetallic: false
                         )
                         
                         // Apply the transparent material
                         highlightEntity.model?.materials = [transparentMaterial]
+                        
+                        // Make sure our main model stays visible
+                        entity.isEnabled = true
                         
                         // Add it as a child
                         entity.addChild(highlightEntity)
@@ -224,6 +249,15 @@ final class ModelManager: ObservableObject {
                     if let model = self.modelDict[entity] {
                         // Set this model as selected
                         self.selectedModelID = model.modelType
+                        
+                        // Make sure it stays visible
+                        entity.isEnabled = true
+                        
+                        // If it's a child of a highlight or some other auxiliary object, make sure the parent is visible too
+                        if let parent = entity.parent {
+                            parent.isEnabled = true
+                        }
+                        
                         print("🎯 SELECT: Tapped \(name) - now selected")
                     }
                 }
