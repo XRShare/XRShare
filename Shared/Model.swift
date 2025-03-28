@@ -104,8 +104,15 @@ final class Model: ObservableObject, @preconcurrency Identifiable {
                     entity.model?.materials = [SimpleMaterial(color: .white, isMetallic: false)]
                 }
                 
-                // Set initial scale to something visible but not too large
-                entity.scale = [0.15, 0.15, 0.15]
+                // Set initial scale based on model type
+                if modelType.rawValue.lowercased() == "pancakes" {
+                    entity.scale = [0.08, 0.08, 0.08] // Smaller scale for pancakes
+                } else if modelType.rawValue.lowercased() == "heart" || 
+                          modelType.rawValue.lowercased() == "arterieshead" {
+                    entity.scale = [0.2, 0.2, 0.2] // Larger scale for anatomy models
+                } else {
+                    entity.scale = [0.15, 0.15, 0.15] // Default scale
+                }
                 
                 // Add components for synchronization
                 entity.components[ModelTypeComponent.self] = ModelTypeComponent(type: modelType)

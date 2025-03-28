@@ -42,7 +42,13 @@ class ARViewModel: NSObject, ObservableObject {
     @Published var availableSessions: [Session] = []
     
     // MARK: - Sync Mode Properties
-    @Published var currentSyncMode: SyncMode = .world // Default mode
+    #if targetEnvironment(simulator)
+    // Use world mode on simulator since image tracking doesn't work there
+    @Published var currentSyncMode: SyncMode = .world
+    #else
+    // Use image target mode on real devices
+    @Published var currentSyncMode: SyncMode = .imageTarget
+    #endif
     let sharedAnchorEntity = AnchorEntity(.world(transform: matrix_identity_float4x4)) // Initialize as world anchor at origin
     @Published var isImageTracked: Bool = false // Track if the target image is currently tracked
     var imageTrackingProvider: ImageTrackingProvider? = nil

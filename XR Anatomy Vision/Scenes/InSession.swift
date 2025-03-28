@@ -23,8 +23,8 @@ struct InSession: View {
     // Passed Properties
     var session: ARKitSession // Receive the ARKitSession instance
     
-    // Create anchor entity at a more visible distance
-    let modelAnchor = AnchorEntity(world: [0, 0, -0.5])
+    // Create anchor entity at eye level and a comfortable distance
+    let modelAnchor = AnchorEntity(world: [0, 0.15, -0.5])
     
     // Reference objects only shown in debug mode
     let referenceObjects = [

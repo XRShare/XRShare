@@ -7,6 +7,9 @@ class AppState: ObservableObject {
     @Published var isImageTracked: Bool = false
     @Published var alertItem: AlertItem? = nil
     
+    // Auto-start image tracking mode
+    @Published var autoStartImageTracking: Bool = true
+    
     // Initialize everything needed
     func setupModelManager(modelManager: ModelManager, arViewModel: ARViewModel) {
         // Link model manager with view model
@@ -46,6 +49,17 @@ struct XRAnatomy_visionOSApp: App {
                     
                     // Initialize models and state
                     appState.setupModelManager(modelManager: modelManager, arViewModel: arViewModel)
+                    
+                    // Check which environment we're running in
+                    #if targetEnvironment(simulator)
+                    print("Running in simulator - using World sync mode by default")
+                    arViewModel.currentSyncMode = .world
+                    #else
+                    print("Running on device - using Image Target sync mode by default")
+                    arViewModel.currentSyncMode = .imageTarget
+                    #endif
+                    
+                    print("Starting with sync mode: \(arViewModel.currentSyncMode.rawValue)")
                 }
         }
         .windowStyle(.plain)
@@ -142,6 +156,14 @@ struct XRAnatomy_visionOSApp: App {
         print("PlaneDetectionProvider added for device.")
         #else
         print("PlaneDetectionProvider skipped for simulator.")
+        // Force world mode on simulator
+        if currentMode == .imageTarget {
+            print("Image tracking not supported in simulator, switching to world mode")
+            arViewModel.currentSyncMode = .world
+            // Call self recursively - now with world mode
+            await configureARSession()
+            return
+        }
         #endif
         
         // Clear existing provider reference

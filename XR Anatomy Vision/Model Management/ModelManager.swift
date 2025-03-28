@@ -113,8 +113,12 @@ final class ModelManager: ObservableObject {
     ) {
         // SIMPLIFIED APPROACH - REVERT TO ORIGINAL WORKING VERSION
         
-        // Always use the world model anchor for placement
-        let anchorToUse = modelAnchor
+        // Choose which anchor to use based on the current sync mode
+        let anchorToUse = arViewModel.currentSyncMode == .imageTarget ?
+                           arViewModel.sharedAnchorEntity : modelAnchor
+        
+        // Log which anchor we're using
+        print("Using \(arViewModel.currentSyncMode == .imageTarget ? "image target" : "world") anchor mode")
         
         // Make sure both anchors are in the scene
         if modelAnchor.parent == nil && !content.entities.contains(where: { $0.id == modelAnchor.id }) {
@@ -142,10 +146,25 @@ final class ModelManager: ObservableObject {
                     print("Added \(entity.name) to scene")
                 }
                 
-                // Position in front of user (world space)
-                entity.setPosition([0, 0, -0.5], relativeTo: anchorToUse)
+                // Position in front of user at eye level (world space)
+                entity.setPosition([0, 0.1, -0.5], relativeTo: anchorToUse)
                 model.position = entity.position
-                print("Positioned \(entity.name) at \(entity.position)")
+                
+                // Apply model-specific scaling
+                if model.modelType.rawValue.lowercased() == "pancakes" {
+                    // Make pancakes smaller
+                    entity.scale = SIMD3<Float>(repeating: 0.08)
+                } else if model.modelType.rawValue.lowercased() == "heart" || 
+                          model.modelType.rawValue.lowercased() == "arterieshead" {
+                    // Make other models larger
+                    entity.scale = SIMD3<Float>(repeating: 0.2)
+                } else {
+                    // Default scale for any other models
+                    entity.scale = SIMD3<Float>(repeating: 0.15)
+                }
+                model.scale = entity.scale
+                
+                print("Positioned \(entity.name) at \(entity.position) with scale \(entity.scale)")
             }
             
             // Visual highlight for selected model
