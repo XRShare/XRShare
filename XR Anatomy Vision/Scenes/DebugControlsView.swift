@@ -235,6 +235,13 @@ struct DebugControlsView: View {
                 .background(Color.secondary.opacity(0.1))
                 .cornerRadius(8)
                 
+                // Test Message Button
+                Button("Send Test Message") {
+                    arViewModel.sendTestMessage()
+                    lastAction = "Sent test message"
+                }
+                .padding(.top, 10)
+                
                 Text("Status: \(lastAction)")
                     .font(.caption)
                     .frame(maxWidth: .infinity, alignment: .leading)

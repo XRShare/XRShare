@@ -10,11 +10,11 @@ class AppState: ObservableObject {
     // Auto-start image tracking mode
     @Published var autoStartImageTracking: Bool = true
     
-    // Initialize everything needed
-    func setupModelManager(modelManager: ModelManager, arViewModel: ARViewModel) {
-        // Link model manager with view model
-        arViewModel.modelManager = modelManager
-    }
+    // This function might be redundant if ARViewModel gets ModelManager directly
+    // func setupModelManager(modelManager: ModelManager, arViewModel: ARViewModel) {
+    //     // Link model manager with view model
+    //     arViewModel.modelManager = modelManager
+    // }
     
     // Handle image tracking setup
     func startTracking(imageProvider: ImageTrackingProvider) {
@@ -45,10 +45,13 @@ struct XRAnatomy_visionOSApp: App {
                 .environmentObject(appState)
                 .withWindowOpener() // Add our window opener capability
                 .onAppear {
+                    // Assign ModelManager to ARViewModel immediately
+                    arViewModel.modelManager = modelManager
+                    
                     appModel.immersiveSpaceState = .closed
                     
-                    // Initialize models and state
-                    appState.setupModelManager(modelManager: modelManager, arViewModel: arViewModel)
+                    // Initialize models and state (setupModelManager might be redundant now)
+                    // appState.setupModelManager(modelManager: modelManager, arViewModel: arViewModel)
                     
                     // Check which environment we're running in
                     #if targetEnvironment(simulator)

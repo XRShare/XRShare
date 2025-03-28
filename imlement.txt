@@ -1,0 +1,319 @@
+<Plan>
+1.  **Fix `ModelManager` Reference:** Ensure the `ModelManager` instance is correctly passed to and retained by `MyCustomConnectivityService`. The `ARViewModel` already holds a weak reference, which might become nil. Pass the `ModelManager` directly during `MyCustomConnectivityService` initialization.
+2.  **Use `ModelManager` in `handleAddModel`:** Modify `handleAddModel` to use the `modelManager` reference to properly track the received model.
+3.  **Simplify World Anchoring in `handleAddModel`:** Instead of creating a new `AnchorEntity` for world-space models, add the `modelEntity` directly to the scene content. Set its world transform using `setTransformMatrix(matrix, relativeTo: nil)`.
+4.  **Add Logging:** Include more logs to track instance IDs and entity lookups.
+</Plan>
+
+<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/Shared/MyCustomConnectivityService.swift" action="modify">
+  <change>
+    <description>Change modelManager reference to strong and update initializer</description>
+    <search>
+===
+    // MARK: - Properties
+    private var multipeerSession: MultipeerSession
+    weak var arViewModel: ARViewModel?
+    weak var modelManager: ModelManager?
+    
+    // Entity tracking
+    private var entityLookup: [Entity.ID: Entity] = [:]
+===
+    </search>
+    <content>
+===
+    // MARK: - Properties
+    private var multipeerSession: MultipeerSession
+    weak var arViewModel: ARViewModel? // Keep weak ref to avoid retain cycles if ARViewModel owns this service
+    var modelManager: ModelManager // Change to strong reference
+    
+    // Entity tracking
+    private var entityLookup: [Entity.ID: Entity] = [:]
+===
+    </content>
+  </change>
+  <change>
+    <description>Update initializer to take strong ModelManager reference</description>
+    <search>
+===
+    // MARK: - Initialization
+    
+    init(multipeerSession: MultipeerSession, arViewModel: ARViewModel?, modelManager: ModelManager? = nil) {
+        self.multipeerSession = multipeerSession
+        self.arViewModel = arViewModel
+        self.modelManager = modelManager
+        super.init()
+        
+        print("MyCustomConnectivityService initialized")
+    }
+===
+    </search>
+    <content>
+===
+    // MARK: - Initialization
+    
+    // Make modelManager non-optional in init
+    init(multipeerSession: MultipeerSession, arViewModel: ARViewModel?, modelManager: ModelManager) {
+        self.multipeerSession = multipeerSession
+        self.arViewModel = arViewModel
+        self.modelManager = modelManager // Assign the strong reference
+        super.init()
+        
+        print("MyCustomConnectivityService initialized with ModelManager")
+    }
+===
+    </content>
+  </change>
+  <change>
+    <description>Use ModelManager in handleAddModel and simplify world anchoring</description>
+    <search>
+===
+                                     return // Cannot place the model
+                                 }
+                             }
+
+                            // Register the model entity (owned by peer)
+                            self.registerEntity(modelEntity, modelType: modelType, ownedByLocalPeer: false)
+
+                            // Add to ModelManager's tracking
+                            if let modelManager = self.modelManager {
+                                modelManager.modelDict[modelEntity] = model
+                                modelManager.placedModels.append(model)
+                                print("Added received model \(payload.modelType) to ModelManager.")
+                            } else {
+                                print("Warning: ModelManager not available to track received model \(payload.modelType).")
+                            }
+                        }
+                    } else {
+                        print("Failed to load model entity for received model: \(payload.modelType)")
+===
+    </search>
+    <content>
+===
+                                     return // Cannot place the model
+                                 }
+                             }
+
+                            // Register the model entity (owned by peer) - Ensure InstanceID is set first!
+                            print("Registering received entity \(modelEntity.id) with InstanceID \(instanceID)")
+                            self.registerEntity(modelEntity, modelType: modelType, ownedByLocalPeer: false)
+
+                            // Add to ModelManager's tracking (using the guaranteed strong reference)
+                            self.modelManager.modelDict[modelEntity] = model
+                            self.modelManager.placedModels.append(model)
+                            print("Added received model \(payload.modelType) (InstanceID: \(instanceID)) to ModelManager.")
+
+                        }
+                    } else {
+                        print("Failed to load model entity for received model: \(payload.modelType)")
+===
+    </content>
+  </change>
+  <change>
+    <description>Simplify world anchor creation in handleAddModel</description>
+    <search>
+===
+                                // Parent under the world (scene root or a designated world anchor)
+                                // On visionOS, adding directly to scene content places it in world space.
+                                if let scene = self.arViewModel?.currentScene {
+                                     // Create a simple AnchorEntity at the world location and add the model to it
+                                     let worldAnchor = AnchorEntity(world: matrix)
+                                     worldAnchor.addChild(modelEntity)
+                                     // Reset modelEntity's local transform since it's now relative to the anchor at the target world pos
+                                     modelEntity.transform = Transform()
+                                     scene.addAnchor(worldAnchor) // Add the new anchor to the scene
+                                     print("Added received model \(payload.modelType) via a new world anchor.")
+                                     // Register the anchor as well? Maybe not necessary if we only track models.
+                                     // self.registerEntity(worldAnchor, ownedByLocalPeer: false)
+                                } else {
+                                     print("Warning: Cannot add received model \(payload.modelType) to world - no scene available.")
+                                     return // Cannot place the model
+===
+    </search>
+    <content>
+===
+                                // Parent under the world (scene root)
+                                // On visionOS, adding directly to scene content places it in world space.
+                                if let scene = self.arViewModel?.currentScene {
+                                     // Add entity directly to the scene
+                                     scene.addAnchor(modelEntity) // Adding an Entity directly works like adding to root
+                                     // Set its world transform
+                                     modelEntity.setTransformMatrix(matrix, relativeTo: nil)
+                                     print("Added received model \(payload.modelType) directly to scene (world space).")
+                                } else {
+                                     print("Warning: Cannot add received model \(payload.modelType) to world - no scene available.")
+                                     return // Cannot place the model
+===
+    </content>
+  </change>
+   <change>
+    <description>Simplify world transform update in handleModelTransform</description>
+    <search>
+===
+                         } else {
+                              // Already in world space (or under a different world anchor).
+                              // Assume the received matrix is the target world transform.
+                              // Update the entity's world transform directly.
+                              entity.setTransformMatrix(matrix, relativeTo: nil)
+                         }
+                     }
+                     
+                     print("Applied transform to \(instanceID). RelativeToImage: \(isRelativeToImageAnchor)")
+===
+    </search>
+    <content>
+===
+                         } else {
+                              // Already in world space (or should be).
+                              // Apply the received world transform directly.
+                              entity.setTransformMatrix(matrix, relativeTo: nil)
+                         }
+                     }
+                     
+                     print("Applied transform to \(instanceID). RelativeToImage: \(isRelativeToImageAnchor)")
+===
+    </content>
+  </change>
+  <change>
+    <description>Add logging in handleModelTransform entity lookup</description>
+    <search>
+===
+                // Fallback to instance ID lookup
+                let instanceID = payload.modelID // modelID now holds the instanceID
+                if let entity = self.entityLookup.values.first(where: { $0.components[InstanceIDComponent.self]?.id == instanceID }) {
+                     print("Found entity by instance ID: \(instanceID) to update transform.")
+                     
+                     guard let arViewModel = self.arViewModel else {
+                         print("ARViewModel not found, cannot update transform for \(instanceID)")
+===
+    </search>
+    <content>
+===
+                // Fallback to instance ID lookup
+                let instanceID = payload.modelID // modelID now holds the instanceID
+                print("Looking for entity with InstanceID: \(instanceID) in entityLookup (\(self.entityLookup.count) entries)")
+                // Log available instance IDs for debugging
+                // self.entityLookup.values.forEach { print("  - Found in lookup: \($0.name), InstanceID: \($0.components[InstanceIDComponent.self]?.id ?? "nil")") }
+                
+                if let entity = self.entityLookup.values.first(where: { $0.components[InstanceIDComponent.self]?.id == instanceID }) {
+                     print("Found entity \(entity.name) by instance ID: \(instanceID) to update transform.")
+                     
+                     guard let arViewModel = self.arViewModel else {
+                         print("ARViewModel not found, cannot update transform for \(instanceID)")
+===
+    </content>
+  </change>
+</file>
+
+<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/Shared/ARViewModel.swift" action="modify">
+  <change>
+    <description>Pass ModelManager to MyCustomConnectivityService initializer</description>
+    <search>
+===
+        // Create connectivity service if it doesn't exist
+        if customService == nil {
+            customService = MyCustomConnectivityService(
+                multipeerSession: multipeerSession!, 
+                arViewModel: self,
+                modelManager: modelManager // Pass the modelManager here
+            )
+            print("Created custom connectivity service")
+        }
+        
+        // Start broadcasting
+===
+    </search>
+    <content>
+===
+        // Create connectivity service if it doesn't exist
+        // Ensure modelManager is valid before creating service
+        guard let modelManager = modelManager ?? self.modelManager else {
+             print("Error: ModelManager is nil, cannot create CustomConnectivityService.")
+             // Handle error appropriately, maybe show an alert
+             return
+        }
+        
+        if customService == nil {
+             customService = MyCustomConnectivityService(
+                 multipeerSession: multipeerSession!,
+                 arViewModel: self,
+                 modelManager: modelManager // Pass the non-optional modelManager
+             )
+             print("Created custom connectivity service with ModelManager")
+        } else {
+             // If service exists, ensure its modelManager reference is up-to-date (though it's strong now)
+             customService?.modelManager = modelManager
+        }
+        
+        // Start broadcasting
+===
+    </content>
+  </change>
+</file>
+
+<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/XR Anatomy Vision/XRAnatomy_visionOSApp.swift" action="modify">
+  <change>
+    <description>Ensure ModelManager is passed to ARViewModel early</description>
+    <search>
+===
+                .environmentObject(appState)
+                .withWindowOpener() // Add our window opener capability
+                .onAppear {
+                    appModel.immersiveSpaceState = .closed
+                    
+                    // Initialize models and state
+                    appState.setupModelManager(modelManager: modelManager, arViewModel: arViewModel)
+                    
+                    // Check which environment we're running in
+                    #if targetEnvironment(simulator)
+===
+    </search>
+    <content>
+===
+                .environmentObject(appState)
+                .withWindowOpener() // Add our window opener capability
+                .onAppear {
+                    // Assign ModelManager to ARViewModel immediately
+                    arViewModel.modelManager = modelManager
+                    
+                    appModel.immersiveSpaceState = .closed
+                    
+                    // Initialize models and state (setupModelManager might be redundant now)
+                    // appState.setupModelManager(modelManager: modelManager, arViewModel: arViewModel)
+                    
+                    // Check which environment we're running in
+                    #if targetEnvironment(simulator)
+===
+    </content>
+  </change>
+  <change>
+    <description>Remove potentially redundant setupModelManager call</description>
+    <search>
+===
+// Auto-start image tracking mode
+    @Published var autoStartImageTracking: Bool = true
+    
+    // Initialize everything needed
+    func setupModelManager(modelManager: ModelManager, arViewModel: ARViewModel) {
+        // Link model manager with view model
+        arViewModel.modelManager = modelManager
+    }
+    
+    // Handle image tracking setup
+===
+    </search>
+    <content>
+===
+// Auto-start image tracking mode
+    @Published var autoStartImageTracking: Bool = true
+    
+    // This function might be redundant if ARViewModel gets ModelManager directly
+    // func setupModelManager(modelManager: ModelManager, arViewModel: ARViewModel) {
+    //     // Link model manager with view model
+    //     arViewModel.modelManager = modelManager
+    // }
+    
+    // Handle image tracking setup
+===
+    </content>
+  </change>
+</file>

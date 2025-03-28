@@ -39,6 +39,26 @@ final class ModelManager: ObservableObject {
                 if let customService = customService as? MyCustomConnectivityService {
                     customService.registerEntity(entity, modelType: modelType)
                 }
+                
+                // Broadcast the addition of this model instance
+                if let arViewModel = arViewModel, let _ = arViewModel.customService {
+                    let instanceID = entity.id.stringValue // Use entity ID as unique instance ID
+                    let transformArray = entity.transform.matrix.toArray()
+                    let payload = AddModelPayload(
+                        instanceID: instanceID,
+                        modelType: modelType.rawValue,
+                        transform: transformArray,
+                        isRelativeToImageAnchor: arViewModel.currentSyncMode == .imageTarget // Send relative flag
+                    )
+                    do {
+                        let data = try JSONEncoder().encode(payload)
+                        arViewModel.multipeerSession?.sendToAllPeers(data, dataType: .addModel)
+                        print("Broadcasted addModel: \(modelType.rawValue) (ID: \(instanceID))")
+                    } catch {
+                        print("Error encoding AddModelPayload: \(error)")
+                    }
+                }
+                
                 print("\(modelType.rawValue) chosen – model loaded and selected")
             } else {
                 print("Failed to load model entity for \(modelType.rawValue).usdz")
@@ -47,8 +67,22 @@ final class ModelManager: ObservableObject {
     }
 
     // MARK: - Remove a Single Model
-    @MainActor func removeModel(_ model: Model) {
+    @MainActor func removeModel(_ model: Model, broadcast: Bool = true) { // Added broadcast flag
         guard let entity = model.modelEntity else { return }
+        let instanceID = entity.id.stringValue // Get ID before potential removal
+        let modelTypeName = model.modelType.rawValue // Get name before potential removal
+        
+        // Broadcast removal *before* removing locally
+        if broadcast, let arViewModel = model.arViewModel, let _ = arViewModel.customService {
+            let payload = RemoveModelPayload(instanceID: instanceID)
+            do {
+                let data = try JSONEncoder().encode(payload)
+                arViewModel.multipeerSession?.sendToAllPeers(data, dataType: .removeModel)
+                print("Broadcasted removeModel: \(modelTypeName) (ID: \(instanceID))")
+            } catch {
+                print("Error encoding RemoveModelPayload: \(error)")
+            }
+        }
         
         // Clean up entity properly
         // Remove any highlight entities first
@@ -323,6 +357,12 @@ final class ModelManager: ObservableObject {
                         
                         // If this entity was interacted with, select it
                         self.selectedModelID = model.modelType
+                        
+                        // Send transform update during drag
+                        if let arViewModel = model.arViewModel {
+                            // Use the existing sendTransform which handles sync mode
+                            arViewModel.sendTransform(for: entity)
+                        }
                     }
                     
                     print("🔵 DRAG: \(name) from \(oldPosition) to \(entity.position)")
@@ -390,6 +430,11 @@ final class ModelManager: ObservableObject {
                     
                     // Logging
                     print("🔍 SCALE: \(name) to \(entity.scale)")
+                    
+                    // Send transform update during scale
+                    if let model = self.modelDict[entity], let arViewModel = model.arViewModel {
+                        arViewModel.sendTransform(for: entity)
+                    }
                 }
             }
             .onEnded { value in
@@ -458,6 +503,11 @@ final class ModelManager: ObservableObject {
                         }
                         
                         print("🔄 ROTATE: \(name) to angle \(dampedAngle)")
+                        
+                        // Send transform update during rotation
+                        if let model = self.modelDict[entity], let arViewModel = model.arViewModel {
+                            arViewModel.sendTransform(for: entity)
+                        }
                     }
                 }
             }

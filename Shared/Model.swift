@@ -122,6 +122,11 @@ final class Model: ObservableObject, @preconcurrency Identifiable {
                 if entity.collision == nil {
                     entity.collision = CollisionComponent(shapes: [.generateBox(size: entity.visualBounds(relativeTo: nil).extents)])
                 }
+                
+                // Add InstanceID component
+                if entity.components[InstanceIDComponent.self] == nil {
+                    entity.components.set(InstanceIDComponent())
+                }
             }
             
             await MainActor.run {

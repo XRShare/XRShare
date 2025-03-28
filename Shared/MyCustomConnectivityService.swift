@@ -1,6 +1,7 @@
 import Foundation
 import RealityKit
 import MultipeerConnectivity
+import Combine // Needed for AnyCancellable if used later
 
 #if os(iOS)
 import ARKit
@@ -21,8 +22,14 @@ public final class CustomPeerID: SynchronizationPeerID, Hashable {
 // MARK: - UUID Conversion Methods
 extension Entity.ID {
     var stringValue: String {
-        return "\(self)"
+        // A more robust way to get a consistent string representation
+        return String(self.hashValue)
     }
+}
+
+// Add instance ID component
+struct InstanceIDComponent: Component, Codable {
+    var id: String = UUID().uuidString // Assign unique ID on creation
 }
 
 // MARK: - MyCustomConnectivityService
@@ -30,8 +37,8 @@ extension Entity.ID {
 class MyCustomConnectivityService: NSObject {
     // MARK: - Properties
     private var multipeerSession: MultipeerSession
-    weak var arViewModel: ARViewModel?
-    weak var modelManager: ModelManager?
+    weak var arViewModel: ARViewModel? // Keep weak ref to avoid retain cycles if ARViewModel owns this service
+    var modelManager: ModelManager // Change to strong reference
     
     // Entity tracking
     private var entityLookup: [Entity.ID: Entity] = [:]
@@ -42,13 +49,14 @@ class MyCustomConnectivityService: NSObject {
     
     // MARK: - Initialization
     
-    init(multipeerSession: MultipeerSession, arViewModel: ARViewModel?, modelManager: ModelManager? = nil) {
+    // Make modelManager non-optional in init
+    init(multipeerSession: MultipeerSession, arViewModel: ARViewModel?, modelManager: ModelManager) {
         self.multipeerSession = multipeerSession
         self.arViewModel = arViewModel
-        self.modelManager = modelManager
+        self.modelManager = modelManager // Assign the strong reference
         super.init()
         
-        print("MyCustomConnectivityService initialized")
+        print("MyCustomConnectivityService initialized with ModelManager")
     }
     
     // MARK: - Entity Registration & Tracking
@@ -73,6 +81,15 @@ class MyCustomConnectivityService: NSObject {
         // Add model type component if available
         if let modelType = modelType, entity is ModelEntity {
             entity.components[ModelTypeComponent.self] = ModelTypeComponent(type: modelType)
+        }
+        
+        // Add or retrieve instance ID
+        if entity.components[InstanceIDComponent.self] == nil {
+             let instanceComp = InstanceIDComponent()
+             entity.components[InstanceIDComponent.self] = instanceComp
+             print("Assigned new InstanceID: \(instanceComp.id) to entity \(entityId)")
+        } else {
+             print("Entity \(entityId) already has InstanceID: \(entity.components[InstanceIDComponent.self]!.id)")
         }
         
         print("Registered entity: \(entityId) (locally owned: \(ownedByLocalPeer))")
@@ -112,10 +129,11 @@ class MyCustomConnectivityService: NSObject {
         
         let transformArray = transformMatrix.toArray()
         let modelTypeString = modelType?.rawValue
-        let modelID = "model-\(entity.id.stringValue)"
+        // Use the InstanceIDComponent for a stable ID across sessions
+        let instanceID = entity.components[InstanceIDComponent.self]?.id ?? entity.id.stringValue
         
         let payload = ModelTransformPayload(
-            modelID: modelID,
+            modelID: instanceID, // Use instanceID here
             transform: transformArray,
             modelType: modelTypeString,
             isRelativeToImageAnchor: relativeToImageAnchor
@@ -197,7 +215,11 @@ class MyCustomConnectivityService: NSObject {
             // Handle based on data type
             switch dataType {
             case .modelTransform:
-                self.handleModelTransform(payload, from: peerID)
+                do {
+                    try self.handleModelTransform(payload, from: peerID)
+                } catch {
+                    print("Error in handleModelTransform: \(error)")
+                }
             case .anchorWithTransform:
                 self.handleAnchorWithTransform(payload, from: peerID)
             case .collaborationData:
@@ -208,31 +230,185 @@ class MyCustomConnectivityService: NSObject {
                 #if os(iOS)
                 self.handleRemoveAnchors(payload, from: peerID)
                 #endif
+            case .addModel:
+                self.handleAddModel(payload, from: peerID)
+            case .removeModel:
+                self.handleRemoveModel(payload, from: peerID)
+            case .testMessage:
+                self.handleTestMessage(payload, from: peerID)
             default:
                 print("Received unsupported data type: \(dataType)")
             }
         }
     }
-}
+    
+    // MARK: - Add/Remove Model Handlers
+    
+    private func handleAddModel(_ data: Data, from peerID: MCPeerID) {
+        do {
+            let payload = try JSONDecoder().decode(AddModelPayload.self, from: data)
+            print("Received addModel: \(payload.modelType) (ID: \(payload.instanceID)) from \(peerID.displayName)")
+            
+            let modelType = ModelType(rawValue: payload.modelType)
+            let instanceID = payload.instanceID
+            let matrix = simd_float4x4.fromArray(payload.transform)
+            let isRelativeToImageAnchor = payload.isRelativeToImageAnchor
+            
+            // Check if model with this instance ID already exists
+            if entityLookup.values.contains(where: { $0.components[InstanceIDComponent.self]?.id == instanceID }) {
+                print("Model with instance ID \(instanceID) already exists. Ignoring addModel.")
+                return
+            }
 
-// MARK: - Data Type Handlers
-private extension MyCustomConnectivityService {
-    func handleReceivedData(dataType: DataType, payload: Data, from peerID: MCPeerID) {
-        switch dataType {
-        case .anchorWithTransform:
-            handleAnchorWithTransform(payload, from: peerID)
-        case .modelTransform:
-            handleModelTransform(payload, from: peerID)
-        #if os(iOS)
-        case .collaborationData:
-            handleCollaborationData(payload, from: peerID)
-        case .removeAnchors:
-            handleRemoveAnchors(payload, from: peerID)
-        #endif
-        default:
-            print("Received data type \(dataType) which is unimplemented.")
+            // Load the model on the main thread
+            DispatchQueue.main.async(execute: DispatchWorkItem(block: {
+                Task {
+                    // Check if the ModelManager has a *template* model of this type loaded
+                    let existingModelTemplate = self.modelManager.modelTypes.first(where: { $0.rawValue == payload.modelType }) != nil
+                    
+                    let model: Model
+                    if existingModelTemplate {
+                         // If template exists, create a new Model instance but try to reuse loaded entity data if possible
+                         // This part needs careful handling - for now, just load fresh
+                         model = await Model.load(modelType: modelType, arViewModel: self.arViewModel)
+                    } else {
+                         // Load fresh if no template or manager
+                         model = await Model.load(modelType: modelType, arViewModel: self.arViewModel)
+                    }
+
+                    if let modelEntity = await model.modelEntity {
+                        await MainActor.run {
+                            // Assign the received instance ID
+                            modelEntity.components[InstanceIDComponent.self] = InstanceIDComponent(id: instanceID)
+                            
+                            // Determine the target parent and add the entity
+                            if isRelativeToImageAnchor, let sharedAnchor = self.arViewModel?.sharedAnchorEntity {
+                                // Parent under the shared image anchor
+                                if sharedAnchor.scene == nil {
+                                     print("Warning: SharedAnchorEntity is not in the scene. Cannot add received model \(payload.modelType).")
+                                     return
+                                }
+                                sharedAnchor.addChild(modelEntity)
+                                modelEntity.transform.matrix = matrix // Set transform relative to parent
+                                print("Added received model \(payload.modelType) to sharedAnchorEntity.")
+                            } else if let scene = self.arViewModel?.currentScene {
+                                // Parent under the world (scene root)
+                                // Create an AnchorEntity and add the model to it
+                                let worldAnchor = AnchorEntity(world: matrix)
+                                worldAnchor.addChild(modelEntity)
+                                
+                                // Platform-specific anchor handling
+                                #if os(iOS)
+                                scene.addAnchor(worldAnchor) // Add the anchor to the scene
+                                #elseif os(visionOS)
+                                // In visionOS, find a suitable world anchor or parent
+                                if let modelAnchor = scene.findEntity(named: "modelAnchor") as? AnchorEntity {
+                                    // If there's a modelAnchor in the scene, use that as parent
+                                    modelEntity.removeFromParent()
+                                    modelAnchor.addChild(modelEntity)
+                                } else {
+                                    // In visionOS, we can't directly add anchors to the scene
+                                    print("Created world anchor for visionOS - will be managed by RealityView")
+                                }
+                                #endif
+                                // Set its world transform
+                                modelEntity.setTransformMatrix(matrix, relativeTo: nil)
+                                print("Added received model \(payload.modelType) directly to scene (world space).")
+                            } else {
+                                // Create a new anchor at the world position
+                                let newAnchor = AnchorEntity(world: .zero)
+                                newAnchor.addChild(modelEntity)
+                                modelEntity.transform.matrix = matrix
+                                
+                                if let scene = self.arViewModel?.currentScene {
+                                    // Platform-specific anchor handling
+                                    #if os(iOS)
+                                    scene.addAnchor(newAnchor)
+                                    #elseif os(visionOS)
+                                    // In visionOS, use RealityView entity management
+                                    if let modelAnchor = scene.findEntity(named: "modelAnchor") as? AnchorEntity {
+                                        modelAnchor.addChild(modelEntity)
+                                    } else {
+                                        print("Created new anchor for visionOS - will be managed by RealityView")
+                                    }
+                                    #endif
+                                }
+                            }
+
+                            // Register the entity (owned by peer) - Ensure InstanceID is set first!
+                            print("Registering received entity \(modelEntity.id) with InstanceID \(instanceID)")
+                            self.registerEntity(modelEntity, modelType: modelType, ownedByLocalPeer: false)
+
+                            // Add to ModelManager's tracking (using the guaranteed strong reference)
+                            self.modelManager.modelDict[modelEntity] = model
+                            self.modelManager.placedModels.append(model)
+                            print("Added received model \(payload.modelType) (InstanceID: \(instanceID)) to ModelManager.")
+                        }
+                    } else {
+                        print("Failed to load model entity for received model: \(payload.modelType)")
+                    }
+                }
+            }))
+        } catch {
+            print("Error decoding AddModelPayload: \(error)")
         }
     }
+
+    private func handleRemoveModel(_ data: Data, from peerID: MCPeerID) {
+        do {
+            let payload = try JSONDecoder().decode(RemoveModelPayload.self, from: data)
+            print("Received removeModel: ID \(payload.instanceID) from \(peerID.displayName)")
+            
+            let instanceID = payload.instanceID
+
+            // Find the entity with this instance ID
+            guard let entityToRemove = entityLookup.values.first(where: { $0.components[InstanceIDComponent.self]?.id == instanceID }) else {
+                print("Could not find model with instance ID \(instanceID) to remove.")
+                return
+            }
+
+            // Remove using ModelManager on the main thread
+            DispatchQueue.main.async(execute: DispatchWorkItem(block: {
+                let model = self.modelManager.modelDict[entityToRemove]
+                if let model = model {
+                    print("Removing model \(model.modelType.rawValue) (ID: \(instanceID)) via ModelManager.")
+                    // Call removeModel with broadcast: false to prevent loop
+                    // Use Task with MainActor to safely call the isolated method
+                    Task { @MainActor in
+                        self.modelManager.removeModel(model, broadcast: false)
+                    }
+                    
+                    // Also unregister from connectivity service
+                    self.unregisterEntity(entityToRemove)
+                    
+                } else {
+                    // Fallback if not found in ModelManager (shouldn't happen ideally)
+                    print("Warning: Model \(instanceID) not found in ModelManager, removing entity directly.")
+                    entityToRemove.removeFromParent()
+                    self.unregisterEntity(entityToRemove) // Ensure unregistration
+                }
+            }))
+        } catch {
+            print("Error decoding RemoveModelPayload: \(error)")
+        }
+    }
+    
+    // MARK: - Test Message Handler
+    
+    private func handleTestMessage(_ data: Data, from peerID: MCPeerID) {
+        do {
+            let payload = try JSONDecoder().decode(TestMessagePayload.self, from: data)
+            print("✅ Received Test Message from \(payload.senderName): \"\(payload.message)\"")
+            // Optionally, display an alert or update UI via ARViewModel
+            DispatchQueue.main.async(execute: DispatchWorkItem(block: {
+                 self.arViewModel?.alertItem = AlertItem(title: "Test Message Received", message: "From \(payload.senderName): \(payload.message)")
+            }))
+        } catch {
+            print("Error decoding TestMessagePayload: \(error)")
+        }
+    }
+    
+    // MARK: - Internal helper methods
     
     func handleAnchorWithTransform(_ data: Data, from peerID: MCPeerID) {
         do {
@@ -244,7 +420,7 @@ private extension MyCustomConnectivityService {
             anchor.transform.matrix = matrix
             
             // If we have a model type, load and attach the model
-    if let modelTypeStr = payload.modelType {
+            if let modelTypeStr = payload.modelType {
                 let modelType = ModelType(rawValue: modelTypeStr)
                 
                 // On the main thread, attempt to load and place the model
@@ -272,7 +448,7 @@ private extension MyCustomConnectivityService {
                     }
                             
                             print("Added anchor from peer using existing model")
-            } else {
+                        } else {
                             // Otherwise load the model
                             let model = await Model.load(modelType: modelType)
                             
@@ -293,11 +469,9 @@ private extension MyCustomConnectivityService {
                             #endif
                         }
                                     
-                                    // Add to model manager if available
-                                    if let modelManager = self.modelManager {
-                                        modelManager.modelDict[modelEntity] = model
-                                        modelManager.placedModels.append(model)
-                                    }
+                                    // Add to model manager
+                                    self.modelManager.modelDict[modelEntity] = model
+                                    self.modelManager.placedModels.append(model)
                                     
                                     print("Added anchor from peer with newly loaded model")
                                 }
@@ -311,48 +485,131 @@ private extension MyCustomConnectivityService {
         }
     }
     
-    func handleModelTransform(_ data: Data, from peerID: MCPeerID) {
+    func handleModelTransform(_ data: Data, from peerID: MCPeerID) throws {
         do {
             let payload = try JSONDecoder().decode(ModelTransformPayload.self, from: data)
             
             // Process on main thread for UI updates
-            DispatchQueue.main.async {
+            DispatchQueue.main.async(execute: DispatchWorkItem(block: {
                 let matrix = simd_float4x4.fromArray(payload.transform)
                 let isRelativeToImageAnchor = payload.isRelativeToImageAnchor ?? false
                 
-                // Try to find the entity by its model type first
+                // First try to find the entity by instanceID (most reliable)
+                let instanceID = payload.modelID // modelID now holds the instanceID
+                print("Looking for entity with InstanceID: \(instanceID) in entityLookup (\(self.entityLookup.count) entries)")
+                // Log available instance IDs for debugging
+                // self.entityLookup.values.forEach { print("  - Found in lookup: \($0.name), InstanceID: \($0.components[InstanceIDComponent.self]?.id ?? "nil")") }
+                
+                if let entity = self.entityLookup.values.first(where: { $0.components[InstanceIDComponent.self]?.id == instanceID }) {
+                     print("Found entity \(entity.name) by instance ID: \(instanceID) to update transform.")
+                     
+                     guard let arViewModel = self.arViewModel else {
+                         print("ARViewModel not found, cannot update transform for \(instanceID)")
+                         return
+                     }
+                    
+                    // Determine the expected parent based on the received flag
+                    let expectedParent: Entity?
+                    if isRelativeToImageAnchor {
+                        expectedParent = arViewModel.sharedAnchorEntity
+                        if expectedParent?.scene == nil {
+                             print("Warning: Expected parent (sharedAnchorEntity) is not in scene. Cannot reliably update transform for \(instanceID).")
+                             // Attempt to apply world transform instead? Or just skip? Skip for now.
+                             return
+                        }
+                    } else {
+                        // World mode - the parent should ideally be an AnchorEntity placed in the world.
+                        // If the entity is directly under the scene, its transform is world transform.
+                        // If it's under an AnchorEntity, its transform is relative to that anchor.
+                        // Let's assume for world mode, the transform received IS the world transform.
+                        // We might need to adjust the entity's parentage if it's currently under the image anchor.
+                        expectedParent = nil // Representing world space (or an appropriate world anchor)
+                    }
+
+                    // Check current parent and reparent if necessary
+                    let currentParent = entity.parent
+                    
+                    if isRelativeToImageAnchor {
+                        // Expecting sharedAnchorEntity as parent
+                        if currentParent !== expectedParent {
+                            print("Reparenting \(instanceID) to sharedAnchorEntity.")
+                            entity.removeFromParent()
+                            arViewModel.sharedAnchorEntity.addChild(entity)
+                            // Now set the transform, which is relative to the new parent (sharedAnchorEntity)
+                            entity.transform.matrix = matrix
+                        } else {
+                            // Already correctly parented, just set the relative transform
+                            entity.transform.matrix = matrix
+                        }
+                    } else {
+                        // Expecting world space (e.g., under a world AnchorEntity or scene root)
+                        if let currentParentAnchor = currentParent as? AnchorEntity, currentParentAnchor === arViewModel.sharedAnchorEntity {
+                             // Currently under image anchor, needs to move to world space.
+                             print("Reparenting \(instanceID) from sharedAnchorEntity to world space.")
+                             // We received a world transform (matrix). Create/find a world anchor.
+                             // Simplest: Create a new anchor at the target world location.
+                             entity.removeFromParent() // Remove from image anchor
+                             
+                             // Handle platform differences for adding to world space
+                             #if os(iOS)
+                             let worldAnchor = AnchorEntity(world: matrix) // New anchor at the target world pos
+                             worldAnchor.addChild(entity) // Add entity to it
+                             entity.transform = Transform() // Reset local transform relative to new anchor
+                             arViewModel.currentScene?.addAnchor(worldAnchor) // Add anchor to scene
+                             #elseif os(visionOS)
+                             // On visionOS, find a suitable world anchor
+                             if let scene = arViewModel.currentScene, let modelAnchor = scene.findEntity(named: "modelAnchor") as? AnchorEntity {
+                                 modelAnchor.addChild(entity)
+                                 entity.setTransformMatrix(matrix, relativeTo: nil)
+                             } else {
+                                 // Fallback to using the scene as parent
+                                 let worldAnchor = AnchorEntity(world: matrix)
+                                 worldAnchor.addChild(entity)
+                                 entity.transform = Transform()
+                                 print("Created new world anchor for transform update (visionOS) - will be managed by RealityView")
+                             }
+                             #endif
+                        } else {
+                             // Already in world space (or should be).
+                             // Apply the received world transform directly.
+                             entity.setTransformMatrix(matrix, relativeTo: nil)
+                        }
+                    }
+                    
+                    print("Applied transform to \(instanceID). RelativeToImage: \(isRelativeToImageAnchor)")
+                    return
+                }
+                
+                // Fallback: Try to find the entity by its model type
                 if let modelTypeStr = payload.modelType {
-                    // First check model manager
-                    if let modelManager = self.modelManager {
-                        for (entity, model) in modelManager.modelDict {
-                            if model.modelType.rawValue.lowercased() == modelTypeStr.lowercased() {
-                                if isRelativeToImageAnchor, let arViewModel = self.arViewModel {
-                                    // In image target mode, transform is relative to the image anchor
-                                    // We need to apply it differently
-                                    if let sharedAnchor = entity.parent, sharedAnchor === arViewModel.sharedAnchorEntity {
-                                        entity.transform.matrix = matrix
-                                    } else {
-                                        // Entity needs to be reparented to the image anchor first
-                                        // Save world transform if possible
-                                        let worldTransform = entity.transformMatrix(relativeTo: nil)
-                                        entity.removeFromParent()
-                                        arViewModel.sharedAnchorEntity.addChild(entity)
-                                        
-                                        // Now apply the transform relative to the image anchor
-                                        entity.transform.matrix = matrix
-                                    }
+                    // Check model manager
+                    for (entity, model) in self.modelManager.modelDict {
+                        if model.modelType.rawValue.lowercased() == modelTypeStr.lowercased() {
+                            if isRelativeToImageAnchor, let arViewModel = self.arViewModel {
+                                // In image target mode, transform is relative to the image anchor
+                                // We need to apply it differently
+                                if let sharedAnchor = entity.parent, sharedAnchor === arViewModel.sharedAnchorEntity {
+                                    entity.transform.matrix = matrix
                                 } else {
-                                    // In world mode, just apply the transform directly
+                                    // Entity needs to be reparented to the image anchor first
+                                    entity.removeFromParent()
+                                    arViewModel.sharedAnchorEntity.addChild(entity)
+                                    
+                                    // Now apply the transform relative to the image anchor
                                     entity.transform.matrix = matrix
                                 }
-                                return
+                            } else {
+                                // In world mode, just apply the transform directly
+                                entity.transform.matrix = matrix
                             }
+                            return
                         }
                     }
                     
                     // Then check if any matching entities in the lookup
                     for (_, entity) in self.entityLookup {
                         if let component = entity.components[ModelTypeComponent.self],
+                           let modelTypeStr = payload.modelType,
                            component.type.rawValue.lowercased() == modelTypeStr.lowercased() {
                             if isRelativeToImageAnchor, let arViewModel = self.arViewModel {
                                 // Same logic as above for image target mode
@@ -371,11 +628,9 @@ private extension MyCustomConnectivityService {
                     }
                 }
                 
-                // Fallback to entity ID lookup
-                let idStr = payload.modelID.replacingOccurrences(of: "model-", with: "")
-                // Try to match by string representation
+                // Last resort: Try traditional entity ID matching if all else fails
                 for (entityID, entity) in self.entityLookup {
-                    if entityID.stringValue == idStr {
+                    if entityID.stringValue == instanceID {
                         if isRelativeToImageAnchor, let arViewModel = self.arViewModel {
                             // Same logic as above for image target mode
                             if let sharedAnchor = entity.parent, sharedAnchor === arViewModel.sharedAnchorEntity {
@@ -391,7 +646,9 @@ private extension MyCustomConnectivityService {
                         return
                     }
                 }
-            }
+                
+                print("Could not find entity with instanceID \(instanceID) for transform update")
+            }))
         } catch {
             print("Error decoding ModelTransformPayload: \(error)")
         }

@@ -184,13 +184,23 @@ class ARViewModel: NSObject, ObservableObject {
         }
         
         // Create connectivity service if it doesn't exist
+        // Ensure modelManager is valid before creating service
+        guard let modelManager = modelManager ?? self.modelManager else {
+             print("Error: ModelManager is nil, cannot create CustomConnectivityService.")
+             // Handle error appropriately, maybe show an alert
+             return
+        }
+        
         if customService == nil {
-            customService = MyCustomConnectivityService(
-                multipeerSession: multipeerSession!, 
-                arViewModel: self,
-                modelManager: modelManager
-            )
-            print("Created custom connectivity service")
+             customService = MyCustomConnectivityService(
+                 multipeerSession: multipeerSession!,
+                 arViewModel: self,
+                 modelManager: modelManager // Pass the non-optional modelManager
+             )
+             print("Created custom connectivity service with ModelManager")
+        } else {
+             // If service exists, ensure its modelManager reference is up-to-date (though it's strong now)
+             customService?.modelManager = modelManager
         }
         
         // Start broadcasting
@@ -222,6 +232,29 @@ class ARViewModel: NSObject, ObservableObject {
     func deferMultipeerServicesUntilModelsLoad() {
         print("Deferring multipeer services until models load")
         shouldStartMultipeerAfterModelsLoad = true
+    }
+    
+    // MARK: - Test Messaging
+    
+    /// Sends a simple test message to all connected peers.
+    func sendTestMessage() {
+        guard let multipeerSession = multipeerSession, !multipeerSession.session.connectedPeers.isEmpty else {
+            print("Cannot send test message: No connected peers.")
+            return
+        }
+        
+        let payload = TestMessagePayload(
+            message: "Hello from \(UIDevice.current.name)!",
+            senderName: multipeerSession.session.myPeerID.displayName
+        )
+        
+        do {
+            let data = try JSONEncoder().encode(payload)
+            multipeerSession.sendToAllPeers(data, dataType: .testMessage)
+            print("Sent test message.")
+        } catch {
+            print("Error encoding TestMessagePayload: \(error)")
+        }
     }
     
     // MARK: - iOS-specific AR functionality
