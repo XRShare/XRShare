@@ -3,15 +3,19 @@ import RealityKit
 import ARKit
 
 struct XRAnatomyView: View {
-    @StateObject var arViewModel = ARViewModel()
+    // Use EnvironmentObject to receive the instances created in the App struct
+    @EnvironmentObject var arViewModel: ARViewModel
+    @EnvironmentObject var modelManager: ModelManager // Receive ModelManager
+    
     @State private var showModelMenu = false
     @State private var showResetConfirmation = false
     @State private var showSettingsOptions = false
     
-    @State private var isFirstLaunchLoading = false
-    @State private var loadingProgress: Float = 0.0
-    @State private var showSplashScreen = !AppLoadTracker.hasRestarted
-    @State private var hasSelectedMode = false
+    // Loading/Splash state
+    @State private var isFirstLaunchLoading = false // Tracks if initial model load is happening
+    @State private var loadingProgress: Float = 0.0 // Directly use arViewModel's progress
+    @State private var showSplashScreen = !AppLoadTracker.hasRestarted // Show splash only on first cold start
+    @State private var hasSelectedMode = false // Tracks if user picked Host/Join/Open
     
     // We no longer automatically start multi-peer, so we remove `hasStartedMultipeer`
     // var hasStartedMultipeer = false  // Removed or unused
@@ -77,9 +81,17 @@ struct XRAnatomyView: View {
                             .actionSheet(isPresented: $showModelMenu) {
                                 ActionSheet(
                                     title: Text("Select a Model"),
-                                    buttons: arViewModel.models.map { model in
-                                        .default(Text(model.modelType.rawValue.capitalized)) {
-                                            arViewModel.selectedModel = model
+                                    buttons: modelManager.modelTypes.map { modelType in
+                                        .default(Text(modelType.rawValue.capitalized)) {
+                                            // Find the corresponding Model object if needed
+                                            if let model = arViewModel.models.first(where: { $0.modelType == modelType }) {
+                                                arViewModel.selectedModel = model
+                                                print("Selected model for placement: \(modelType.rawValue)")
+                                                // Show placement instructions
+                                                arViewModel.alertItem = AlertItem(title: "Model Selected", message: "Tap on a surface to place the \(modelType.rawValue).")
+                                            } else {
+                                                print("Error: Could not find Model object for type \(modelType.rawValue)")
+                                            }
                                         }
                                     } + [.cancel()]
                                 )
@@ -99,7 +111,7 @@ struct XRAnatomyView: View {
                             // Host permission toggle
                             if arViewModel.userRole == .host {
                                 Button(action: {
-                                    arViewModel.toggleHostPermissions()
+                                    arViewModel.isHostPermissionGranted.toggle() // Directly toggle the boolean property
                                 }) {
                                     Image(systemName: arViewModel.isHostPermissionGranted ? "lock.open" : "lock")
                                         .font(.system(size: 24))
@@ -147,14 +159,19 @@ struct XRAnatomyView: View {
                         title: Text("Confirm Delete"),
                         message: Text("Are you sure you want to delete all models you've added?"),
                         primaryButton: .destructive(Text("Delete")) {
-                            arViewModel.clearAllModels()
+                            // Use ModelManager's reset method which handles entity cleanup
+                            modelManager.reset()
                         },
                         secondaryButton: .cancel()
                     )
                 }
             }
         }
-        .onAppear { handleInitialLaunch() }
+        .onAppear {
+            Task {
+                await handleInitialLaunch()
+            }
+        }
         .onReceive(arViewModel.$loadingProgress) { progress in
             // Update local state
             loadingProgress = progress
@@ -173,19 +190,21 @@ struct XRAnatomyView: View {
     }
     
     /// The initial app launch logic
-    private func handleInitialLaunch() {
+    private func handleInitialLaunch() async {
         if Utilities.isFirstLaunchForNewBuild() {
             // Show splash, load models
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                 isFirstLaunchLoading = true
                 // We just load models, no multipeer yet
-                arViewModel.loadModels()
+                Task {
+                    await self.arViewModel.loadModels()
+                }
                 showSplashScreen = false
             }
         } else {
             // Not first launch -> skip splash, just load models
             showSplashScreen = false
-            arViewModel.loadModels()
+            await arViewModel.loadModels()
         }
     }
     
@@ -202,6 +221,17 @@ struct XRAnatomyView: View {
 
 struct XRAnatomyView_Previews: PreviewProvider {
     static var previews: some View {
-        XRAnatomyView()
+        // Create dummy instances for preview
+        let arViewModel = ARViewModel()
+        let modelManager = ModelManager()
+        arViewModel.modelManager = modelManager // Link them
+        
+        // Add some dummy model types for the preview
+        modelManager.modelTypes = [ModelType(rawValue: "Heart"), ModelType(rawValue: "Brain")]
+        arViewModel.models = modelManager.modelTypes.map { Model(modelType: $0, arViewModel: arViewModel) }
+        
+        return XRAnatomyView()
+            .environmentObject(arViewModel)
+            .environmentObject(modelManager)
     }
 }

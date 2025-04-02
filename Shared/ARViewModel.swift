@@ -25,6 +25,17 @@ struct Session: Identifiable, Hashable {
     let sessionName: String
     let peerID: MCPeerID
     var id: String { sessionID }
+    
+    // Implement Hashable
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(sessionID)
+        hasher.combine(peerID)
+    }
+    
+    // Implement Equatable based on peerID for uniqueness in lists
+    static func == (lhs: Session, rhs: Session) -> Bool {
+        lhs.peerID == rhs.peerID
+    }
 }
 
 
@@ -32,11 +43,11 @@ struct Session: Identifiable, Hashable {
 class ARViewModel: NSObject, ObservableObject {
     
     // MARK: - Published properties
-    @Published var selectedModel: Model? = nil
+    @Published var selectedModel: Model? = nil // Keep this for iOS UI interaction
     @Published var alertItem: AlertItem?
     @Published var loadingProgress: Float = 0.0
     @Published var userRole: UserRole = .openSession
-    @Published var isHostPermissionGranted = false
+    @Published var isHostPermissionGranted = false // Used in iOS UI
     @Published var selectedSession: Session? = nil
     @Published var connectedPeers: [MCPeerID] = []
     @Published var availableSessions: [Session] = []
@@ -46,18 +57,28 @@ class ARViewModel: NSObject, ObservableObject {
     // Use world mode on simulator since image tracking doesn't work there
     @Published var currentSyncMode: SyncMode = .world
     #else
-    // Use image target mode on real devices
+    // Use image target mode on real devices by default
     @Published var currentSyncMode: SyncMode = .imageTarget
     #endif
-    let sharedAnchorEntity = AnchorEntity(.world(transform: matrix_identity_float4x4)) // Initialize as world anchor at origin
+    // Shared anchor for image target mode (used by both platforms)
+    let sharedAnchorEntity = AnchorEntity(.world(transform: matrix_identity_float4x4))
     @Published var isImageTracked: Bool = false // Track if the target image is currently tracked
-    var imageTrackingProvider: ImageTrackingProvider? = nil
     
     // iOS ARKit references
     #if os(iOS)
     weak var arView: ARView?
-    var placedAnchors: [ARAnchor] = []
-    var processedAnchorIDs: Set<UUID> = []
+    var arSessionManager = ARSessionManager.shared // Use the shared manager
+    var arSessionDelegateHandler: ARSessionDelegateHandler? // Separate delegate handler
+    var placedAnchors: [ARAnchor] = [] // Anchors placed by the user in iOS
+    var processedAnchorIDs: Set<UUID> = [] // To avoid processing anchors multiple times
+    
+    // iOS Debug Toggles (can be moved to AppState if needed for visionOS too)
+    @Published var isPlaneVisualizationEnabled: Bool = false
+    @Published var areFeaturePointsEnabled: Bool = false
+    @Published var isWorldOriginEnabled: Bool = false
+    @Published var areAnchorOriginsEnabled: Bool = false
+    @Published var isAnchorGeometryEnabled: Bool = false
+    @Published var isSceneUnderstandingEnabled: Bool = false // Requires LiDAR
     #endif
     
     // RealityKit Scene (available on both iOS and visionOS)
@@ -73,8 +94,8 @@ class ARViewModel: NSObject, ObservableObject {
     var sessionID: String = UUID().uuidString
     var sessionName: String = ""
     
-    // Models collection
-    var models: [Model] = []
+    // Models collection (used by iOS UI, ModelManager handles internal model state)
+    var models: [Model] = [] // Holds Model instances for UI selection etc.
     
     // Subscription storage
     private var subscriptions = Set<AnyCancellable>()
@@ -82,12 +103,17 @@ class ARViewModel: NSObject, ObservableObject {
     // Multipeer state flags
     private var shouldStartMultipeerAfterModelsLoad: Bool = false
     
-    // Reference to ModelManager
-    weak var modelManager: ModelManager?
+    // Reference to ModelManager (Now shared)
+    // Use weak var if ModelManager might hold a strong ref back, otherwise strong is fine.
+    @Published var modelManager: ModelManager? // Make it published if UI needs to react to its existence
     
     // MARK: - Initialization
     override init() {
         super.init()
+        #if os(iOS)
+        // Initialize the separate delegate handler for iOS
+        self.arSessionDelegateHandler = ARSessionDelegateHandler(arViewModel: self)
+        #endif
         print("ARViewModel initialized with sessionID: \(sessionID)")
     }
     
@@ -95,6 +121,9 @@ class ARViewModel: NSObject, ObservableObject {
         stopMultipeerServices()
         subscriptions.forEach { $0.cancel() }
         subscriptions.removeAll()
+        #if os(iOS)
+        arView?.session.pause()
+        #endif
     }
     
     // MARK: - Model Loading
@@ -262,8 +291,17 @@ class ARViewModel: NSObject, ObservableObject {
     /// Setup the ARView with necessary configuration
     func setupARView(_ arView: ARView) {
         self.arView = arView
-        ARSessionManager.shared.configureSession(for: arView)
-        arView.session.delegate = self
+        self.setCurrentScene(arView.scene) // Set the scene
+        
+        // Configure the AR session using the shared manager
+        arSessionManager.configureSession(for: arView)
+        
+        // Assign the custom delegate handler
+        if let delegateHandler = self.arSessionDelegateHandler {
+            arView.session.delegate = delegateHandler
+        } else {
+            print("Warning: ARSessionDelegateHandler not initialized.")
+        }
         
         // Add tap gesture recognizer for model placement
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
@@ -276,7 +314,7 @@ class ARViewModel: NSObject, ObservableObject {
     }
     
     /// Handle tap gestures for model placement
-    @objc func handleTap(_ sender: UITapGestureRecognizer) {
+    @MainActor @objc func handleTap(_ sender: UITapGestureRecognizer) {
         // Ensure user has permission to add models
         guard userRole != .viewer || isHostPermissionGranted else {
             alertItem = AlertItem(
@@ -306,9 +344,17 @@ class ARViewModel: NSObject, ObservableObject {
         
         // Create anchor for the model
         let anchorName = "\(model.modelType.rawValue)_\(UUID().uuidString)"
-        let anchor = ARAnchor(name: anchorName, transform: firstResult.worldTransform)
+        
+        // Use a plain ARAnchor with just the transform
+        let anchor = ARAnchor(transform: firstResult.worldTransform)
+        
+        // We'll store the modelType in our own data structures
         arView.session.add(anchor: anchor)
         placedAnchors.append(anchor)
+        
+        // Store the name mapping separately if needed
+        let userInfo = ["modelName": model.modelType.rawValue, "anchorName": anchorName]
+        NotificationCenter.default.post(name: Notification.Name("AnchorCreated"), object: anchor.identifier, userInfo: userInfo)
         
         print("Placed model \(model.modelType.rawValue) at tap location")
     }
@@ -344,10 +390,10 @@ class ARViewModel: NSObject, ObservableObject {
         print("All models cleared")
     }
     
+    #if os(iOS)
     /// Process an AR anchor and place the appropriate model
-    func placeModel(for anchor: ARAnchor) {
-        guard let arView = arView,
-              let anchorName = anchor.name else { return }
+    @MainActor func placeModel(for anchor: ARAnchor) {
+        guard let arView = arView else { return }
         
         // Check if we've already processed this anchor
         if processedAnchorIDs.contains(anchor.identifier) {
@@ -357,108 +403,78 @@ class ARViewModel: NSObject, ObservableObject {
         // Mark as processed to avoid duplicates
         processedAnchorIDs.insert(anchor.identifier)
         
-        // Parse model name from anchor name
-        let components = anchorName.components(separatedBy: "_")
-        guard let modelName = components.first else { return }
+        // Default to the first model type if we can't determine which one was intended
+        // In a real app, you'd want a more robust way to track which anchor maps to which model
+        let defaultModelType = models.first?.modelType
+        
+        // Try to find if this anchor has a model type associated with it through our notification system
+        // Real apps would use a more robust approach like storing this mapping in a dictionary
+        var modelName = defaultModelType?.rawValue
+        
+        // Simple approach: just place the selected model
+        if let selectedModel = self.selectedModel {
+            modelName = selectedModel.modelType.rawValue
+        }
         
         // Find corresponding model
-        let matchingModels = models.filter { $0.modelType.rawValue.lowercased() == modelName.lowercased() }
-        guard let model = matchingModels.first,
-              let modelEntity = model.modelEntity?.clone(recursive: true) else {
-            print("No matching model found for anchor: \(anchorName)")
+        guard let modelName = modelName else {
+            print("No model selected to place for anchor: \(anchor.identifier)")
             return
         }
         
-        // Create anchor entity 
-        let anchorEntity = AnchorEntity(anchor: anchor)
+        let matchingModels = models.filter { $0.modelType.rawValue.lowercased() == modelName.lowercased() }
+        guard let model = matchingModels.first,
+              let modelEntity = model.modelEntity?.clone(recursive: true) else {
+            print("No matching model found for anchor")
+            return
+        }
+        
+        // Create anchor entity positioned at the ARAnchor's world transform
+        let anchorEntity = AnchorEntity(world: anchor.transform)
         anchorEntity.addChild(modelEntity)
         
         // Add to scene
         arView.scene.addAnchor(anchorEntity)
         print("Placed model \(modelName) for anchor: \(anchor.identifier)")
     }
+    #endif
     
-    /// Send model transform to peers
+    // MARK: - Transform Sending (Unified)
+    
+    /// Sends the transform of an entity to peers, respecting the current sync mode.
+    /// This is the primary method to call for broadcasting transforms.
     func sendTransform(for entity: Entity) {
-        guard let customService = customService else { return }
-        
-        // Find the model for this entity
-        var modelType: ModelType? = nil
-        
-        // Try to get model type from component first
-        if let component = entity.components[ModelTypeComponent.self] {
-            modelType = component.type
-        }
-        // Or search in our models dictionary
-        else if let model = models.first(where: { $0.modelEntity === entity }) {
-            modelType = model.modelType
+        guard let customService = customService, let modelManager = modelManager else {
+            // print("Cannot send transform: Custom service or model manager not available.")
+            return
         }
         
-        if let modelType = modelType {
-            sendTransform(for: entity, modelType: modelType)
-        } else {
-            customService.sendModelTransform(entity: entity)
-        }
+        // Find the associated Model object to get the ModelType
+        let model = modelManager.modelDict[entity]
+        let modelType = model?.modelType // May be nil if it's not a managed model entity
+        
+        // Determine if the transform should be relative to the image anchor
+        let isRelativeToImageAnchor = (currentSyncMode == .imageTarget)
+        
+        // Send the transform using the connectivity service
+        customService.sendModelTransform(
+            entity: entity,
+            modelType: modelType,
+            relativeToImageAnchor: isRelativeToImageAnchor
+        )
     }
     
-    /// Send model transform to peers with specified model type
-    func sendTransform(for entity: Entity, modelType: ModelType) {
-        guard let customService = customService else { return }
-        
-        // Use different transform methods based on the sync mode
-        if currentSyncMode == .imageTarget {
-            // In image target mode, transforms are relative to the image anchor
-            customService.sendModelTransform(
-                entity: entity,
-                modelType: modelType,
-                relativeToImageAnchor: true
-            )
-        } else {
-            // In world mode, use absolute world transforms
-            customService.sendModelTransform(
-                entity: entity,
-                modelType: modelType
-            )
-        }
-    }
-    
-    /// Send model transform to peers
+    /// Broadcasts model transform using the unified sendTransform method.
     func broadcastModelTransform(entity: Entity, modelType: ModelType) {
-        guard let customService = customService else { return }
-        
-        customService.sendModelTransform(entity: entity, modelType: modelType)
+        // This might be redundant if sendTransform is called directly from gestures/updates
+        print("Broadcasting transform for \(modelType.rawValue)")
+        sendTransform(for: entity)
     }
     #endif
 }
 
-// MARK: - ARSessionDelegate (iOS only)
-#if os(iOS)
-extension ARViewModel: ARSessionDelegate {
-    func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
-        for anchor in anchors {
-            if anchor.name != nil {
-                placeModel(for: anchor)
-            }
-        }
-    }
-    
-    func session(_ session: ARSession, didOutputCollaborationData data: ARSession.CollaborationData) {
-        guard let mpSession = multipeerSession,
-              !mpSession.session.connectedPeers.isEmpty else { return }
-        
-        // Only send if it's a reliable chunk or we have few peers
-        guard data.priority == .critical ||
-              mpSession.session.connectedPeers.count < 3 else { return }
-        
-        do {
-            let archivedData = try NSKeyedArchiver.archivedData(withRootObject: data, requiringSecureCoding: true)
-            mpSession.sendToAllPeers(archivedData, dataType: .collaborationData)
-        } catch {
-            print("Error archiving collaboration data: \(error)")
-        }
-    }
-}
-#endif
+// MARK: - ARSession Delegate
+// ARSession delegate implementation moved to ARSessionDelegateHandler class
 
 // MARK: - MultipeerSessionDelegate
 extension ARViewModel: MultipeerSessionDelegate {
@@ -506,15 +522,7 @@ extension ARViewModel: MultipeerSessionDelegate {
         }
     }
     
-    func sendTransform(for entity: Entity) {
-        guard let modelManager = customService?.modelManager,
-              let model = modelManager.modelDict[entity] else {
-            customService?.sendModelTransform(entity: entity)
-            return
-        }
-        
-        customService?.sendModelTransform(entity: entity, modelType: model.modelType)
-    }
+    // sendTransform method removed - using the one in the main class instead
 }
 
 
