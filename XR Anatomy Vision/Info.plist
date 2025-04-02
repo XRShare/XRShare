@@ -7,10 +7,14 @@
 		<string>_xr-anatomy._tcp</string>
 		<string>_xr-anatomy._udp</string>
 	</array>
+	<key>NSHandsTrackingUsageDescription</key>
+	<string>This app uses hand tracking for gestures and interactions.</string>
+	<key>NSWorldSensingUsageDescription</key>
+	<string>This app places 3D content in the real world for an AR experience.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationPreferredDefaultSceneSessionRole</key>
-        <string>UIWindowSceneSessionRoleApplication</string>
+		<string>UIWindowSceneSessionRoleApplication</string>
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<true/>
 		<key>UISceneConfigurations</key>
@@ -24,11 +28,5 @@
 			</array>
 		</dict>
 	</dict>
-	<key>CFBundleIdentifier</key>
-	<string></string>
-	<key>NSHandsTrackingUsageDescription</key>
-	<string>This app uses hand tracking for gestures and interactions.</string>
-	<key>NSWorldSensingUsageDescription</key>
-	<string>This app places 3D content in the real world for an AR experience.</string>
 </dict>
 </plist>
