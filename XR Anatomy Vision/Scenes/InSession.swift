@@ -39,6 +39,10 @@ struct InSession: View {
     @State private var showDebugInfo = true
     @State private var refreshTimer: Timer? = nil
     @State private var timerCounter = 0
+    
+    // State for Drag Gesture
+    @State private var draggedEntity: Entity? = nil
+    @State private var startLocation3D: Point3D? = nil
 
     var body: some View {
         ZStack {
@@ -172,11 +176,113 @@ struct InSession: View {
                     arViewModel: arViewModel
                 )
             }
-            // Add tap gesture first for selection, then the manipulation gestures
-            .gesture(modelManager.tapGesture)
-            .gesture(modelManager.dragGesture)
-            .gesture(modelManager.scaleGesture)
-            .gesture(modelManager.rotationGesture)
+            // --- visionOS Gestures ---
+            .gesture(SpatialTapGesture()
+                .targetedToAnyEntity()
+                .onEnded { value in
+                    print("Spatial Tap detected on entity: \(value.entity.name)")
+                    // Call handleTap on the main actor
+                    Task { @MainActor in
+                        modelManager.handleTap(entity: value.entity)
+                    }
+                }
+            )
+            .simultaneousGesture(DragGesture()
+                 .targetedToAnyEntity()
+                 .onChanged { value in
+                     // Store starting info on first change
+                     if draggedEntity == nil {
+                         draggedEntity = value.entity
+                         startLocation3D = value.location3D
+                     }
+                     
+                     // Ensure we have start location and are dragging the same entity
+                     guard let currentStartLocation = startLocation3D, value.entity == draggedEntity else {
+                         print("Drag changed: Mismatched entity or missing start location.")
+                         return
+                     }
+                     
+                     // Calculate the translation delta in the parent's coordinate space
+                     let currentLocation3D = value.location3D
+                     let deltaX = Float(currentLocation3D.x - currentStartLocation.x)
+                     let deltaY = Float(currentLocation3D.y - currentStartLocation.y)
+                     let deltaZ = Float(currentLocation3D.z - currentStartLocation.z)
+                     let translationDelta = SIMD3<Float>(deltaX, deltaY, deltaZ)
+
+                     // Call handleDragChange with the delta
+                     // Note: handleDragChange expects a delta, not an absolute position change
+                     Task { @MainActor in
+                         // Check if the entity still exists in the manager before handling
+                         if modelManager.modelDict[value.entity] != nil {
+                              modelManager.handleDragChange(entity: value.entity, translation: translationDelta, arViewModel: arViewModel)
+                         } else {
+                              print("Drag changed: Entity \(value.entity.name) no longer managed.")
+                              // Reset drag state if entity is gone
+                              draggedEntity = nil
+                              startLocation3D = nil
+                         }
+                     }
+                     
+                     // Update start location for the next delta calculation
+                     startLocation3D = currentLocation3D
+                     
+                     lastGestureEvent = "Dragging \(value.entity.name)"
+                 }
+                 .onEnded { value in
+                     // Ensure we have the dragged entity before ending
+                     guard let entityToEnd = draggedEntity else {
+                         print("Drag ended: No entity was being tracked.")
+                         return
+                     }
+                     
+                     Task { @MainActor in
+                         // Check if the entity still exists before ending
+                         if modelManager.modelDict[entityToEnd] != nil {
+                              modelManager.handleDragEnd(entity: entityToEnd, arViewModel: arViewModel)
+                         } else {
+                              print("Drag ended: Entity \(entityToEnd.name) no longer managed.")
+                         }
+                     }
+                     lastGestureEvent = "Drag ended for \(entityToEnd.name)"
+                     
+                     // Reset state
+                     draggedEntity = nil
+                     startLocation3D = nil
+                 }
+            )
+             .simultaneousGesture(MagnifyGesture()
+                 .targetedToAnyEntity()
+                 .onChanged { value in
+                     let scaleFactor = Float(value.magnification)
+                     Task { @MainActor in
+                         modelManager.handleScaleChange(entity: value.entity, scaleFactor: scaleFactor, arViewModel: arViewModel)
+                     }
+                     lastGestureEvent = "Scaling \(value.entity.name) by \(String(format: "%.2f", scaleFactor))"
+                 }
+                 .onEnded { value in
+                      Task { @MainActor in
+                          modelManager.handleScaleEnd(entity: value.entity, arViewModel: arViewModel)
+                      }
+                      lastGestureEvent = "Scale ended for \(value.entity.name)"
+                 }
+             )
+             // Using RotateGesture3D for potentially more intuitive rotation
+             .simultaneousGesture(RotateGesture3D()
+                 .targetedToAnyEntity()
+                 .onChanged { value in
+                     let rotation = simd_quatf(value.rotation) // Convert Euler angles to quaternion
+                     Task { @MainActor in
+                         modelManager.handleRotationChange(entity: value.entity, rotation: rotation, arViewModel: arViewModel)
+                     }
+                     lastGestureEvent = "Rotating \(value.entity.name)"
+                 }
+                 .onEnded { value in
+                     Task { @MainActor in
+                         modelManager.handleRotationEnd(entity: value.entity, arViewModel: arViewModel)
+                     }
+                     lastGestureEvent = "Rotation ended for \(value.entity.name)"
+                 }
+             )
             
             // Status indicator with selection info
             VStack(alignment: .leading, spacing: 4) {

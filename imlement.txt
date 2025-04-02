@@ -1,33 +1,137 @@
 <Plan>
-Modify `ARSessionDelegateHandler.session(_:didAdd:)` on iOS to correctly identify anchors created by the tap gesture (`handleTap` in `ARViewModel`) by checking against the `arViewModel.placedAnchors` list. This will ensure that `arViewModel.placeModel(for:)` is called for these anchors, allowing the corresponding model entities to be added to the `ARView`'s scene.
+1.  Modify `InSession.swift` for the visionOS target.
+2.  Introduce `@State` variables `draggedEntity` and `startLocation3D` to track the entity being dragged and its initial 3D location during the gesture.
+3.  Update the `.simultaneousGesture(DragGesture()...)` block:
+    *   In `.onChanged`, capture the starting entity and location if `draggedEntity` is nil.
+    *   Calculate the 3D translation delta using `value.location3D` relative to the stored `startLocation3D`.
+    *   Call `modelManager.handleDragChange` with the calculated 3D delta.
+    *   Update `startLocation3D` for the next change event.
+    *   Remove the incorrect line that tried to access `value.translation.depth`.
+    *   In `.onEnded`, call `modelManager.handleDragEnd` and reset the state variables.
 </Plan>
 
-<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/Shared/ARSessionDelegateHandler.swift" action="modify">
+<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/XR Anatomy Vision/Scenes/InSession.swift" action="modify">
   <change>
-    <description>Modify session(_:didAdd:) to handle unnamed anchors created by handleTap</description>
+    <description>Fix DragGesture handling for visionOS using location3D</description>
     <search>
 ===
-            } else if anchor.name != nil {
-                // Handle named anchors placed by the app (if still used)
-                arViewModel.placeModel(for: anchor)
-            }
-        }
-    }
+    @State private var showDebugInfo = true
+    @State private var refreshTimer: Timer? = nil
+    @State private var timerCounter = 0
+
+    var body: some View {
+        ZStack {
 ===
     </search>
     <content>
 ===
-            } else if arViewModel.placedAnchors.contains(where: { $0.identifier == anchor.identifier }) {
-                // Handle anchors specifically placed by our tap gesture (handleTap)
-                // These might be unnamed initially.
-                print("Detected anchor added via tap gesture: \(anchor.identifier)")
-                arViewModel.placeModel(for: anchor)
-            } else {
-                 // Log other unknown anchor types if necessary
-                 print("Ignoring unknown anchor type added: \(anchor.identifier), Type: \(type(of: anchor))")
-            }
-        }
-    }
+    @State private var showDebugInfo = true
+    @State private var refreshTimer: Timer? = nil
+    @State private var timerCounter = 0
+    
+    // State for Drag Gesture
+    @State private var draggedEntity: Entity? = nil
+    @State private var startLocation3D: Point3D? = nil
+
+    var body: some View {
+        ZStack {
+===
+    </content>
+  </change>
+  <change>
+    <description>Implement correct 3D drag handling using location3D</description>
+    <search>
+===
+            .simultaneousGesture(DragGesture()
+                .targetedToAnyEntity()
+                .onChanged { value in
+                    // Calculate translation in world space might be complex depending on coordinate spaces.
+                    // For simplicity, let's use the gesture's translation directly, assuming it's somewhat relative.
+                    // A more robust solution might involve projecting onto a plane or using ARKit anchors.
+                    let translation = SIMD3<Float>(Float(value.translation.width), Float(value.translation.height), Float(value.translation.depth))
+                    
+                    // Call handleDragChange on the main actor
+                    Task { @MainActor in
+                        modelManager.handleDragChange(entity: value.entity, translation: translation, arViewModel: arViewModel)
+                    }
+                    lastGestureEvent = "Dragging \(value.entity.name)"
+                }
+                .onEnded { value in
+                    Task { @MainActor in
+                         modelManager.handleDragEnd(entity: value.entity, arViewModel: arViewModel)
+                    }
+                    lastGestureEvent = "Drag ended for \(value.entity.name)"
+                }
+            )
+             .simultaneousGesture(MagnifyGesture()
+===
+    </search>
+    <content>
+===
+            .simultaneousGesture(DragGesture()
+                 .targetedToAnyEntity()
+                 .onChanged { value in
+                     // Store starting info on first change
+                     if draggedEntity == nil {
+                         draggedEntity = value.entity
+                         startLocation3D = value.location3D
+                     }
+                     
+                     // Ensure we have start location and are dragging the same entity
+                     guard let currentStartLocation = startLocation3D, value.entity == draggedEntity else {
+                         print("Drag changed: Mismatched entity or missing start location.")
+                         return
+                     }
+                     
+                     // Calculate the translation delta in the parent's coordinate space
+                     let currentLocation3D = value.location3D
+                     let deltaX = Float(currentLocation3D.x - currentStartLocation.x)
+                     let deltaY = Float(currentLocation3D.y - currentStartLocation.y)
+                     let deltaZ = Float(currentLocation3D.z - currentStartLocation.z)
+                     let translationDelta = SIMD3<Float>(deltaX, deltaY, deltaZ)
+
+                     // Call handleDragChange with the delta
+                     // Note: handleDragChange expects a delta, not an absolute position change
+                     Task { @MainActor in
+                         // Check if the entity still exists in the manager before handling
+                         if modelManager.modelDict[value.entity] != nil {
+                              modelManager.handleDragChange(entity: value.entity, translation: translationDelta, arViewModel: arViewModel)
+                         } else {
+                              print("Drag changed: Entity \(value.entity.name) no longer managed.")
+                              // Reset drag state if entity is gone
+                              draggedEntity = nil
+                              startLocation3D = nil
+                         }
+                     }
+                     
+                     // Update start location for the next delta calculation
+                     startLocation3D = currentLocation3D
+                     
+                     lastGestureEvent = "Dragging \(value.entity.name)"
+                 }
+                 .onEnded { value in
+                     // Ensure we have the dragged entity before ending
+                     guard let entityToEnd = draggedEntity else {
+                         print("Drag ended: No entity was being tracked.")
+                         return
+                     }
+                     
+                     Task { @MainActor in
+                         // Check if the entity still exists before ending
+                         if modelManager.modelDict[entityToEnd] != nil {
+                              modelManager.handleDragEnd(entity: entityToEnd, arViewModel: arViewModel)
+                         } else {
+                              print("Drag ended: Entity \(entityToEnd.name) no longer managed.")
+                         }
+                     }
+                     lastGestureEvent = "Drag ended for \(entityToEnd.name)"
+                     
+                     // Reset state
+                     draggedEntity = nil
+                     startLocation3D = nil
+                 }
+            )
+             .simultaneousGesture(MagnifyGesture()
 ===
     </content>
   </change>

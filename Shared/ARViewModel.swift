@@ -327,9 +327,23 @@ class ARViewModel: NSObject, ObservableObject {
             print("Warning: ARSessionDelegateHandler not initialized.")
         }
 
-        // Add tap gesture recognizer for model placement
+        // Add tap gesture recognizer for model placement and interaction
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
         arView.addGestureRecognizer(tapGesture)
+
+        // Add manipulation gestures
+        let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
+        arView.addGestureRecognizer(panGesture)
+
+        let pinchGesture = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch(_:)))
+        arView.addGestureRecognizer(pinchGesture)
+
+        let rotationGesture = UIRotationGestureRecognizer(target: self, action: #selector(handleRotation(_:)))
+        arView.addGestureRecognizer(rotationGesture)
+
+        // Allow gestures to work simultaneously (optional, adjust as needed)
+        // You might need to implement UIGestureRecognizerDelegate methods if more complex gesture interactions are required.
+        // For now, let's assume default behavior is acceptable.
 
         // Only start multipeer here if it wasn't deferred
         if !self.shouldStartMultipeerAfterModelsLoad && self.multipeerSession == nil {
@@ -337,9 +351,25 @@ class ARViewModel: NSObject, ObservableObject {
         }
     }
 
-    /// Handle tap gestures for model placement
+    /// Handle tap gestures for model placement OR selection/interaction
     @MainActor @objc func handleTap(_ sender: UITapGestureRecognizer) {
-        // Ensure user has permission to add models
+        guard let arView = self.arView, let modelManager = self.modelManager else { return }
+        let tapLocation = sender.location(in: arView)
+
+        // 1. Try to hit test existing entities first
+        if let hitEntity = arView.entity(at: tapLocation), modelManager.modelDict[hitEntity] != nil {
+            print("Tap hit existing model: \(hitEntity.name)")
+            modelManager.handleTap(entity: hitEntity)
+            return // Don't proceed to placement if we hit an existing model
+        }
+
+        // 2. If no entity hit, proceed with placement logic (if a model is selected)
+        guard let selectedModel = self.selectedModel else {
+             print("Tap missed entities and no model selected for placement.")
+             return
+        }
+
+        // Ensure user has permission to add models (only check if placing)
         guard self.userRole != .viewer || self.isHostPermissionGranted else {
             self.alertItem = AlertItem(
                 title: "Permission Denied",
@@ -348,15 +378,7 @@ class ARViewModel: NSObject, ObservableObject {
             return
         }
 
-        guard let arView = self.arView,
-              let model = self.selectedModel,
-              let modelEntity = model.modelEntity else {
-            return
-        }
-
-        // Raycast to find placement position
-        let tapLocation = sender.location(in: arView)
-        // Use explicit types for raycasting parameters
+        // Raycast to find placement position on a plane
         let results = arView.raycast(from: tapLocation, allowing: .estimatedPlane, alignment: .any)
 
         guard let firstResult = results.first else {
@@ -367,21 +389,21 @@ class ARViewModel: NSObject, ObservableObject {
             return
         }
 
-        // Create anchor for the model
-        let anchorName = "\(model.modelType.rawValue)_\(UUID().uuidString)"
+        // Create ARAnchor for the model placement
+        let anchorName = "\(selectedModel.modelType.rawValue)_\(UUID().uuidString)" // Optional name for debugging
+        let anchor = ARAnchor(name: anchorName, transform: firstResult.worldTransform) // Add name here
 
-        // Use a plain ARAnchor with just the transform
-        let anchor = ARAnchor(transform: firstResult.worldTransform)
-
-        // We'll store the modelType in our own data structures
+        // Add the ARAnchor to the session. The delegate will handle placing the RealityKit content.
         arView.session.add(anchor: anchor)
-        self.placedAnchors.append(anchor)
+        self.placedAnchors.append(anchor) // Track the anchor we intend to place a model on
 
-        // Store the name mapping separately if needed
-        let userInfo = ["modelName": model.modelType.rawValue, "anchorName": anchorName]
-        NotificationCenter.default.post(name: Notification.Name("AnchorCreated"), object: anchor.identifier, userInfo: userInfo)
+        // Optional: Store mapping if needed elsewhere, though delegate logic should handle it
+        // let userInfo = ["modelName": selectedModel.modelType.rawValue, "anchorName": anchorName]
+        // NotificationCenter.default.post(name: Notification.Name("AnchorCreated"), object: anchor.identifier, userInfo: userInfo)
 
-        print("Placed model \(model.modelType.rawValue) at tap location")
+        print("Initiated placement for model \(selectedModel.modelType.rawValue) via ARAnchor \(anchor.identifier)")
+        // Deselect model after placing? Optional.
+        // self.selectedModel = nil
     }
 
     /// Reset the AR session
@@ -482,6 +504,119 @@ class ARViewModel: NSObject, ObservableObject {
         print("Broadcasting transform for \(modelType.rawValue)")
         sendTransform(for: entity)
     }
+
+    // --- iOS Gesture Handling Methods ---
+
+    // Store the entity being manipulated by gestures
+    private var activeGestureEntity: Entity?
+    private var initialRotation: simd_quatf?
+    private var initialScale: SIMD3<Float>?
+
+    @MainActor @objc func handlePan(_ sender: UIPanGestureRecognizer) {
+        guard let arView = self.arView, let modelManager = self.modelManager else { return }
+        let location = sender.location(in: arView)
+
+        switch sender.state {
+        case .began:
+            if let entity = arView.entity(at: location), modelManager.modelDict[entity] != nil {
+                activeGestureEntity = entity
+                print("Pan began on \(entity.name)")
+            } else {
+                activeGestureEntity = nil
+            }
+        case .changed:
+            guard let entity = activeGestureEntity else { return }
+            let translation = sender.translation(in: arView)
+            // Convert 2D screen translation to 3D world translation - this is approximate
+            // A better approach involves raycasting onto a plane relative to the camera or entity
+            let cameraTransform = arView.cameraTransform
+            var worldTranslation = SIMD3<Float>(Float(translation.x), -Float(translation.y), 0) * 0.001 // Adjust sensitivity
+            worldTranslation = cameraTransform.rotation.act(worldTranslation) // Rotate translation to world space
+
+            modelManager.handleDragChange(entity: entity, translation: worldTranslation, arViewModel: self)
+            sender.setTranslation(.zero, in: arView) // Reset translation for next change
+        case .ended, .cancelled:
+             if let entity = activeGestureEntity {
+                 modelManager.handleDragEnd(entity: entity, arViewModel: self)
+                 print("Pan ended on \(entity.name)")
+             }
+             activeGestureEntity = nil
+        default:
+            break
+        }
+    }
+
+    @MainActor @objc func handlePinch(_ sender: UIPinchGestureRecognizer) {
+        guard let arView = self.arView, let modelManager = self.modelManager else { return }
+        let location = sender.location(in: arView)
+
+        switch sender.state {
+        case .began:
+             if let entity = arView.entity(at: location), modelManager.modelDict[entity] != nil {
+                 activeGestureEntity = entity
+                 initialScale = entity.scale
+                 print("Pinch began on \(entity.name)")
+             } else {
+                 activeGestureEntity = nil
+                 initialScale = nil
+             }
+             sender.scale = 1.0 // Reset scale factor
+        case .changed:
+            guard let entity = activeGestureEntity else { return }
+            let scaleFactor = Float(sender.scale)
+            modelManager.handleScaleChange(entity: entity, scaleFactor: scaleFactor, arViewModel: self)
+            // Don't reset sender.scale here, let it accumulate relative to the start
+        case .ended, .cancelled:
+            if let entity = activeGestureEntity {
+                 modelManager.handleScaleEnd(entity: entity, arViewModel: self)
+                 print("Pinch ended on \(entity.name)")
+            }
+            activeGestureEntity = nil
+            initialScale = nil
+        default:
+            break
+        }
+    }
+
+    @MainActor @objc func handleRotation(_ sender: UIRotationGestureRecognizer) {
+         guard let arView = self.arView, let modelManager = self.modelManager else { return }
+         let location = sender.location(in: arView)
+
+         switch sender.state {
+         case .began:
+             if let entity = arView.entity(at: location), modelManager.modelDict[entity] != nil {
+                 activeGestureEntity = entity
+                 initialRotation = entity.orientation(relativeTo: nil) // Store initial world rotation
+                 print("Rotation began on \(entity.name)")
+             } else {
+                 activeGestureEntity = nil
+                 initialRotation = nil
+             }
+             sender.rotation = 0 // Reset rotation
+         case .changed:
+             guard let entity = activeGestureEntity, let initialRotation = self.initialRotation else { return }
+             let angle = Float(sender.rotation) // Rotation angle in radians
+             // Create rotation quaternion around the Y-axis (typical for 2D rotation gesture)
+             let deltaRotation = simd_quatf(angle: -angle, axis: SIMD3<Float>(0, 1, 0)) // Negative angle might feel more natural
+
+             // Apply rotation in world space
+             // entity.setOrientation(initialRotation * deltaRotation, relativeTo: nil)
+             // Or apply relative rotation (might be more intuitive)
+             modelManager.handleRotationChange(entity: entity, rotation: deltaRotation, arViewModel: self)
+
+             // Don't reset sender.rotation here, let it accumulate relative to start
+         case .ended, .cancelled:
+             if let entity = activeGestureEntity {
+                 modelManager.handleRotationEnd(entity: entity, arViewModel: self)
+                 print("Rotation ended on \(entity.name)")
+             }
+             activeGestureEntity = nil
+             initialRotation = nil
+         default:
+             break
+         }
+    }
+
     #endif // End of os(iOS) specific block
 
     // MARK: - Transform Sending (Unified)

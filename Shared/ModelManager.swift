@@ -386,15 +386,7 @@ final class ModelManager: ObservableObject {
         print("✅ Rotation gesture ended for \(entity.name)")
     }
     
-    // --- Placeholder Gestures for visionOS (Actual gestures attached in RealityView) ---
-    #if os(visionOS)
-    // These properties are placeholders; the actual gestures are defined and attached
-    // within the `InSession` RealityView in the visionOS target.
-    var tapGesture: some Gesture { SpatialTapGesture().onEnded { _ in } }
-    var dragGesture: some Gesture { DragGesture().onChanged { _ in }.onEnded { _ in } }
-    var scaleGesture: some Gesture { MagnifyGesture().onChanged { _ in }.onEnded { _ in } }
-    var rotationGesture: some Gesture { RotateGesture().onChanged { _ in }.onEnded { _ in } }
-    #endif
+    // Gestures are now handled directly in the platform-specific views (ARViewContainer for iOS, InSession for visionOS)
 }
 
 // Helper function for clamping SIMD vectors (if not available)
