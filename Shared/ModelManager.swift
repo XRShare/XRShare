@@ -317,36 +317,53 @@ final class ModelManager: ObservableObject {
 
     @MainActor func handleDragChange(entity: Entity, translation: SIMD3<Float>, arViewModel: ARViewModel) {
         let name = entity.name.isEmpty ? "unnamed entity" : entity.name
-        
+
         // First verify this entity is managed by ModelManager
         guard let model = self.modelDict[entity] else {
             print("Attempted drag on unmanaged entity: \(name)")
             return
         }
-        
-        // Apply sensitivity adjustment directly to the world-space delta
-        // Reduce sensitivity slightly
-        let sensitivity: Float = 0.8
-        let delta = translation * sensitivity
 
-        // Optional: Clamp the delta per frame to prevent huge jumps
-        let maxDeltaPerFrame: Float = 0.05 // Max 5cm move per frame update
+        // Apply sensitivity adjustment to the raw world-space delta received from the gesture
+        // This factor needs tuning for visionOS `value.location3D` delta. Start small.
+        let sensitivity: Float = 0.002 // Significantly reduce sensitivity for visionOS world delta
+        let scaledDelta = translation * sensitivity
+
+        // Optional: Clamp the scaled delta per frame to prevent huge jumps
+        let maxDeltaPerFrame: Float = 0.02 // Max 2cm move per frame update
         let clampedDelta = SIMD3<Float>(
-            min(max(delta.x, -maxDeltaPerFrame), maxDeltaPerFrame),
-            min(max(delta.y, -maxDeltaPerFrame), maxDeltaPerFrame),
-            min(max(delta.z, -maxDeltaPerFrame), maxDeltaPerFrame)
+            min(max(scaledDelta.x, -maxDeltaPerFrame), maxDeltaPerFrame),
+            min(max(scaledDelta.y, -maxDeltaPerFrame), maxDeltaPerFrame),
+            min(max(scaledDelta.z, -maxDeltaPerFrame), maxDeltaPerFrame)
         )
 
+        // Get current world position
+        let currentWorldPosition = entity.position(relativeTo: nil)
+
+        // Calculate new world position
+        let newWorldPosition = currentWorldPosition + clampedDelta
+
         // Apply position change in world space
-        let oldPosition = entity.position(relativeTo: nil) // Get world position
-        entity.setPosition(oldPosition + clampedDelta, relativeTo: nil)
+        #if os(visionOS)
+        // Invert Y-axis for visionOS drag to feel more natural
+        let adjustedWorldPosition = SIMD3<Float>(newWorldPosition.x, currentWorldPosition.y - clampedDelta.y, newWorldPosition.z)
+        entity.setPosition(adjustedWorldPosition, relativeTo: nil)
+        #else
+        // Keep original behavior for iOS
+        entity.setPosition(newWorldPosition, relativeTo: nil)
+        #endif
 
-        // Update model state and notify
-        model.position = entity.position // Update local model state if needed
-        self.selectedModelID = model.modelType // Select on interaction
-        arViewModel.sendTransform(for: entity) // Send update
 
-        // print("🔵 DRAG: \(name) by \(clampedDelta)")
+        // Update model state (optional, position is mainly derived from entity)
+        // model.position = entity.position // This would be local position, might not be useful here
+
+        // Select on interaction
+        self.selectedModelID = model.modelType
+
+        // Send transform update (now happens within handleDragChange)
+        arViewModel.sendTransform(for: entity)
+
+        // print("🔵 DRAG: \(name) by delta \(clampedDelta), new world pos \(newWorldPosition)")
     }
 
     @MainActor func handleDragEnd(entity: Entity, arViewModel: ARViewModel) {

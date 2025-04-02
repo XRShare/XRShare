@@ -65,35 +65,31 @@ final class AppModel: ObservableObject {
     
     // Non-async version for UI bindings
     func toggleDebugModeUI() {
-        let wasEnabled = debugModeEnabled
-        debugModeEnabled.toggle()
+        debugModeEnabled.toggle() // Toggle the state first
         print("Debug mode \(debugModeEnabled ? "enabled" : "disabled")")
 
-        // Manage control panel visibility
-        if debugModeEnabled && !wasEnabled {
-            // Only open if not already visible and newly enabled
+        if debugModeEnabled { // If we are enabling debug mode
+            // Only post notification if the panel isn't already marked as visible
             if !controlPanelVisible {
-                controlPanelVisible = true
-                // Post notification immediately to open the window
-                // Ensure this runs on the main thread if called from background
-                DispatchQueue.main.async {
-                    NotificationCenter.default.post(
-                        name: Notification.Name("openWindow"),
-                        object: nil,
-                        userInfo: ["id": "controlPanel"]
-                    )
-                    print("Posted notification to open controlPanel")
-                }
+                controlPanelVisible = true // Mark as visible *before* posting
+                // Post synchronously on the main thread
+                NotificationCenter.default.post(
+                    name: Notification.Name("openWindow"),
+                    object: nil,
+                    userInfo: ["id": "controlPanel", "timestamp": Date().timeIntervalSince1970] // Add timestamp
+                )
+                print("Posted notification synchronously to open controlPanel")
+            } else {
+                 print("Debug mode enabled, but controlPanelVisible was already true. No notification posted.")
             }
-        } else if !debugModeEnabled && wasEnabled {
-            // When disabling debug mode, mark panel as closed
-            // Note: We don't automatically close the window, just update the state.
-            // The user needs to close the window manually.
+        } else { // If we are disabling debug mode
+            // Mark the panel state as closed. User closes the window manually.
             controlPanelVisible = false
-            print("Debug mode disabled, control panel marked as closed (user must close window manually).")
+            print("Debug mode disabled, control panel state marked as closed.")
+            // Do NOT post a notification to close the window.
         }
     }
-    
+
     // Close any open panels and clean up
     func closeAllPanels() {
         controlPanelVisible = false

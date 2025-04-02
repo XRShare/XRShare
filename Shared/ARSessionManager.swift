@@ -29,6 +29,19 @@ class ARSessionManager {
         config.environmentTexturing = .automatic
         config.isCollaborationEnabled = true // Essential for multipeer
 
+        // Enable Occlusion based on device capabilities
+        if ARWorldTrackingConfiguration.supportsFrameSemantics(.personSegmentationWithDepth) {
+            config.frameSemantics.insert(.personSegmentationWithDepth)
+            print("[iOS] Enabled Person Segmentation with Depth for Occlusion.")
+        } else if ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth) {
+             // Fallback for devices with LiDAR but maybe not person segmentation? (Less common)
+             config.frameSemantics.insert(.sceneDepth)
+             print("[iOS] Enabled Scene Depth for Occlusion (Fallback).")
+        } else {
+            print("[iOS] Occlusion not supported or enabled on this device.")
+        }
+
+
         // Configure for Image Target mode
         if syncMode == .imageTarget {
             if referenceImages.isEmpty {

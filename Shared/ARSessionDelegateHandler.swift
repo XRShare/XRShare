@@ -54,17 +54,17 @@ class ARSessionDelegateHandler: NSObject, ARSessionDelegate {
                      let objectName = objectAnchor.referenceObject.name ?? "unknown object"
                      guard arViewModel.currentSyncMode == .objectTarget else { continue }
 
-                     // When object is detected, update tracking state
+                     // Object anchor added means it's detected. Sync if not already synced.
                      if !arViewModel.isSyncedToObject {
                          // Perform one-time sync
                          arViewModel.sharedAnchorEntity.setTransformMatrix(objectAnchor.transform, relativeTo: nil)
                          arViewModel.isSyncedToObject = true
+                         print("✅ [iOS] Object Target '\(objectName)' detected (added). Synced sharedAnchorEntity.")
+                     }
+                     // Mark as tracked whenever it's added
+                     if !arViewModel.isObjectTracked {
                          arViewModel.isObjectTracked = true
-                         print("✅ [iOS] Object Target '\(objectName)' detected. Synced sharedAnchorEntity.")
-                     } else if !arViewModel.isObjectTracked {
-                         // Already synced, just update detection status
-                         arViewModel.isObjectTracked = true
-                         print("👀 [iOS] Object Target '\(objectName)' re-detected (already synced).")
+                         print("👀 [iOS] Object Target '\(objectName)' tracking started (added).")
                      }
                 }
             }
@@ -109,18 +109,21 @@ class ARSessionDelegateHandler: NSObject, ARSessionDelegate {
                     let objectName = objectAnchor.referenceObject.name ?? "unknown object"
                     guard arViewModel.currentSyncMode == .objectTarget else { continue }
 
-                    // When object is updated, consider it tracked and update
+                    // Object anchor updated means it's still being tracked. Sync if needed.
                     if !arViewModel.isSyncedToObject {
                         // Perform one-time sync if detected during update
                         arViewModel.sharedAnchorEntity.setTransformMatrix(objectAnchor.transform, relativeTo: nil)
                         arViewModel.isSyncedToObject = true
-                        arViewModel.isObjectTracked = true
-                        print("✅ [iOS] Object Target '\(objectName)' detected via update. Synced sharedAnchorEntity.")
-                    } else if !arViewModel.isObjectTracked {
-                        // Already synced, just update detection status
-                        arViewModel.isObjectTracked = true
-                        print("👀 [iOS] Object Target '\(objectName)' re-detected via update (already synced).")
+                        print("✅ [iOS] Object Target '\(objectName)' detected (updated). Synced sharedAnchorEntity.")
                     }
+                    // Mark as tracked whenever it's updated
+                    if !arViewModel.isObjectTracked {
+                        arViewModel.isObjectTracked = true
+                        print("👀 [iOS] Object Target '\(objectName)' tracking continued (updated).")
+                    }
+                    // Optional: Update sharedAnchorEntity transform continuously if needed,
+                    // but usually only the initial sync is required.
+                    // arViewModel.sharedAnchorEntity.setTransformMatrix(objectAnchor.transform, relativeTo: nil)
                 }
             }
         }
@@ -147,9 +150,11 @@ class ARSessionDelegateHandler: NSObject, ARSessionDelegate {
                      guard arViewModel.currentSyncMode == .objectTarget else { continue }
 
                      print("❌ [iOS] Object Target '\(objectName)' anchor removed.")
+                     // When anchor is removed, mark as not tracked
                      if arViewModel.isObjectTracked {
-                         arViewModel.isObjectTracked = false // Mark as not detected
-                         // Do not reset isSyncedToObject
+                         arViewModel.isObjectTracked = false
+                         // Do not reset isSyncedToObject here, the alignment might still be useful
+                         // if the object reappears quickly. Resetting sync is done via the UI button.
                      }
                 }
                 // Clean up associated content if needed

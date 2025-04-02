@@ -7,6 +7,11 @@ struct ARViewContainer: UIViewRepresentable {
     
     func makeUIView(context: Context) -> ARView {
         let arView = ARView(frame: .zero)
+
+        // Enable Occlusion in RealityKit rendering
+        arView.environment.sceneUnderstanding.options.insert(.occlusion)
+        print("[iOS] ARView Scene Understanding Occlusion Enabled.")
+
         arViewModel.setupARView(arView)
         // Optionally add an ARCoachingOverlayView if desired:
         let coachingOverlay = ARCoachingOverlayView()

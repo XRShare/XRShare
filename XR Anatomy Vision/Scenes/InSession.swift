@@ -42,7 +42,11 @@ struct InSession: View {
     
     // State for Drag Gesture
     @State private var draggedEntity: Entity? = nil
-    @State private var startLocation3D: Point3D? = nil
+    // Store initial positions for drag calculation
+    @State private var initialDragEntityPosition: SIMD3<Float>? = nil // Keep for potential alternative logic
+    @State private var gestureStartLocation3D: Point3D? = nil // Keep for potential alternative logic
+    @State private var previousDragLocation3D: Point3D? = nil // For delta calculation
+
 
     var body: some View {
         ZStack {
@@ -205,50 +209,63 @@ struct InSession: View {
             .simultaneousGesture(DragGesture()
                  .targetedToAnyEntity()
                  .onChanged { value in
-                     // Store the entity being dragged if not already set
-                     if draggedEntity == nil {
-                         // Ensure the entity exists in the model manager before starting drag
-                         if modelManager.modelDict[value.entity] != nil {
-                             draggedEntity = value.entity
-                             print("Drag started on: \(value.entity.name)")
-                         } else {
-                             print("Attempted drag on unmanaged entity: \(value.entity.name)")
-                             return // Don't start drag if entity isn't managed
-                         }
-                     }
-
-                     // Ensure we are dragging the correct entity
-                     guard value.entity == draggedEntity else {
-                         // print("Drag changed: Mismatched entity. Current: \(value.entity.name), Expected: \(draggedEntity?.name ?? "None")")
+                     // Ensure the entity is managed
+                     guard modelManager.modelDict[value.entity] != nil else {
+                         // print("Attempted drag on unmanaged entity: \(value.entity.name)")
                          return
                      }
 
-                     // Use translation3D for a direct delta relative to the start of the gesture in world space
-                     let translationDelta = SIMD3<Float>(Float(value.translation3D.x),
-                                                         Float(value.translation3D.y),
-                                                         Float(value.translation3D.z))
+                     // Store entity being dragged
+                     if draggedEntity == nil {
+                         draggedEntity = value.entity
+                         print("Drag started on: \(value.entity.name)")
+                     }
+                     // Ensure we are continuing to drag the same entity
+                     guard let currentDraggedEntity = draggedEntity, value.entity == currentDraggedEntity else {
+                         return
+                     }
 
-                     // Call handleDragChange with the calculated world-space delta
+                     let currentDragLocation = value.location3D
+
+                     // On the first change event for this entity, just store the location
+                     guard let previousLocation = previousDragLocation3D else {
+                         previousDragLocation3D = currentDragLocation
+                         print("Drag first update for \(currentDraggedEntity.name) at \(currentDragLocation)")
+                         return
+                     }
+
+                     // Calculate the delta translation vector in world space
+                     let delta = currentDragLocation - previousLocation
+                     let deltaSIMD = SIMD3<Float>(Float(delta.x), Float(delta.y), Float(delta.z))
+
+                     // Get the entity's current world position
+                     let currentWorldPosition = currentDraggedEntity.position(relativeTo: nil)
+
+                     // Calculate the new target world position
+                     // Pass the raw world-space delta to the ModelManager
                      Task { @MainActor in
-                         // Double-check entity existence before applying change
-                         if let currentDraggedEntity = draggedEntity, modelManager.modelDict[currentDraggedEntity] != nil {
-                             modelManager.handleDragChange(entity: currentDraggedEntity, translation: translationDelta, arViewModel: arViewModel)
-                         } else {
-                             // If entity disappeared mid-drag, reset state
-                             print("Drag changed: Entity \(draggedEntity?.name ?? "None") disappeared.")
-                             draggedEntity = nil
+                         // Check if the entity still exists before handling drag change
+                         if modelManager.modelDict[currentDraggedEntity] != nil {
+                             modelManager.handleDragChange(entity: currentDraggedEntity, translation: deltaSIMD, arViewModel: arViewModel)
                          }
                      }
 
-                     lastGestureEvent = "Dragging \(value.entity.name)"
+                     // Update the previous location for the next frame
+                     previousDragLocation3D = currentDragLocation
+
+                     lastGestureEvent = "Dragging \(currentDraggedEntity.name)"
                  }
                  .onEnded { value in
                      // Use the stored draggedEntity for ending the gesture
                      guard let entityToEnd = draggedEntity else {
-                         // print("Drag ended: No entity was being tracked.")
+                         // print("Drag ended: No entity was being tracked.") // Reduce log noise
+                         // Reset state just in case
+                         previousDragLocation3D = nil
                          return
                      }
 
+                     // Final position update happened in onChanged.
+                     // Call handleDragEnd for consistency and final broadcast.
                      Task { @MainActor in
                          // Check if the entity still exists before finalizing
                          if modelManager.modelDict[entityToEnd] != nil {
@@ -262,6 +279,10 @@ struct InSession: View {
 
                      // Reset drag state reliably
                      draggedEntity = nil
+                     previousDragLocation3D = nil // Reset previous location
+                     // Reset other potentially stale states if they were used
+                     initialDragEntityPosition = nil
+                     gestureStartLocation3D = nil
                  }
             )
              .simultaneousGesture(MagnifyGesture()

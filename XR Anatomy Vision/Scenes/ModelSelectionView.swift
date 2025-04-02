@@ -94,7 +94,8 @@ struct ModelSelectionScreen: View {
             Text("Loaded Models: \(modelManager.placedModels.count)")
 
             List {
-                ForEach(modelManager.placedModels, id: \.id) { mod in
+                // Use the unique instanceUUID for the ForEach identifier
+                ForEach(modelManager.placedModels, id: \.instanceUUID) { mod in
                     HStack {
                         Text(mod.modelType.rawValue)
                         Spacer()
@@ -111,7 +112,9 @@ struct ModelSelectionScreen: View {
                 }
             }
             .listStyle(.plain)
-            
+            // Add tag to help identify the list causing the warning if it persists
+            .id("PlacedModelsList")
+
             HStack {
                 
                 Spacer()

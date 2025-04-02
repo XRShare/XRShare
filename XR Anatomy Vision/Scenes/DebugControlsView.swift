@@ -116,6 +116,7 @@ struct DebugControlsView: View {
                             .tint(axis == "X" ? .red : (axis == "Y" ? .green : .blue))
                         }
                     }
+                }
                 
                 Divider()
                 
@@ -293,15 +294,44 @@ struct DebugControlsView: View {
                              Button("Load Reference Model") {
                                  let referenceModelType = ModelType(rawValue: "model-mobile")
                                  Task { @MainActor in
-                                     guard let modelManager = arViewModel.modelManager else { return }
-                                     let model = await Model.load(modelType: referenceModelType, arViewModel: arViewModel)
-                                     if let entity = model.modelEntity {
-                                         let clonedEntity = entity.clone(recursive: true)
-                                         clonedEntity.transform = Transform() // Align at origin
+                                     guard let modelManager = arViewModel.modelManager, let customService = arViewModel.customService else {
+                                         print("Error: ModelManager or CustomService not available for reference model loading.")
+                                         lastAction = "Error loading ref model"
+                                         return
+                                     }
+                                     // Load the model template
+                                     let modelTemplate = await Model.load(modelType: referenceModelType, arViewModel: arViewModel)
+
+                                     if let entityTemplate = modelTemplate.modelEntity {
+                                         // Clone the entity for placement
+                                         let clonedEntity = entityTemplate.clone(recursive: true)
+                                         clonedEntity.name = "ReferenceObjectModel_Debug" // Give it a specific name
+                                         clonedEntity.transform = Transform() // Align at origin of the shared anchor
+
+                                         // Assign a unique instance ID if needed (should happen automatically in Model init/load)
+                                         if clonedEntity.components[InstanceIDComponent.self] == nil {
+                                             clonedEntity.components.set(InstanceIDComponent())
+                                         }
+                                         let instanceID = clonedEntity.components[InstanceIDComponent.self]!.id
+
+                                         // Add to the shared anchor (which tracks the physical object)
                                          arViewModel.sharedAnchorEntity.addChild(clonedEntity)
-                                         print("Loaded reference model 'model-mobile.usdz' visually onto tracked object.")
-                                         lastAction = "Loaded reference model"
-                                         // DO NOT add to modelManager.placedModels or broadcast
+
+                                         // Create a new Model instance specifically for this placed debug entity
+                                         let placedDebugModel = Model(modelType: referenceModelType, arViewModel: arViewModel)
+                                         placedDebugModel.modelEntity = clonedEntity // Assign the cloned entity
+                                         placedDebugModel.loadingState = .loaded // Mark as loaded
+
+                                         // Register with ModelManager for gesture handling
+                                         modelManager.modelDict[clonedEntity] = placedDebugModel
+                                         modelManager.placedModels.append(placedDebugModel) // Add to placed models list
+
+                                         // Register with ConnectivityService as locally owned, DO NOT BROADCAST ADD
+                                         customService.registerEntity(clonedEntity, modelType: referenceModelType, ownedByLocalPeer: true)
+
+                                         print("Loaded and registered interactive reference model 'model-mobile.usdz' (InstanceID: \(instanceID)) onto tracked object.")
+                                         lastAction = "Loaded interactive ref model"
+
                                      } else {
                                          arViewModel.alertItem = AlertItem(title: "Load Failed", message: "Could not load 'model-mobile.usdz'.")
                                          lastAction = "Failed to load ref model"
@@ -455,5 +485,4 @@ struct DebugControlsView: View {
         
         lastAction = "Rotated \(model.modelType.rawValue) around \(axis)-axis"
     }
-}
 }

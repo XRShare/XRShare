@@ -120,18 +120,26 @@ class MyCustomConnectivityService: NSObject {
 
         // Get the appropriate transform based on the flag
         let transformMatrix: simd_float4x4
-        if relativeToSharedAnchor, let arViewModel = arViewModel {
-            // For image or object target mode, send the transform relative to the shared anchor
-            // Ensure sharedAnchorEntity is valid before calculating relative transform
-             if arViewModel.sharedAnchorEntity.scene != nil || arViewModel.sharedAnchorEntity.anchorIdentifier != nil { // Check if it's added or has an identifier
-                 transformMatrix = entity.transformMatrix(relativeTo: arViewModel.sharedAnchorEntity)
-             } else {
-                 print("Warning: sharedAnchorEntity not ready for relative transform calculation. Sending world transform instead.")
-                 transformMatrix = entity.transformMatrix(relativeTo: nil) // Fallback to world
-             }
+        if relativeToSharedAnchor, let arViewModel = arViewModel, (arViewModel.currentSyncMode == .imageTarget || arViewModel.currentSyncMode == .objectTarget) {
+            // --- Image or Object Target Mode ---
+            // Calculate the transform relative to the shared anchor entity.
+            // Ensure sharedAnchorEntity is valid before calculating relative transform.
+            // Check if sharedAnchorEntity has a valid transform in the world.
+            let sharedAnchorWorldTransform = arViewModel.sharedAnchorEntity.transformMatrix(relativeTo: nil)
+            if sharedAnchorWorldTransform != matrix_identity_float4x4 || arViewModel.sharedAnchorEntity.scene != nil {
+                // Calculate relative transform: entityWorld * inverse(anchorWorld)
+                let entityWorldTransform = entity.transformMatrix(relativeTo: nil)
+                transformMatrix = entityWorldTransform * sharedAnchorWorldTransform.inverse
+                print("Sending transform relative to shared anchor.")
+            } else {
+                print("Warning: sharedAnchorEntity not ready for relative transform calculation (transform is identity or not in scene). Sending world transform instead.")
+                transformMatrix = entity.transformMatrix(relativeTo: nil) // Fallback to world
+            }
         } else {
-            // For world mode, use the world transform
+            // --- World Mode ---
+            // Use the world transform (transform relative to nil).
             transformMatrix = entity.transformMatrix(relativeTo: nil)
+            print("Sending world transform.")
         }
 
         let transformArray = transformMatrix.toArray()
@@ -297,24 +305,43 @@ class MyCustomConnectivityService: NSObject {
                             if isRelativeToImageAnchor, (syncMode == .imageTarget || syncMode == .objectTarget), let sharedAnchor = self.arViewModel?.sharedAnchorEntity {
                                 // --- Image or Object Target Mode ---
                                 targetParent = sharedAnchor
-                                // Ensure shared anchor is in the scene (especially important on iOS)
+                                // Ensure shared anchor is in the scene graph before parenting
                                 #if os(iOS)
                                 if sharedAnchor.scene == nil, let scene = self.arViewModel?.currentScene {
-                                    scene.addAnchor(sharedAnchor)
-                                    print("Added sharedAnchorEntity to scene in handleAddModel (iOS).")
+                                     // Check if it's already in the scene's anchor list but not linked
+                                     if let existingAnchor = scene.anchors.first(where: { $0 == sharedAnchor }) {
+                                         print("SharedAnchorEntity found in scene anchors but scene property was nil (iOS). Using existing.")
+                                     } else {
+                                         scene.addAnchor(sharedAnchor)
+                                         print("Added sharedAnchorEntity to scene in handleAddModel (iOS).")
+                                     }
+                                }
+                                #elseif os(visionOS)
+                                // On visionOS, RealityView manages adding anchors. Check if it's part of the scene graph.
+                                if sharedAnchor.scene == nil {
+                                     // It might be added by RealityView later. We might need to defer parenting or rely on the update loop.
+                                     // For now, proceed assuming it will be available.
+                                     print("Warning: SharedAnchorEntity scene is nil on visionOS during handleAddModel. Proceeding with parenting.")
                                 }
                                 #endif
-                                if sharedAnchor.scene == nil {
-                                     print("Warning: SharedAnchorEntity is not in the scene. Cannot add received model \(payload.modelType) relative to it.")
+
+                                // Check again if the anchor is ready (has a non-identity transform or is in scene)
+                                let sharedAnchorWorldTransform = sharedAnchor.transformMatrix(relativeTo: nil)
+                                if sharedAnchorWorldTransform == matrix_identity_float4x4 && sharedAnchor.scene == nil {
+                                     print("Error: SharedAnchorEntity is not ready (identity transform and not in scene). Cannot add received model \(payload.modelType) relative to it.")
                                      // Optionally fallback to world placement or skip
                                      return
                                 }
+
                                 print("Target parent for \(payload.modelType) is sharedAnchorEntity.")
-                                // The received transform `matrix` is already relative to the shared anchor.
+                                // The received transform `matrix` is ALREADY RELATIVE to the shared anchor. Apply it directly.
                                 modelEntity.transform.matrix = transformToSet
 
                             } else {
-                                // --- World Mode ---
+                                // --- World Mode (or received non-relative transform) ---
+                                if isRelativeToImageAnchor {
+                                     print("Warning: Received relative transform flag for \(payload.modelType) but applying as world transform because current mode is \(syncMode.rawValue).")
+                                }
                                 #if os(iOS)
                                 // On iOS, create a new AnchorEntity at the received world transform and add the model to it.
                                 let worldAnchor = AnchorEntity(world: transformToSet)

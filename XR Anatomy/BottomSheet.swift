@@ -68,15 +68,31 @@ struct SettingsView: View {
             // Toggle("Anchor Origins", isOn: $arViewModel.areAnchorOriginsEnabled)
             // Toggle("Anchor Geometry", isOn: $arViewModel.isAnchorGeometryEnabled)
 
-            // Scene Understanding requires LiDAR and specific configuration
-            if ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) {
-                 Toggle("Scene Understanding (Mesh)", isOn: $arViewModel.isSceneUnderstandingEnabled)
+            // Scene Understanding / Occlusion Toggle
+            // Note: This toggle is illustrative. Enabling/disabling requires session reconfiguration.
+            // We check for person segmentation support, which is key for hand occlusion.
+            if ARWorldTrackingConfiguration.supportsFrameSemantics(.personSegmentationWithDepth) {
+                 Toggle("Person Occlusion", isOn: $arViewModel.isSceneUnderstandingEnabled)
                      .onChange(of: arViewModel.isSceneUnderstandingEnabled) { _, newValue in
-                         // Requires re-running the session configuration
-                         print("Scene Understanding toggle changed. Session reconfiguration might be needed.")
+                         // Requires re-running the session configuration to actually change frameSemantics
+                         print("Person Occlusion toggle changed to \(newValue). Session reconfiguration needed to apply.")
+                         // Trigger reconfiguration
+                         Task { @MainActor in
+                             arViewModel.reconfigureARSession()
+                         }
+                         // Update ARView option immediately (though session needs restart)
+                         if newValue {
+                             arViewModel.arView?.environment.sceneUnderstanding.options.insert(.occlusion)
+                         } else {
+                             arViewModel.arView?.environment.sceneUnderstanding.options.remove(.occlusion)
+                         }
+                     }
+                     .onAppear {
+                         // Sync toggle state with current ARView state on appear
+                         arViewModel.isSceneUnderstandingEnabled = arViewModel.arView?.environment.sceneUnderstanding.options.contains(.occlusion) ?? false
                      }
             } else {
-                 Text("Scene Understanding not supported on this device.")
+                 Text("Person Occlusion not supported on this device.")
                      .font(.caption)
                      .foregroundColor(.secondary)
             }
@@ -157,17 +173,49 @@ struct SettingsView: View {
 
                      // Load the model locally without broadcasting
                      Task { @MainActor in
-                         guard let modelManager = arViewModel.modelManager, let arView = arViewModel.arView else { return }
-                         let model = await Model.load(modelType: referenceModelType, arViewModel: arViewModel)
-                         if let entity = model.modelEntity {
-                             // Clone it so we don't interfere with potential future managed instances
-                             let clonedEntity = entity.clone(recursive: true)
-                             // Add the visual model directly to the sharedAnchorEntity (which tracks the physical object)
-                             // Set its transform to identity so it aligns perfectly
-                             clonedEntity.transform = Transform()
+                         guard let modelManager = arViewModel.modelManager,
+                               let customService = arViewModel.customService,
+                               let arView = arViewModel.arView else {
+                             print("Error: ModelManager, CustomService, or ARView not available for reference model loading.")
+                             return
+                         }
+                         // Load the model template
+                         let modelTemplate = await Model.load(modelType: referenceModelType, arViewModel: arViewModel)
+
+                         if let entityTemplate = modelTemplate.modelEntity {
+                             // Clone the entity for placement
+                             let clonedEntity = entityTemplate.clone(recursive: true)
+                             clonedEntity.name = "ReferenceObjectModel_Debug" // Give it a specific name
+                             clonedEntity.transform = Transform() // Align at origin of the shared anchor
+
+                             // Assign a unique instance ID if needed
+                             if clonedEntity.components[InstanceIDComponent.self] == nil {
+                                 clonedEntity.components.set(InstanceIDComponent())
+                             }
+                             let instanceID = clonedEntity.components[InstanceIDComponent.self]!.id
+
+                             // Add to the shared anchor (which tracks the physical object)
+                             // Ensure shared anchor is in the scene first
+                             if arViewModel.sharedAnchorEntity.scene == nil {
+                                 arView.scene.addAnchor(arViewModel.sharedAnchorEntity)
+                                 print("[iOS] Added sharedAnchorEntity to scene before adding reference model.")
+                             }
                              arViewModel.sharedAnchorEntity.addChild(clonedEntity)
-                             print("Loaded reference model 'model-mobile.usdz' visually onto tracked object.")
-                             // DO NOT add to modelManager.placedModels or broadcast this debug model
+
+                             // Create a new Model instance specifically for this placed debug entity
+                             let placedDebugModel = Model(modelType: referenceModelType, arViewModel: arViewModel)
+                             placedDebugModel.modelEntity = clonedEntity // Assign the cloned entity
+                             placedDebugModel.loadingState = .loaded // Mark as loaded
+
+                             // Register with ModelManager for gesture handling
+                             modelManager.modelDict[clonedEntity] = placedDebugModel
+                             modelManager.placedModels.append(placedDebugModel) // Add to placed models list
+
+                             // Register with ConnectivityService as locally owned, DO NOT BROADCAST ADD
+                             customService.registerEntity(clonedEntity, modelType: referenceModelType, ownedByLocalPeer: true)
+
+                             print("[iOS] Loaded and registered interactive reference model 'model-mobile.usdz' (InstanceID: \(instanceID)) onto tracked object.")
+
                          } else {
                              arViewModel.alertItem = AlertItem(title: "Load Failed", message: "Could not load 'model-mobile.usdz'.")
                          }

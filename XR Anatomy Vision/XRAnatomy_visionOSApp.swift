@@ -90,6 +90,11 @@ struct XRAnatomy_visionOSApp: App {
             DebugControlsView(modelManager: modelManager, arViewModel: arViewModel)
                 .environmentObject(appModel)
                 .environmentObject(appState)
+                .onDisappear {
+                    // Ensure the state reflects the window being closed
+                    appModel.controlPanelVisible = false
+                    print("DebugControlsView disappeared, setting controlPanelVisible to false.")
+                }
         }
         .windowStyle(.automatic)
         .defaultSize(width: 400, height: 600)
@@ -209,34 +214,77 @@ struct XRAnatomy_visionOSApp: App {
             // --- Object Target Mode ---
             var referenceObject: ReferenceObject?
             var loadedURL: URL?
-
-            // Try loading from "models" subdirectory first
+            
+            // Add diagnostic logging to check bundle contents
+            print("[visionOS] Diagnosing reference object issue:")
+            let resourceURLs = Bundle.main.urls(forResourcesWithExtension: "referenceobject", subdirectory: nil) ?? []
+            print("[visionOS] Found \(resourceURLs.count) .referenceobject files in bundle: \(resourceURLs.map { $0.lastPathComponent })")
+            
+            // Try different approaches to locate the reference object
+            
+            // Approach 1: Models subdirectory using url(forResource:)
             if let objectURL = Bundle.main.url(forResource: "model-mobile", withExtension: "referenceobject", subdirectory: "models") {
+                print("[visionOS] Found reference object at: \(objectURL)")
                 do {
                     referenceObject = try await ReferenceObject(from: objectURL)
                     loadedURL = objectURL
-                    print("Successfully loaded reference object from models subdirectory.")
+                    print("[visionOS] Successfully loaded reference object from models subdirectory.")
                 } catch {
-                    print("Info: Failed to load reference object from models subdirectory: \(error.localizedDescription). Trying main bundle.")
+                    print("[visionOS] Info: Failed to load reference object from models subdirectory: \(error.localizedDescription). Trying main bundle.")
                     referenceObject = nil // Ensure it's nil if loading failed
                 }
+            } else {
+                print("[visionOS] Reference object not found in models subdirectory")
             }
 
-            // Fallback: Try loading from the main bundle if not found or failed in subdirectory
+            // Approach 2: Main bundle using url(forResource:)
             if referenceObject == nil, let objectURL = Bundle.main.url(forResource: "model-mobile", withExtension: "referenceobject") {
-                 do {
-                     referenceObject = try await ReferenceObject(from: objectURL)
-                     loadedURL = objectURL
-                     print("Successfully loaded reference object from main bundle.")
-                 } catch {
-                     print("Error: Failed to load reference object from main bundle: \(error.localizedDescription)")
-                     referenceObject = nil // Ensure it's nil if loading failed
-                 }
+                print("[visionOS] Found reference object in main bundle at: \(objectURL)")
+                do {
+                    referenceObject = try await ReferenceObject(from: objectURL)
+                    loadedURL = objectURL
+                    print("[visionOS] Successfully loaded reference object from main bundle.")
+                } catch {
+                    print("[visionOS] Error: Failed to load reference object from main bundle: \(error.localizedDescription)")
+                    referenceObject = nil // Ensure it's nil if loading failed
+                }
+            } else if referenceObject == nil {
+                print("[visionOS] Reference object not found in main bundle")
+            }
+            
+            // Approach 3: Try using path(forResource:) which might handle spaces differently
+            if referenceObject == nil, let objectPath = Bundle.main.path(forResource: "model-mobile", ofType: "referenceobject", inDirectory: "models") {
+                let objectURL = URL(fileURLWithPath: objectPath)
+                print("[visionOS] Found reference object using path API at: \(objectURL)")
+                do {
+                    referenceObject = try await ReferenceObject(from: objectURL)
+                    loadedURL = objectURL
+                    print("[visionOS] Successfully loaded reference object using path API.")
+                } catch {
+                    print("[visionOS] Error: Failed to load reference object using path API: \(error.localizedDescription)")
+                    referenceObject = nil
+                }
+            } else if referenceObject == nil {
+                print("[visionOS] Reference object not found using path API")
+            }
+            
+            // Approach 4: Try searching for any reference object if the exact name fails
+            if referenceObject == nil, let firstObjectURL = resourceURLs.first {
+                print("[visionOS] Attempting to load alternative reference object: \(firstObjectURL.lastPathComponent)")
+                do {
+                    referenceObject = try await ReferenceObject(from: firstObjectURL)
+                    loadedURL = firstObjectURL
+                    print("[visionOS] Successfully loaded alternative reference object.")
+                } catch {
+                    print("[visionOS] Error: Failed to load alternative reference object: \(error.localizedDescription)")
+                    referenceObject = nil
+                }
             }
 
             // Check if loading ultimately failed
             guard let finalReferenceObject = referenceObject else {
-                print("Error: Failed to load reference object 'model-mobile.referenceobject' from any location.")
+                print("[visionOS] Error: Failed to load reference object 'model-mobile.referenceobject' from any location.")
+                print("[visionOS] Bundle path: \(Bundle.main.bundlePath)")
                 appState.alertItem = AlertItem(title: "Error", message: "Could not load Object Target resources. Switching back to World Sync.")
                 arViewModel.currentSyncMode = .world
                 await configureARSession() // Reconfigure for world mode

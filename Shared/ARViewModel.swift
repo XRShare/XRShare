@@ -55,13 +55,8 @@ class ARViewModel: NSObject, ObservableObject {
     @Published var availableSessions: [Session] = []
 
     // MARK: - Sync Mode Properties
-    #if targetEnvironment(simulator)
-    // Use world mode on simulator since image tracking doesn't work there
-    @Published var currentSyncMode: SyncMode = .world
-    #else
-    // Use image target mode on real devices by default
+    // Default to image target mode for both device and simulator (simulator will fallback in configureARSession if needed)
     @Published var currentSyncMode: SyncMode = .imageTarget
-    #endif
     // Shared anchor for image/object target mode (used by both platforms)
     // Represents the coordinate system of the tracked physical target.
     let sharedAnchorEntity = AnchorEntity(.world(transform: matrix_identity_float4x4))
@@ -460,17 +455,27 @@ class ARViewModel: NSObject, ObservableObject {
             let isRelativeToSharedAnchor: Bool // Renamed for clarity
 
             if self.currentSyncMode == .imageTarget || self.currentSyncMode == .objectTarget {
-                // Place relative to the shared anchor (image or object)
+                // --- Image or Object Target Mode ---
                 targetParent = self.sharedAnchorEntity
                 // Ensure shared anchor is in the scene
                 if targetParent.scene == nil {
-                    arView.scene.addAnchor(targetParent as! AnchorEntity) // Cast is safe here
-                    print("Added sharedAnchorEntity to scene during placement.")
+                    // Check if it exists in the scene anchors already but isn't linked (can happen)
+                    if let existingAnchor = arView.scene.anchors.first(where: { $0 == targetParent }) {
+                         print("SharedAnchorEntity found in scene anchors but scene property was nil. Using existing.")
+                    } else {
+                         arView.scene.addAnchor(targetParent as! AnchorEntity) // Cast is safe here
+                         print("Added sharedAnchorEntity to scene during placement.")
+                    }
                 }
-                // Calculate transform relative to the shared anchor
-                transformMatrix = firstResult.worldTransform * targetParent.transformMatrix(relativeTo: nil).inverse
+                // Calculate the model's desired world transform from the raycast
+                let desiredWorldTransform = Transform(matrix: firstResult.worldTransform)
+                // Calculate the transform relative to the shared anchor's world transform
+                // relativeTransform = worldTransform * inverse(anchorWorldTransform)
+                let anchorWorldTransform = targetParent.transformMatrix(relativeTo: nil)
+                transformMatrix = desiredWorldTransform.matrix * anchorWorldTransform.inverse
+
                 isRelativeToSharedAnchor = true
-                print("Placing \(modelToPlace.modelType.rawValue) relative to Shared Anchor (\(self.currentSyncMode.rawValue)).")
+                print("Placing \(modelToPlace.modelType.rawValue) relative to Shared Anchor (\(self.currentSyncMode.rawValue)). Relative Matrix calculated.")
             } else {
                 // Place relative to the world (add to scene root or a world anchor)
                 // For simplicity on iOS, let's add directly to the scene using an AnchorEntity
@@ -551,12 +556,19 @@ class ARViewModel: NSObject, ObservableObject {
         config.environmentTexturing = .automatic
         config.isCollaborationEnabled = true // Keep collaboration enabled
 
+        // Enable Occlusion frame semantics during reset as well
+        if ARWorldTrackingConfiguration.supportsFrameSemantics(.personSegmentationWithDepth) {
+            config.frameSemantics.insert(.personSegmentationWithDepth)
+        } else if ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth) {
+             config.frameSemantics.insert(.sceneDepth)
+        }
+
         // Run the session with the new configuration
         // Using resetTracking and removeExistingAnchors should clear ARKit's internal state
         // Use explicit type for options
         arView.session.run(config, options: [ARSession.RunOptions.resetTracking, ARSession.RunOptions.removeExistingAnchors])
 
-        print("AR session reset complete")
+        print("AR session reset complete with occlusion semantics.")
     }
 
     /// Clear all placed models
@@ -616,9 +628,17 @@ class ARViewModel: NSObject, ObservableObject {
         if currentSyncMode == .objectTarget {
             var loadedObject: ARReferenceObject?
             var loadedURL: URL?
-
-            // Try loading from "models" subdirectory first
+            
+            // Add diagnostic logging to check bundle contents
+            print("[iOS] Diagnosing reference object issue:")
+            let resourceURLs = Bundle.main.urls(forResourcesWithExtension: "referenceobject", subdirectory: nil) ?? []
+            print("[iOS] Found \(resourceURLs.count) .referenceobject files in bundle: \(resourceURLs.map { $0.lastPathComponent })")
+            
+            // Try different approaches to locate the reference object
+            
+            // Approach 1: Models subdirectory using url(forResource:)
             if let objectURL = Bundle.main.url(forResource: "model-mobile", withExtension: "referenceobject", subdirectory: "models") {
+                print("[iOS] Found reference object at: \(objectURL)")
                 do {
                     loadedObject = try ARReferenceObject(archiveURL: objectURL)
                     loadedURL = objectURL
@@ -627,18 +647,52 @@ class ARViewModel: NSObject, ObservableObject {
                     print("[iOS] Info: Failed to load reference object from models subdirectory: \(error.localizedDescription). Trying main bundle.")
                     loadedObject = nil // Ensure it's nil if loading failed
                 }
+            } else {
+                print("[iOS] Reference object not found in models subdirectory")
             }
 
-            // Fallback: Try loading from the main bundle if not found or failed in subdirectory
+            // Approach 2: Main bundle using url(forResource:)
             if loadedObject == nil, let objectURL = Bundle.main.url(forResource: "model-mobile", withExtension: "referenceobject") {
-                 do {
-                     loadedObject = try ARReferenceObject(archiveURL: objectURL)
-                     loadedURL = objectURL
-                     print("[iOS] Successfully loaded reference object from main bundle.")
-                 } catch {
-                     print("[iOS] Error: Failed to load reference object from main bundle: \(error.localizedDescription)")
-                     loadedObject = nil // Ensure it's nil if loading failed
-                 }
+                print("[iOS] Found reference object in main bundle at: \(objectURL)")
+                do {
+                    loadedObject = try ARReferenceObject(archiveURL: objectURL)
+                    loadedURL = objectURL
+                    print("[iOS] Successfully loaded reference object from main bundle.")
+                } catch {
+                    print("[iOS] Error: Failed to load reference object from main bundle: \(error.localizedDescription)")
+                    loadedObject = nil // Ensure it's nil if loading failed
+                }
+            } else if loadedObject == nil {
+                print("[iOS] Reference object not found in main bundle")
+            }
+            
+            // Approach 3: Try using path(forResource:) which might handle spaces differently
+            if loadedObject == nil, let objectPath = Bundle.main.path(forResource: "model-mobile", ofType: "referenceobject", inDirectory: "models") {
+                let objectURL = URL(fileURLWithPath: objectPath)
+                print("[iOS] Found reference object using path API at: \(objectURL)")
+                do {
+                    loadedObject = try ARReferenceObject(archiveURL: objectURL)
+                    loadedURL = objectURL
+                    print("[iOS] Successfully loaded reference object using path API.")
+                } catch {
+                    print("[iOS] Error: Failed to load reference object using path API: \(error.localizedDescription)")
+                    loadedObject = nil
+                }
+            } else if loadedObject == nil {
+                print("[iOS] Reference object not found using path API")
+            }
+            
+            // Approach 4: Try searching for any reference object if the exact name fails
+            if loadedObject == nil, let firstObjectURL = resourceURLs.first {
+                print("[iOS] Attempting to load alternative reference object: \(firstObjectURL.lastPathComponent)")
+                do {
+                    loadedObject = try ARReferenceObject(archiveURL: firstObjectURL)
+                    loadedURL = firstObjectURL
+                    print("[iOS] Successfully loaded alternative reference object.")
+                } catch {
+                    print("[iOS] Error: Failed to load alternative reference object: \(error.localizedDescription)")
+                    loadedObject = nil
+                }
             }
 
             // Check if loading ultimately failed
@@ -652,6 +706,7 @@ class ARViewModel: NSObject, ObservableObject {
                 self.isImageTracked = false
             } else {
                 print("[iOS] Error: Failed to load reference object 'model-mobile.referenceobject' from any location. Switching to World Sync.")
+                print("[iOS] Bundle path: \(Bundle.main.bundlePath)")
                 self.alertItem = AlertItem(title: "Error", message: "Could not load Object Target resources. Switching to World Sync.")
                 currentSyncMode = .world
                 reconfigureARSession() // Reconfigure for world mode
@@ -667,6 +722,8 @@ class ARViewModel: NSObject, ObservableObject {
             referenceImages: referenceImages,
             referenceObjects: referenceObjects // Pass reference objects
         )
+        // Note: The actual configuration including frameSemantics happens within ARSessionManager.configureSession
+        // which is called by the line above. No extra code needed here for semantics.
     }
 
     // Removed placeModel(for:) as placement is now handled directly in handleTap
@@ -727,7 +784,7 @@ class ARViewModel: NSObject, ObservableObject {
                 print("Pan raycast failed, using approximate translation.")
                 let translation = sender.translation(in: arView)
                 let cameraTransform = arView.cameraTransform
-                var worldTranslation = SIMD3<Float>(Float(translation.x), -Float(translation.y), 0) * 0.001 // Adjust sensitivity
+                var worldTranslation = SIMD3<Float>(Float(translation.x), -Float(translation.y), 0) * 0.002 // Adjust sensitivity
                 worldTranslation = cameraTransform.rotation.act(worldTranslation) // Rotate translation to world space
                 modelManager.handleDragChange(entity: entity, translation: worldTranslation, arViewModel: self)
                 sender.setTranslation(.zero, in: arView) // Reset translation only for fallback
@@ -836,11 +893,11 @@ class ARViewModel: NSObject, ObservableObject {
         let isRelativeToSharedAnchor = (self.currentSyncMode == .imageTarget || self.currentSyncMode == .objectTarget)
 
         // Send the transform using the connectivity service
-        // Pass the generic flag; receiver will know context based on sync mode
+        // The sendModelTransform method in the service will calculate the correct relative/world transform based on the flag.
         customService.sendModelTransform(
             entity: entity,
             modelType: modelType,
-            relativeToSharedAnchor: isRelativeToSharedAnchor // Use the generic flag name here
+            relativeToSharedAnchor: isRelativeToSharedAnchor // Pass the flag indicating intent
         )
     }
     

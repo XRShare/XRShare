@@ -36,7 +36,9 @@ final class Model: ObservableObject, @preconcurrency Identifiable {
     
     var cancellables = Set<AnyCancellable>()
     
+    // Use ModelType for general identification, but need a unique ID per instance
     var id: ModelType { modelType }
+    let instanceUUID = UUID() // Unique identifier for each instance
     
     // MARK: - Initialization
     
@@ -99,15 +101,15 @@ final class Model: ObservableObject, @preconcurrency Identifiable {
                     entity.orientation = simd_quatf(angle: .pi/2, axis: SIMD3<Float>(1, 0, 0))
                 }
                 
-                // Apply materials if not already applied
-                if entity.model?.materials.isEmpty == true {
-                    entity.model?.materials = [SimpleMaterial(color: .white, isMetallic: false)]
-                }
+                // REMOVED: Fallback material application. Let the USDZ define its own materials.
+                // if entity.model?.materials.isEmpty == true {
+                //     entity.model?.materials = [SimpleMaterial(color: .white, isMetallic: false)]
+                // }
                 
                 // Set initial scale based on model type
                 if modelType.rawValue.lowercased() == "pancakes" {
-                    entity.scale = [0.08, 0.08, 0.08] // Smaller scale for pancakes
-                } else if modelType.rawValue.lowercased() == "heart" || 
+                    entity.scale = [0.04, 0.04, 0.04] // Further reduced scale for pancakes
+                } else if modelType.rawValue.lowercased() == "heart" ||
                           modelType.rawValue.lowercased() == "arterieshead" {
                     entity.scale = [0.2, 0.2, 0.2] // Larger scale for anatomy models
                 } else {
