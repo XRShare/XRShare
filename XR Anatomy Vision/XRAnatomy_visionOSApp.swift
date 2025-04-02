@@ -136,6 +136,16 @@ struct XRAnatomy_visionOSApp: App {
                 }
             
         }
+        
+        WindowGroup{id: "MoreInfoView"){
+            
+            ModelInformationView(modelManager: modelManager)
+                .environmentObject(arViewModel)
+                .environmentObject(appModel)
+                .environmentObject(appState)
+        }
+            
+        }
 
 
         ImmersiveSpace(id: appModel.immersiveSpaceID) {
