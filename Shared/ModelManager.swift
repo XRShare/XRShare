@@ -133,10 +133,12 @@ final class ModelManager: ObservableObject {
             highlight.removeFromParent()
         }
         
-        // Clear components that might cause networking issues
-        if entity.components[SelectionComponent.self] != nil {
-            entity.components.remove(SelectionComponent.self)
-        }
+        // Clear all components that might cause networking issues
+        entity.components.remove(SelectionComponent.self)
+        entity.components.remove(HoverEffectComponent.self)
+        entity.components.remove(InputTargetComponent.self)
+        entity.components.remove(ModelTypeComponent.self)
+        entity.components.remove(LastTransformComponent.self)
         
         // Unregister from connectivity service before removing from parent
         if let arViewModel = model.arViewModel, let customService = arViewModel.customService {
@@ -149,6 +151,8 @@ final class ModelManager: ObservableObject {
         // Update collections
         placedModels.removeAll { $0.id == model.id }
         modelDict = modelDict.filter { $0.value.id != model.id }
+        // Also remove from transform cache to prevent ghost references
+        transformCache.lastTransforms.removeValue(forKey: entity.id)
         
         // If we removed the selected model, select another model if available
         if selectedModelID == model.modelType {
@@ -167,10 +171,10 @@ final class ModelManager: ObservableObject {
                     highlight.removeFromParent()
                 }
                 
-                // Clear components
-                if entity.components[SelectionComponent.self] != nil {
-                    entity.components.remove(SelectionComponent.self)
-                }
+                // Clear components that might cause networking issues
+                entity.components.remove(SelectionComponent.self)
+                entity.components.remove(HoverEffectComponent.self)
+                entity.components.remove(InputTargetComponent.self)
                 
                 // Unregister from connectivity service
                 if let arViewModel = model.arViewModel, let customService = arViewModel.customService {
@@ -312,99 +316,132 @@ final class ModelManager: ObservableObject {
     }
 
     @MainActor func handleDragChange(entity: Entity, translation: SIMD3<Float>, arViewModel: ARViewModel) {
-        let _ = entity.name.isEmpty ? "unnamed entity" : entity.name // Mark as unused
+        let name = entity.name.isEmpty ? "unnamed entity" : entity.name
         
-        // Apply dampened and clamped delta
-        let delta = translation * 0.02 // Adjust sensitivity as needed
-        let smoothedDelta = SIMD3<Float>(
-            min(max(delta.x, -0.01), 0.01),
-            min(max(delta.y, -0.01), 0.01),
-            min(max(delta.z, -0.01), 0.01)
-        )
-        
-        let oldPosition = entity.position(relativeTo: nil) // Get world position
-        
-        // Apply position change in world space
-        entity.setPosition(oldPosition + smoothedDelta, relativeTo: nil)
-        
-        if let model = self.modelDict[entity] {
-            model.position = entity.position // Update local model state if needed
-            self.selectedModelID = model.modelType // Select on interaction
-            arViewModel.sendTransform(for: entity) // Send update
+        // First verify this entity is managed by ModelManager
+        guard let model = self.modelDict[entity] else {
+            print("Attempted drag on unmanaged entity: \(name)")
+            return
         }
         
-        // print("🔵 DRAG: \(name) to world pos \(entity.position(relativeTo: nil))")
+        // Apply sensitivity adjustment directly to the world-space delta
+        // Reduce sensitivity slightly
+        let sensitivity: Float = 0.8
+        let delta = translation * sensitivity
+
+        // Optional: Clamp the delta per frame to prevent huge jumps
+        let maxDeltaPerFrame: Float = 0.05 // Max 5cm move per frame update
+        let clampedDelta = SIMD3<Float>(
+            min(max(delta.x, -maxDeltaPerFrame), maxDeltaPerFrame),
+            min(max(delta.y, -maxDeltaPerFrame), maxDeltaPerFrame),
+            min(max(delta.z, -maxDeltaPerFrame), maxDeltaPerFrame)
+        )
+
+        // Apply position change in world space
+        let oldPosition = entity.position(relativeTo: nil) // Get world position
+        entity.setPosition(oldPosition + clampedDelta, relativeTo: nil)
+
+        // Update model state and notify
+        model.position = entity.position // Update local model state if needed
+        self.selectedModelID = model.modelType // Select on interaction
+        arViewModel.sendTransform(for: entity) // Send update
+
+        // print("🔵 DRAG: \(name) by \(clampedDelta)")
     }
 
     @MainActor func handleDragEnd(entity: Entity, arViewModel: ARViewModel) {
-        if let model = self.modelDict[entity] {
-            model.position = entity.position // Final update to local model state
-            self.selectedModelID = model.modelType
-            arViewModel.sendTransform(for: entity) // Send final update
+        guard let model = self.modelDict[entity] else {
+            print("Attempted to end drag on unmanaged entity: \(entity.name)")
+            return
         }
+        model.position = entity.position // Final update to local model state
+        self.selectedModelID = model.modelType
+        arViewModel.sendTransform(for: entity) // Send final update
         print("✅ Drag gesture ended for \(entity.name)")
     }
 
     @MainActor func handleScaleChange(entity: Entity, scaleFactor: Float, arViewModel: ARViewModel) {
-        let _ = entity.name.isEmpty ? "unnamed entity" : entity.name // Mark as unused
+        let name = entity.name.isEmpty ? "unnamed entity" : entity.name
         
-        // Apply dampened scale factor
-        let dampedScaleFactor = 1.0 + (scaleFactor - 1.0) * 0.1 // Adjust sensitivity
+        // Verify this entity is managed by ModelManager
+        guard let model = self.modelDict[entity] else {
+            print("Attempted scale on unmanaged entity: \(name)")
+            return
+        }
+        
+        // Apply dampened scale factor - reduce sensitivity further
+        let sensitivity: Float = 0.05 // Was 0.1
+        let dampedScaleFactor = 1.0 + (scaleFactor - 1.0) * sensitivity
         let currentScale = entity.scale
         var newScale = currentScale * dampedScaleFactor
         
         // Clamp scale
-        let minScale: Float = 0.02
-        let maxScale: Float = 2.0
+        let minScale: Float = 0.01 // Slightly smaller min scale allowed
+        let maxScale: Float = 5.0  // Slightly larger max scale allowed
         newScale = simd_clamp(newScale, SIMD3<Float>(repeating: minScale), SIMD3<Float>(repeating: maxScale))
         
+        // Apply scale relative to the entity's current position (origin)
         entity.scale = newScale
         
-        if let model = self.modelDict[entity] {
-            model.scale = entity.scale
-            self.selectedModelID = model.modelType
-            arViewModel.sendTransform(for: entity)
-        }
+        // Update model and notify
+        model.scale = entity.scale
+        self.selectedModelID = model.modelType
+        arViewModel.sendTransform(for: entity)
         // print("🔍 SCALE: \(name) to \(entity.scale)")
     }
 
     @MainActor func handleScaleEnd(entity: Entity, arViewModel: ARViewModel) {
-        if let model = self.modelDict[entity] {
-            model.scale = entity.scale
-            model.updateCollisionBox() // Update collision after scaling
-            self.selectedModelID = model.modelType
-            arViewModel.sendTransform(for: entity)
+        guard let model = self.modelDict[entity] else {
+            print("Attempted to end scale on unmanaged entity: \(entity.name)")
+            return
         }
+        model.scale = entity.scale
+        model.updateCollisionBox() // Update collision after scaling
+        self.selectedModelID = model.modelType
+        arViewModel.sendTransform(for: entity)
         print("✅ Scale gesture ended for \(entity.name) at \(entity.scale)")
     }
 
     @MainActor func handleRotationChange(entity: Entity, rotation: simd_quatf, arViewModel: ARViewModel) {
-        let _ = entity.name.isEmpty ? "unnamed entity" : entity.name // Mark as unused
+        let name = entity.name.isEmpty ? "unnamed entity" : entity.name
+
+        // Verify this entity is managed by ModelManager
+        guard let model = self.modelDict[entity] else {
+            print("Attempted rotation on unmanaged entity: \(name)")
+            return
+        }
 
         // Apply dampened rotation directly (relative to current orientation)
         // Decompose the input rotation to get angle and axis
-        let angle = rotation.angle * 0.1 // Dampen sensitivity
+        let sensitivity: Float = 0.05 // Was 0.1, reduce sensitivity
+        let angle = rotation.angle * sensitivity
         let axis = rotation.axis
-        
-        let deltaRotation = simd_quatf(angle: angle, axis: axis)
-        
-        // Combine with current rotation
+
+        // Ensure axis is normalized (should be by default from RotateGesture3D)
+        let normalizedAxis = normalize(axis)
+
+        // Create the delta rotation quaternion
+        let deltaRotation = simd_quatf(angle: angle, axis: normalizedAxis)
+
+        // Combine with current rotation: Apply delta relative to the current orientation
         entity.transform.rotation = entity.transform.rotation * deltaRotation
-        
-        if let model = self.modelDict[entity] {
-            model.rotation = entity.transform.rotation
-            self.selectedModelID = model.modelType
-            arViewModel.sendTransform(for: entity)
-        }
+
+        // Update model and notify
+        model.rotation = entity.transform.rotation
+        self.selectedModelID = model.modelType
+        arViewModel.sendTransform(for: entity)
         // print("🔄 ROTATE: \(name) by angle \(angle)")
     }
 
     @MainActor func handleRotationEnd(entity: Entity, arViewModel: ARViewModel) {
-        if let model = self.modelDict[entity] {
-            model.rotation = entity.transform.rotation
-            self.selectedModelID = model.modelType
-            arViewModel.sendTransform(for: entity)
+        guard let model = self.modelDict[entity] else {
+            print("Attempted to end rotation on unmanaged entity: \(entity.name)")
+            return
         }
+        model.rotation = entity.transform.rotation
+        self.selectedModelID = model.modelType
+        arViewModel.sendTransform(for: entity)
+
         // Clean up initial rotation cache if used
         self.entityInitialRotations.removeValue(forKey: entity)
         print("✅ Rotation gesture ended for \(entity.name)")

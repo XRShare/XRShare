@@ -114,31 +114,38 @@ class MyCustomConnectivityService: NSObject {
     // MARK: - Data Sending Methods
     
     /// Send model transform to all peers
-    func sendModelTransform(entity: Entity, modelType: ModelType? = nil, relativeToImageAnchor: Bool = false) {
+    // Renamed flag for clarity
+    func sendModelTransform(entity: Entity, modelType: ModelType? = nil, relativeToSharedAnchor: Bool = false) {
         guard multipeerSession.session.connectedPeers.count > 0 else { return }
-        
-        // Get the appropriate transform based on sync mode
+
+        // Get the appropriate transform based on the flag
         let transformMatrix: simd_float4x4
-        if relativeToImageAnchor, let arViewModel = arViewModel {
-            // For image target mode, send the transform relative to the shared image anchor
-            transformMatrix = entity.transformMatrix(relativeTo: arViewModel.sharedAnchorEntity)
+        if relativeToSharedAnchor, let arViewModel = arViewModel {
+            // For image or object target mode, send the transform relative to the shared anchor
+            // Ensure sharedAnchorEntity is valid before calculating relative transform
+             if arViewModel.sharedAnchorEntity.scene != nil || arViewModel.sharedAnchorEntity.anchorIdentifier != nil { // Check if it's added or has an identifier
+                 transformMatrix = entity.transformMatrix(relativeTo: arViewModel.sharedAnchorEntity)
+             } else {
+                 print("Warning: sharedAnchorEntity not ready for relative transform calculation. Sending world transform instead.")
+                 transformMatrix = entity.transformMatrix(relativeTo: nil) // Fallback to world
+             }
         } else {
-            // For world mode, use the default world transform
-            transformMatrix = entity.transform.matrix
+            // For world mode, use the world transform
+            transformMatrix = entity.transformMatrix(relativeTo: nil)
         }
-        
+
         let transformArray = transformMatrix.toArray()
         let modelTypeString = modelType?.rawValue
         // Use the InstanceIDComponent for a stable ID across sessions
         let instanceID = entity.components[InstanceIDComponent.self]?.id ?? entity.id.stringValue
-        
+
         let payload = ModelTransformPayload(
             modelID: instanceID, // Use instanceID here
             transform: transformArray,
             modelType: modelTypeString,
-            isRelativeToImageAnchor: relativeToImageAnchor
+            isRelativeToImageAnchor: relativeToSharedAnchor // Use the generic flag name here
         )
-        
+
         do {
             let data = try JSONEncoder().encode(payload)
             multipeerSession.sendToAllPeers(data, dataType: .modelTransform)
@@ -284,9 +291,11 @@ class MyCustomConnectivityService: NSObject {
                             // Determine the target parent and add the entity
                             let targetParent: Entity?
                             let transformToSet: simd_float4x4 = matrix // The transform received in the payload
+                            let syncMode = self.arViewModel?.currentSyncMode ?? .world // Get current sync mode
 
-                            if isRelativeToImageAnchor, let sharedAnchor = self.arViewModel?.sharedAnchorEntity {
-                                // --- Image Target Mode ---
+                            // Check if the payload indicates relativity AND we are in a relative mode (Image or Object)
+                            if isRelativeToImageAnchor, (syncMode == .imageTarget || syncMode == .objectTarget), let sharedAnchor = self.arViewModel?.sharedAnchorEntity {
+                                // --- Image or Object Target Mode ---
                                 targetParent = sharedAnchor
                                 // Ensure shared anchor is in the scene (especially important on iOS)
                                 #if os(iOS)
@@ -539,12 +548,14 @@ class MyCustomConnectivityService: NSObject {
                          return
                      }
                     
-                    // Determine the expected parent based on the received flag
+                    // Determine the expected parent based on the received flag and current sync mode
                     let expectedParent: Entity?
-                    if isRelativeToImageAnchor {
+                    let syncMode = arViewModel.currentSyncMode
+                    if isRelativeToImageAnchor && (syncMode == .imageTarget || syncMode == .objectTarget) {
+                        // --- Image or Object Target Mode ---
                         expectedParent = arViewModel.sharedAnchorEntity
                         if expectedParent?.scene == nil {
-                             print("Warning: Expected parent (sharedAnchorEntity) is not in scene. Cannot reliably update transform for \(instanceID).")
+                             print("Warning: Expected parent (sharedAnchorEntity) for relative transform is not in scene. Cannot reliably update transform for \(instanceID).")
                              // Attempt to apply world transform instead? Or just skip? Skip for now.
                              return
                         }
@@ -560,11 +571,11 @@ class MyCustomConnectivityService: NSObject {
                     // --- Reparenting and Transform Logic ---
                     let currentParent = entity.parent
 
-                    if isRelativeToImageAnchor {
-                        // --- Image Target Mode ---
+                    if isRelativeToImageAnchor && (syncMode == .imageTarget || syncMode == .objectTarget) {
+                        // --- Image or Object Target Mode ---
                         // Ensure parent is sharedAnchorEntity
                         if currentParent !== arViewModel.sharedAnchorEntity {
-                            print("Reparenting \(instanceID) to sharedAnchorEntity for Image Target mode.")
+                            print("Reparenting \(instanceID) to sharedAnchorEntity for \(syncMode.rawValue) mode.")
                             // Ensure shared anchor is in scene first (iOS mainly)
                             #if os(iOS)
                             if arViewModel.sharedAnchorEntity.scene == nil, let scene = arViewModel.currentScene {
@@ -583,7 +594,10 @@ class MyCustomConnectivityService: NSObject {
                         entity.transform.matrix = matrix
 
                     } else {
-                        // --- World Mode ---
+                        // --- World Mode (or received non-relative transform) ---
+                        if isRelativeToImageAnchor {
+                             print("Warning: Received relative transform flag for \(instanceID) but applying as world transform because current mode is \(syncMode.rawValue).")
+                        }
                         // Ensure parent is NOT sharedAnchorEntity. Move to appropriate world anchor.
                         if currentParent === arViewModel.sharedAnchorEntity {
                              print("Reparenting \(instanceID) from sharedAnchorEntity to World mode parent.")
@@ -619,7 +633,7 @@ class MyCustomConnectivityService: NSObject {
                     // Update the LastTransformComponent cache *after* applying
                     entity.components[LastTransformComponent.self] = LastTransformComponent(matrix: entity.transform.matrix)
 
-                    print("Applied transform to \(instanceID). RelativeToImage: \(isRelativeToImageAnchor)")
+                    print("Applied transform to \(instanceID). RelativeToShared: \(isRelativeToImageAnchor), Mode: \(syncMode.rawValue)")
                     return
                 }
 
@@ -628,67 +642,29 @@ class MyCustomConnectivityService: NSObject {
                     // Check model manager
                     for (entity, model) in self.modelManager.modelDict {
                         if model.modelType.rawValue.lowercased() == modelTypeStr.lowercased() {
-                            if isRelativeToImageAnchor, let arViewModel = self.arViewModel {
-                                // In image target mode, transform is relative to the image anchor
-                                // We need to apply it differently
-                                if let sharedAnchor = entity.parent, sharedAnchor === arViewModel.sharedAnchorEntity {
-                                    entity.transform.matrix = matrix
-                                } else {
-                                    // Entity needs to be reparented to the image anchor first
-                                    entity.removeFromParent()
-                                    arViewModel.sharedAnchorEntity.addChild(entity)
-                                    
-                                    // Now apply the transform relative to the image anchor
-                                    entity.transform.matrix = matrix
-                                }
-                            } else {
-                                // In world mode, just apply the transform directly
-                                entity.transform.matrix = matrix
-                            }
+                            self.applyTransformToFallbackEntity(entity: entity, matrix: matrix, isRelative: isRelativeToImageAnchor)
                             return
                         }
                     }
-                    
+
                     // Then check if any matching entities in the lookup
                     for (_, entity) in self.entityLookup {
                         if let component = entity.components[ModelTypeComponent.self],
                            let modelTypeStr = payload.modelType,
                            component.type.rawValue.lowercased() == modelTypeStr.lowercased() {
-                            if isRelativeToImageAnchor, let arViewModel = self.arViewModel {
-                                // Same logic as above for image target mode
-                                if let sharedAnchor = entity.parent, sharedAnchor === arViewModel.sharedAnchorEntity {
-                                    entity.transform.matrix = matrix
-                                } else {
-                                    entity.removeFromParent()
-                                    arViewModel.sharedAnchorEntity.addChild(entity)
-                                    entity.transform.matrix = matrix
-                                }
-                            } else {
-                                entity.transform.matrix = matrix
-                            }
+                            self.applyTransformToFallbackEntity(entity: entity, matrix: matrix, isRelative: isRelativeToImageAnchor)
                             return
                         }
                     }
                 }
-                
+
                 // Last resort: Try traditional entity ID matching if all else fails
                 for (entityID, entity) in self.entityLookup {
-                    if entityID.stringValue == instanceID {
-                        if isRelativeToImageAnchor, let arViewModel = self.arViewModel {
-                            // Same logic as above for image target mode
-                            if let sharedAnchor = entity.parent, sharedAnchor === arViewModel.sharedAnchorEntity {
-                                entity.transform.matrix = matrix
-                            } else {
-                                entity.removeFromParent()
-                                arViewModel.sharedAnchorEntity.addChild(entity)
-                                entity.transform.matrix = matrix
-                            }
-                        } else {
-                            entity.transform.matrix = matrix
-                        }
-                        return
-                    }
-                }
+                     if entityID.stringValue == instanceID {
+                         self.applyTransformToFallbackEntity(entity: entity, matrix: matrix, isRelative: isRelativeToImageAnchor)
+                         return
+                     }
+                 }
                 
                 print("Could not find entity with instanceID \(instanceID) for transform update")
             }))
@@ -738,4 +714,43 @@ class MyCustomConnectivityService: NSObject {
         }
     }
     #endif
+
+    // Helper to apply transform in fallback scenarios, considering sync mode
+    private func applyTransformToFallbackEntity(entity: Entity, matrix: simd_float4x4, isRelative: Bool) {
+        guard let arViewModel = self.arViewModel else { return }
+        let syncMode = arViewModel.currentSyncMode
+
+        if isRelative && (syncMode == .imageTarget || syncMode == .objectTarget) {
+            // Apply relative transform, reparenting if necessary
+            if let currentParent = entity.parent, currentParent === arViewModel.sharedAnchorEntity {
+                entity.transform.matrix = matrix // Already correct parent
+            } else {
+                // Reparent to shared anchor first
+                print("Fallback: Reparenting \(entity.name) to sharedAnchorEntity for relative transform.")
+                entity.removeFromParent()
+                arViewModel.sharedAnchorEntity.addChild(entity)
+                entity.transform.matrix = matrix // Apply relative transform
+            }
+        } else {
+            // Apply world transform
+            if isRelative {
+                 print("Fallback Warning: Received relative transform flag for \(entity.name) but applying as world transform because current mode is \(syncMode.rawValue).")
+            }
+            // Ensure parent is not the shared anchor if it is currently
+            if let currentParent = entity.parent, currentParent === arViewModel.sharedAnchorEntity {
+                 print("Fallback: Reparenting \(entity.name) from sharedAnchorEntity to world parent.")
+                 // On iOS/visionOS, simply removing from parent and setting world transform might suffice
+                 // if the entity gets re-added to the scene root or appropriate world anchor elsewhere.
+                 // For simplicity here, just remove and set world transform.
+                 entity.removeFromParent()
+                 // Ideally, re-add to the correct world anchor (e.g., modelAnchor on visionOS)
+                 // This might require more context. For now, just set world transform.
+                 entity.setTransformMatrix(matrix, relativeTo: nil)
+            } else {
+                 // Already in world space (or should be), just set world transform
+                 entity.setTransformMatrix(matrix, relativeTo: nil)
+            }
+        }
+        print("Fallback: Applied transform to \(entity.name). Relative: \(isRelative), Mode: \(syncMode.rawValue)")
+    }
 }

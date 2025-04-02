@@ -39,6 +39,20 @@
 			);
 			target = 0D64C65B2CE003FE00D34085 /* XR Anatomy */;
 		};
+		668276E42D9DBD9900FA5E50 /* Exceptions for "Shared" folder in "XR Anatomy Vision" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"models/model-mobile.referenceobject",
+			);
+			target = 87B974472D09106D00168B98 /* XR Anatomy Vision */;
+		};
+		66FCD95C2D9DBDF300579A97 /* Exceptions for "Shared" folder in "XR Anatomy" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"models/model-mobile.referenceobject",
+			);
+			target = 0D64C65B2CE003FE00D34085 /* XR Anatomy */;
+		};
 		87B9745A2D09106E00168B98 /* Exceptions for "XR Anatomy Vision" folder in "XR Anatomy Vision" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -47,6 +61,23 @@
 			target = 87B974472D09106D00168B98 /* XR Anatomy Vision */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+		668276E62D9DBDA100FA5E50 /* Exceptions for "Shared" folder in "Copy Bundle Resources" phase from "XR Anatomy Vision" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = 87B974462D09106D00168B98 /* Resources */;
+			membershipExceptions = (
+				"models/model-mobile.referenceobject",
+			);
+		};
+		668276E82D9DBDA600FA5E50 /* Exceptions for "Shared" folder in "Copy Bundle Resources" phase from "XR Anatomy" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = 0D64C65A2CE003FE00D34085 /* Resources */;
+			membershipExceptions = (
+				"models/model-mobile.referenceobject",
+			);
+		};
+/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		0D64C65E2CE003FE00D34085 /* XR Anatomy */ = {
@@ -67,6 +98,12 @@
 		};
 		87B9745C2D09107E00168B98 /* Shared */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				66FCD95C2D9DBDF300579A97 /* Exceptions for "Shared" folder in "XR Anatomy" target */,
+				668276E82D9DBDA600FA5E50 /* Exceptions for "Shared" folder in "Copy Bundle Resources" phase from "XR Anatomy" target */,
+				668276E42D9DBD9900FA5E50 /* Exceptions for "Shared" folder in "XR Anatomy Vision" target */,
+				668276E62D9DBDA100FA5E50 /* Exceptions for "Shared" folder in "Copy Bundle Resources" phase from "XR Anatomy Vision" target */,
+			);
 			path = Shared;
 			sourceTree = "<group>";
 		};

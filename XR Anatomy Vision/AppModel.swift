@@ -63,36 +63,34 @@ final class AppModel: ObservableObject {
         }
     }
     
-    // Non-async version for UI bindings 
+    // Non-async version for UI bindings
     func toggleDebugModeUI() {
         let wasEnabled = debugModeEnabled
         debugModeEnabled.toggle()
         print("Debug mode \(debugModeEnabled ? "enabled" : "disabled")")
-        
+
         // Manage control panel visibility
         if debugModeEnabled && !wasEnabled {
             // Only open if not already visible and newly enabled
             if !controlPanelVisible {
                 controlPanelVisible = true
-                
-                // Wait a short delay before opening to avoid multiple panels 
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    Task { @MainActor in
-                        // Use unique timestamp to avoid duplicate notifications
-                        NotificationCenter.default.post(
-                            name: Notification.Name("openWindow"), 
-                            object: nil, 
-                            userInfo: [
-                                "id": "controlPanel",
-                                "timestamp": Date().timeIntervalSince1970
-                            ]
-                        )
-                    }
+                // Post notification immediately to open the window
+                // Ensure this runs on the main thread if called from background
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(
+                        name: Notification.Name("openWindow"),
+                        object: nil,
+                        userInfo: ["id": "controlPanel"]
+                    )
+                    print("Posted notification to open controlPanel")
                 }
             }
         } else if !debugModeEnabled && wasEnabled {
             // When disabling debug mode, mark panel as closed
+            // Note: We don't automatically close the window, just update the state.
+            // The user needs to close the window manually.
             controlPanelVisible = false
+            print("Debug mode disabled, control panel marked as closed (user must close window manually).")
         }
     }
     

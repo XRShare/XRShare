@@ -1,98 +1,82 @@
 <Plan>
-The primary issue is that the iOS `ARSessionManager` always configures a basic `ARWorldTrackingConfiguration` without enabling image detection, regardless of the `currentSyncMode` set in `ARViewModel`.
-
-1.  **Modify `ARSessionManager.swift` (iOS):** Update the `configureSession` method to accept the `SyncMode` and the `ARReferenceImage` set. If the mode is `.imageTarget`, it will configure the session to detect those images using `ARWorldTrackingConfiguration`'s `detectionImages` property.
-2.  **Modify `ARViewModel.swift` (iOS):**
-    *   Update the `setupARView` method to load reference images and pass the `currentSyncMode` and images to the modified `configureSession`.
-    *   Add a new method `reconfigureARSession()` to handle changes in `currentSyncMode`. This method will load reference images if needed and call the `ARSessionManager` to re-run the session with the appropriate configuration.
-    *   Call `reconfigureARSession()` when `currentSyncMode` changes.
-3.  **Modify `BottomSheet.swift` (iOS SettingsView):** In the `onChange` modifier for the `SyncMode` picker, call the new `reconfigureARSession()` method in `ARViewModel`.
+1.  **Fix Object Target Loading:** Modify `XRAnatomy_visionOSApp.swift` to correctly load the `model-mobile.referenceobject` file, ensuring it checks the `models` subdirectory first and then the main bundle as a fallback, mirroring the logic used for `.usdz` files. Also, apply similar robust loading logic to the iOS part in `ARViewModel.swift`.
+2.  **Fix Duplicate Window Opening:** Simplify the `toggleDebugModeUI` function in `AppModel.swift` to remove the delay and timestamp logic, directly posting the notification once. This should prevent duplicate panel openings.
+3.  **Refine Parenting Logic:** Adjust the `update` block in `InSession.swift` to more clearly determine the *intended* parent based on the `currentSyncMode` and only reparent the entity if its current parent doesn't match the intended one. Add checks to ensure anchors are in the scene before parenting.
+4.  **Verify File Inclusion (Manual Step):** Remind the user to ensure `Shared/models/model-mobile.referenceobject` is included in the "Copy Bundle Resources" build phase for the `XR Anatomy Vision` target in Xcode. (This cannot be done via code edits).
 </Plan>
 
-<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/Shared/ARSessionManager.swift" action="modify">
+<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/XR Anatomy Vision/XRAnatomy_visionOSApp.swift" action="modify">
   <change>
-    <description>Modify configureSession to accept SyncMode and reference images for iOS</description>
+    <description>Improve reference object loading logic in configureARSession to check subdirectory first, then main bundle.</description>
     <search>
 ===
-import ARKit
-import RealityKit
+        } else if currentMode == .objectTarget {
+            // --- Object Target Mode ---
+            // Load the reference object from the bundle
+            guard let referenceObjectURL = Bundle.main.url(forResource: "model-mobile", withExtension: "referenceobject", subdirectory: "models"),
+                  let referenceObject = try? await ReferenceObject(from: referenceObjectURL) else {
+                print("Error: Failed to load reference object 'model-mobile.referenceobject'")
+                appState.alertItem = AlertItem(title: "Error", message: "Could not load Object Target resources. Switching back to World Sync.")
+                arViewModel.currentSyncMode = .world
+                await configureARSession() // Reconfigure for world mode
+                return
+            }
+            print("Loaded reference object: \(referenceObject.name ?? "Unnamed")")
 
-/// An AR session manager for iOS that configures an ARView's session.
-class ARSessionManager {
-    static let shared = ARSessionManager()
-    private init() { }
-
-    func configureSession(for arView: ARView) {
-        let config = ARWorldTrackingConfiguration()
-        config.planeDetection = [.horizontal, .vertical]
-        if ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) {
-            config.sceneReconstruction = .meshWithClassification
+            let objectProvider = ObjectTrackingProvider(referenceObjects: [referenceObject])
+            providers.append(objectProvider)
+            appState.startObjectTracking(provider: objectProvider) // Use updated AppState method
         }
-        config.environmentTexturing = .automatic
-        config.isCollaborationEnabled = true
-        
-        arView.session.run(config, options: [.resetTracking, .removeExistingAnchors])
-    }
-}
-#elseif os(visionOS)
+        // Else: World mode needs no extra provider beyond WorldTrackingProvider
 ===
     </search>
     <content>
 ===
-import ARKit
-import RealityKit
+        } else if currentMode == .objectTarget {
+            // --- Object Target Mode ---
+            var referenceObject: ReferenceObject?
+            var loadedURL: URL?
 
-/// An AR session manager for iOS that configures an ARView's session.
-class ARSessionManager {
-    static let shared = ARSessionManager()
-    private init() { }
-
-    /// Configures the AR session based on the selected sync mode.
-    /// - Parameters:
-    ///   - arView: The ARView whose session needs configuration.
-    ///   - syncMode: The desired synchronization mode (.world or .imageTarget).
-    ///   - referenceImages: The set of reference images to detect (only used if syncMode is .imageTarget).
-    func configureSession(for arView: ARView, syncMode: SyncMode, referenceImages: Set<ARReferenceImage> = Set()) {
-        print("[iOS] Configuring ARSession for mode: \(syncMode.rawValue)")
-        // Always use ARWorldTrackingConfiguration as it supports both world tracking and image detection.
-        let config = ARWorldTrackingConfiguration()
-        
-        // Basic configuration applicable to both modes
-        config.planeDetection = [.horizontal, .vertical]
-        if ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) {
-            config.sceneReconstruction = .meshWithClassification
-            print("[iOS] Scene Reconstruction enabled.")
-        } else {
-            print("[iOS] Scene Reconstruction not supported.")
-        }
-        config.environmentTexturing = .automatic
-        config.isCollaborationEnabled = true // Essential for multipeer
-
-        // Configure for Image Target mode
-        if syncMode == .imageTarget {
-            if referenceImages.isEmpty {
-                print("[iOS] Warning: Image Target mode selected, but no reference images provided.")
-                // Proceed with world tracking only, or handle error as needed
-                config.detectionImages = Set() // Ensure it's empty
-            } else {
-                config.detectionImages = referenceImages
-                // Set the maximum number of tracked images if needed (default is 1)
-                config.maximumNumberOfTrackedImages = 1 // Adjust if you need to track multiple images simultaneously
-                print("[iOS] Configured ARWorldTrackingConfiguration with \(referenceImages.count) detection images.")
+            // Try loading from "models" subdirectory first
+            if let objectURL = Bundle.main.url(forResource: "model-mobile", withExtension: "referenceobject", subdirectory: "models") {
+                do {
+                    referenceObject = try await ReferenceObject(from: objectURL)
+                    loadedURL = objectURL
+                    print("Successfully loaded reference object from models subdirectory.")
+                } catch {
+                    print("Info: Failed to load reference object from models subdirectory: \(error.localizedDescription). Trying main bundle.")
+                    referenceObject = nil // Ensure it's nil if loading failed
+                }
             }
-        } else {
-            // Ensure detectionImages is empty for world mode
-            config.detectionImages = Set()
-            print("[iOS] Configured ARWorldTrackingConfiguration for World Space Sync.")
+
+            // Fallback: Try loading from the main bundle if not found or failed in subdirectory
+            if referenceObject == nil, let objectURL = Bundle.main.url(forResource: "model-mobile", withExtension: "referenceobject") {
+                 do {
+                     referenceObject = try await ReferenceObject(from: objectURL)
+                     loadedURL = objectURL
+                     print("Successfully loaded reference object from main bundle.")
+                 } catch {
+                     print("Error: Failed to load reference object from main bundle: \(error.localizedDescription)")
+                     referenceObject = nil // Ensure it's nil if loading failed
+                 }
+            }
+
+            // Check if loading ultimately failed
+            guard let finalReferenceObject = referenceObject else {
+                print("Error: Failed to load reference object 'model-mobile.referenceobject' from any location.")
+                appState.alertItem = AlertItem(title: "Error", message: "Could not load Object Target resources. Switching back to World Sync.")
+                arViewModel.currentSyncMode = .world
+                await configureARSession() // Reconfigure for world mode
+                return
+            }
+
+            print("Loaded reference object: \(finalReferenceObject.name ?? "Unnamed") from \(loadedURL?.path ?? "Unknown Path")")
+
+            let objectProvider = ObjectTrackingProvider(referenceObjects: [finalReferenceObject])
+            providers.append(objectProvider)
+            appState.startObjectTracking(provider: objectProvider) // Use updated AppState method
         }
-        
-        // Run the session with the new configuration
-        // Reset tracking and remove existing anchors to apply the new settings cleanly
-        arView.session.run(config, options: [.resetTracking, .removeExistingAnchors])
-        print("[iOS] ARSession run with new configuration.")
-    }
-}
-#elseif os(visionOS)
+        // Else: World mode needs no extra provider beyond WorldTrackingProvider
 ===
     </content>
   </change>
@@ -100,137 +84,330 @@ class ARSessionManager {
 
 <file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/Shared/ARViewModel.swift" action="modify">
   <change>
-    <description>Update setupARView to use the new configureSession and add reconfigureARSession method for iOS</description>
+    <description>Improve reference object loading logic in iOS reconfigureARSession to check subdirectory first, then main bundle.</description>
     <search>
 ===
-    #if os(iOS)
-    /// Setup the ARView with necessary configuration
-    func setupARView(_ arView: ARView) {
-        self.arView = arView
-        self.setCurrentScene(arView.scene) // Set the scene
-
-        // Configure the AR session using the shared manager
-        self.arSessionManager.configureSession(for: arView)
-
-        // Assign the custom delegate handler
-        if let delegateHandler = self.arSessionDelegateHandler {
-===
-    </search>
-    <content>
-===
-    #if os(iOS)
-    /// Setup the ARView with necessary configuration
-    func setupARView(_ arView: ARView) {
-        self.arView = arView
-        self.setCurrentScene(arView.scene) // Set the scene
-
-        // Initial session configuration based on the current sync mode
-        reconfigureARSession() // Call reconfigure to handle initial setup
-
-        // Assign the custom delegate handler
-        if let delegateHandler = self.arSessionDelegateHandler {
-===
-    </content>
-  </change>
-  <change>
-    <description>Add reconfigureARSession method for iOS</description>
-    <search>
-===
-        print("All models cleared")
-    }
-
-    // Removed placeModel(for:) as placement is now handled directly in handleTap
-
-    /// Broadcasts model transform using the unified sendTransform method.
-    func broadcastModelTransform(entity: Entity, modelType: ModelType) {
-===
-    </search>
-    <content>
-===
-        print("All models cleared")
-    }
-
-    /// Reconfigures the ARKit session based on the current `currentSyncMode`. (iOS specific)
-    @MainActor func reconfigureARSession() {
-        guard let arView = self.arView else {
-            print("[iOS] Cannot reconfigure ARSession: ARView not available.")
-            return
-        }
-        print("[iOS] Reconfiguring ARSession for mode: \(currentSyncMode.rawValue)")
-
-        var referenceImages = Set<ARReferenceImage>()
-        if currentSyncMode == .imageTarget {
-            // Load reference images from the asset catalog
-            // Ensure the group name matches your Assets.xcassets
-            guard let loadedImages = ARReferenceImage.referenceImages(inGroupNamed: "SharedAnchors", bundle: nil) else {
-                print("[iOS] Error: Failed to load reference images from group 'SharedAnchors'. Switching to World Sync.")
-                self.alertItem = AlertItem(title: "Error", message: "Could not load Image Target resources. Switching to World Sync.")
-                // Fallback to world mode
+        var referenceObjects = Set<ARReferenceObject>()
+        if currentSyncMode == .objectTarget {
+            // Load reference object with robust error handling
+            // First try with models subdirectory
+            if let objectURL = Bundle.main.url(forResource: "model-mobile", withExtension: "referenceobject", subdirectory: "models") {
+                do {
+                    let refObject = try ARReferenceObject(archiveURL: objectURL)
+                    referenceObjects.insert(refObject)
+                    print("[iOS] Successfully loaded reference object from models subdirectory")
+                } catch {
+                    print("[iOS] Error loading reference object from models subdirectory: \(error.localizedDescription)")
+                    // Will try the fallback option below
+                }
+            } else if let objectURL = Bundle.main.url(forResource: "model-mobile", withExtension: "referenceobject") {
+                // Fallback: try in the main bundle
+                do {
+                    let refObject = try ARReferenceObject(archiveURL: objectURL)
+                    referenceObjects.insert(refObject)
+                    print("[iOS] Successfully loaded reference object from main bundle")
+                } catch {
+                    print("[iOS] Error loading reference object from main bundle: \(error.localizedDescription)")
+                    // Fall through to the failure case
+                }
+            }
+            
+            // If still empty, we failed to load the reference object
+            if referenceObjects.isEmpty {
+                print("[iOS] Error: Failed to load reference object 'model-mobile.referenceobject'. Switching to World Sync.")
+                self.alertItem = AlertItem(title: "Error", message: "Could not load Object Target resources. Switching to World Sync.")
                 currentSyncMode = .world
-                // Call reconfigure again with the updated mode
                 reconfigureARSession()
                 return
             }
-            referenceImages = loadedImages
-            print("[iOS] Loaded \(referenceImages.count) reference images for Image Target mode.")
-            // Reset sync state when switching TO image target mode
-            self.isSyncedToImage = false
+            print("[iOS] Loaded reference object for Object Target mode.")
+            // Reset sync state when switching TO object target mode
+            self.isSyncedToObject = false
+            self.isObjectTracked = false
+            self.isSyncedToImage = false // Also reset image state
             self.isImageTracked = false
-        } else {
-             // Reset sync state when switching FROM image target mode
-             self.isSyncedToImage = false
-             self.isImageTracked = false
         }
+===
+    </search>
+    <content>
+===
+        var referenceObjects = Set<ARReferenceObject>()
+        if currentSyncMode == .objectTarget {
+            var loadedObject: ARReferenceObject?
+            var loadedURL: URL?
 
-        // Configure the session using the manager
-        self.arSessionManager.configureSession(
-            for: arView,
-            syncMode: currentSyncMode,
-            referenceImages: referenceImages
-        )
-    }
+            // Try loading from "models" subdirectory first
+            if let objectURL = Bundle.main.url(forResource: "model-mobile", withExtension: "referenceobject", subdirectory: "models") {
+                do {
+                    loadedObject = try ARReferenceObject(archiveURL: objectURL)
+                    loadedURL = objectURL
+                    print("[iOS] Successfully loaded reference object from models subdirectory.")
+                } catch {
+                    print("[iOS] Info: Failed to load reference object from models subdirectory: \(error.localizedDescription). Trying main bundle.")
+                    loadedObject = nil // Ensure it's nil if loading failed
+                }
+            }
 
-    // Removed placeModel(for:) as placement is now handled directly in handleTap
+            // Fallback: Try loading from the main bundle if not found or failed in subdirectory
+            if loadedObject == nil, let objectURL = Bundle.main.url(forResource: "model-mobile", withExtension: "referenceobject") {
+                 do {
+                     loadedObject = try ARReferenceObject(archiveURL: objectURL)
+                     loadedURL = objectURL
+                     print("[iOS] Successfully loaded reference object from main bundle.")
+                 } catch {
+                     print("[iOS] Error: Failed to load reference object from main bundle: \(error.localizedDescription)")
+                     loadedObject = nil // Ensure it's nil if loading failed
+                 }
+            }
 
-    /// Broadcasts model transform using the unified sendTransform method.
-    func broadcastModelTransform(entity: Entity, modelType: ModelType) {
+            // Check if loading ultimately failed
+            if let finalReferenceObject = loadedObject {
+                referenceObjects.insert(finalReferenceObject)
+                print("[iOS] Loaded reference object: \(finalReferenceObject.name ?? "Unnamed") from \(loadedURL?.path ?? "Unknown Path")")
+                // Reset sync state when switching TO object target mode
+                self.isSyncedToObject = false
+                self.isObjectTracked = false
+                self.isSyncedToImage = false // Also reset image state
+                self.isImageTracked = false
+            } else {
+                print("[iOS] Error: Failed to load reference object 'model-mobile.referenceobject' from any location. Switching to World Sync.")
+                self.alertItem = AlertItem(title: "Error", message: "Could not load Object Target resources. Switching to World Sync.")
+                currentSyncMode = .world
+                reconfigureARSession() // Reconfigure for world mode
+                return // Exit early as we are reconfiguring
+            }
+        }
 ===
     </content>
   </change>
 </file>
 
-<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/XR Anatomy/BottomSheet.swift" action="modify">
+<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/XR Anatomy Vision/AppModel.swift" action="modify">
   <change>
-    <description>Call reconfigureARSession when SyncMode changes in iOS SettingsView</description>
+    <description>Simplify toggleDebugModeUI to remove delay and timestamp, directly posting the notification.</description>
     <search>
 ===
-            .onChange(of: arViewModel.currentSyncMode) { _, newMode in
-                print("iOS Sync Mode changed to: \(newMode.rawValue)")
-                // Add logic to reconfigure session if needed, e.g., add/remove image tracking
-                // This might involve pausing and re-running the ARSession with a new configuration.
-                // For now, just log the change.
-                // Consider posting a notification like in visionOS if session reconfiguration is complex.
-                arViewModel.isSyncedToImage = false // Reset sync status when mode changes
-                arViewModel.isImageTracked = false
+    // Non-async version for UI bindings 
+    func toggleDebugModeUI() {
+        let wasEnabled = debugModeEnabled
+        debugModeEnabled.toggle()
+        print("Debug mode \(debugModeEnabled ? "enabled" : "disabled")")
+        
+        // Manage control panel visibility
+        if debugModeEnabled && !wasEnabled {
+            // Only open if not already visible and newly enabled
+            if !controlPanelVisible {
+                controlPanelVisible = true
+                
+                // Wait a short delay before opening to avoid multiple panels 
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    Task { @MainActor in
+                        // Use unique timestamp to avoid duplicate notifications
+                        NotificationCenter.default.post(
+                            name: Notification.Name("openWindow"), 
+                            object: nil, 
+                            userInfo: [
+                                "id": "controlPanel",
+                                "timestamp": Date().timeIntervalSince1970
+                            ]
+                        )
+                    }
+                }
             }
-
-            // Image Sync Status and Button
+        } else if !debugModeEnabled && wasEnabled {
+            // When disabling debug mode, mark panel as closed
+            controlPanelVisible = false
+        }
+    }
 ===
     </search>
     <content>
 ===
-            .onChange(of: arViewModel.currentSyncMode) { _, newMode in
-                print("iOS Sync Mode changed to: \(newMode.rawValue)")
-                // Trigger session reconfiguration when the mode changes
-                Task { @MainActor in
-                    arViewModel.reconfigureARSession()
-                }
-                // Reset sync state immediately (reconfigureARSession also does this, but good for immediate UI feedback)
-                arViewModel.isSyncedToImage = false
-                arViewModel.isImageTracked = false
-            }
+    // Non-async version for UI bindings
+    func toggleDebugModeUI() {
+        let wasEnabled = debugModeEnabled
+        debugModeEnabled.toggle()
+        print("Debug mode \(debugModeEnabled ? "enabled" : "disabled")")
 
-            // Image Sync Status and Button
+        // Manage control panel visibility
+        if debugModeEnabled && !wasEnabled {
+            // Only open if not already visible and newly enabled
+            if !controlPanelVisible {
+                controlPanelVisible = true
+                // Post notification immediately to open the window
+                // Ensure this runs on the main thread if called from background
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(
+                        name: Notification.Name("openWindow"),
+                        object: nil,
+                        userInfo: ["id": "controlPanel"]
+                    )
+                    print("Posted notification to open controlPanel")
+                }
+            }
+        } else if !debugModeEnabled && wasEnabled {
+            // When disabling debug mode, mark panel as closed
+            // Note: We don't automatically close the window, just update the state.
+            // The user needs to close the window manually.
+            controlPanelVisible = false
+            print("Debug mode disabled, control panel marked as closed (user must close window manually).")
+        }
+    }
+===
+    </content>
+  </change>
+</file>
+
+<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/XR Anatomy Vision/Scenes/InSession.swift" action="modify">
+  <change>
+    <description>Refine the parenting logic in the RealityView update block to prevent unnecessary reparenting loops when switching sync modes.</description>
+    <search>
+===
+        } update: { content in
+                // Ensure models are correctly parented based on sync mode
+                for model in modelManager.placedModels {
+                    guard let entity = model.modelEntity else { continue }
+
+                    let targetParent: Entity?
+                    if arViewModel.currentSyncMode == .imageTarget {
+                        targetParent = arViewModel.sharedAnchorEntity
+                        // Ensure shared anchor is in the scene if needed
+                        if arViewModel.sharedAnchorEntity.scene == nil {
+                            content.add(arViewModel.sharedAnchorEntity)
+                            print("Added sharedAnchorEntity to content in update.")
+                        }
+                    } else {
+                        targetParent = modelAnchor
+                        // Ensure model anchor is in the scene
+                        if modelAnchor.scene == nil {
+                             content.add(modelAnchor)
+                             print("Added modelAnchor to content in update.")
+                        }
+                    }
+
+                    // If the entity has no parent or the wrong parent, add it to the correct one
+                    if entity.parent != targetParent {
+                        if let currentParent = entity.parent {
+                             print("Removing \(entity.name) from incorrect parent \(currentParent.name)")
+                             entity.removeFromParent()
+                        }
+                        
+                        if let targetParent = targetParent {
+                             targetParent.addChild(entity)
+                             print("Added \(entity.name) to correct parent \(targetParent.name). SyncMode: \(arViewModel.currentSyncMode.rawValue)")
+                             
+                             // Set initial transform relative to the new parent if just added
+                             if entity.transform == Transform() { // Check if transform is identity (likely just added)
+                                 entity.setPosition([0, 0, 0], relativeTo: targetParent) // Position at parent's origin
+                                 // Apply model-specific scaling
+                                 if model.modelType.rawValue.lowercased() == "pancakes" {
+                                     entity.scale = SIMD3<Float>(repeating: 0.08)
+                                 } else if model.modelType.rawValue.lowercased() == "heart" ||
+                                           model.modelType.rawValue.lowercased() == "arterieshead" {
+                                     entity.scale = SIMD3<Float>(repeating: 0.2)
+                                 } else {
+                                     entity.scale = SIMD3<Float>(repeating: 0.15)
+                                 }
+                                 model.position = entity.position(relativeTo: targetParent)
+                                 model.scale = entity.scale
+                                 print("Set initial transform for \(entity.name) relative to \(targetParent.name)")
+                             }
+                        } else {
+                             print("Warning: Target parent is nil for \(entity.name). Cannot add to scene.")
+                        }
+                    }
+                }
+
+                // Update model selection highlights and broadcast transforms
+                // This function now assumes entities are correctly parented by the logic above.
+                modelManager.updatePlacedModels(
+                    arViewModel: arViewModel
+                )
+            }
+            // --- visionOS Gestures ---
+            .gesture(SpatialTapGesture()
+===
+    </search>
+    <content>
+===
+        } update: { content in
+                // Ensure models are correctly parented based on sync mode
+                for model in modelManager.placedModels {
+                    guard let entity = model.modelEntity else { continue }
+
+                    // Determine the INTENDED parent based on the current sync mode
+                    let intendedParent: Entity?
+                    let intendedParentName: String
+                    switch arViewModel.currentSyncMode {
+                    case .imageTarget, .objectTarget:
+                        // Ensure shared anchor is in the scene before considering it the intended parent
+                        if arViewModel.sharedAnchorEntity.scene == nil {
+                            // Check if it's in the RealityView content but not yet assigned to the scene graph
+                            if content.entities.contains(arViewModel.sharedAnchorEntity) {
+                                // It exists in content, likely okay to parent to, scene assignment might be pending
+                                intendedParent = arViewModel.sharedAnchorEntity
+                            } else {
+                                // Not in content, add it first
+                                content.add(arViewModel.sharedAnchorEntity)
+                                print("Added sharedAnchorEntity to content in update (was missing).")
+                                intendedParent = arViewModel.sharedAnchorEntity
+                            }
+                        } else {
+                            intendedParent = arViewModel.sharedAnchorEntity
+                        }
+                        intendedParentName = "sharedAnchorEntity (\(arViewModel.currentSyncMode.rawValue))"
+                    case .world:
+                        // Ensure model anchor is in the scene
+                        if modelAnchor.scene == nil {
+                             if content.entities.contains(modelAnchor) {
+                                 intendedParent = modelAnchor
+                             } else {
+                                 content.add(modelAnchor)
+                                 print("Added modelAnchor to content in update (was missing).")
+                                 intendedParent = modelAnchor
+                             }
+                        } else {
+                            intendedParent = modelAnchor
+                        }
+                        intendedParentName = "modelAnchor (World)"
+                    }
+
+                    // Get the current parent
+                    let currentParent = entity.parent
+
+                    // Reparent ONLY if the current parent is different from the intended parent
+                    if currentParent !== intendedParent {
+                        // Log the reparenting action
+                        print("Reparenting \(entity.name): Current parent (\(currentParent?.name ?? "nil")) != Intended parent (\(intendedParentName)). SyncMode: \(arViewModel.currentSyncMode.rawValue)")
+
+                        // Ensure the intended parent is valid before reparenting
+                        if let validIntendedParent = intendedParent {
+                            // Preserve world transform during reparenting to avoid visual jumps
+                            entity.setParent(validIntendedParent, preservingWorldTransform: true)
+                            print("Successfully reparented \(entity.name) to \(intendedParentName).")
+
+                            // After reparenting, update the model's local state if needed (optional)
+                            // model.position = entity.position(relativeTo: validIntendedParent)
+                            // model.rotation = entity.orientation(relativeTo: validIntendedParent)
+                            // model.scale = entity.scale(relativeTo: validIntendedParent)
+
+                        } else {
+                            print("Warning: Cannot reparent \(entity.name) because intended parent (\(intendedParentName)) is nil or not ready.")
+                            // If intended parent is nil, maybe remove the entity? Or leave it detached?
+                            // For now, just log the warning.
+                        }
+                    }
+                    // Else: Entity already has the correct parent, no action needed.
+                }
+
+                // Update model selection highlights and broadcast transforms
+                // This function now assumes entities are correctly parented by the logic above.
+                modelManager.updatePlacedModels(
+                    arViewModel: arViewModel
+                )
+            }
+            // --- visionOS Gestures ---
+            .gesture(SpatialTapGesture()
 ===
     </content>
   </change>

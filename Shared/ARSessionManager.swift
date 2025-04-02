@@ -10,14 +10,15 @@ class ARSessionManager {
     /// Configures the AR session based on the selected sync mode.
     /// - Parameters:
     ///   - arView: The ARView whose session needs configuration.
-    ///   - syncMode: The desired synchronization mode (.world or .imageTarget).
+    ///   - syncMode: The desired synchronization mode (.world, .imageTarget, or .objectTarget).
     ///   - referenceImages: The set of reference images to detect (only used if syncMode is .imageTarget).
-    func configureSession(for arView: ARView, syncMode: SyncMode, referenceImages: Set<ARReferenceImage> = Set()) {
+    ///   - referenceObjects: The set of reference objects to detect (only used if syncMode is .objectTarget).
+    func configureSession(for arView: ARView, syncMode: SyncMode, referenceImages: Set<ARReferenceImage> = Set(), referenceObjects: Set<ARReferenceObject> = Set()) {
         print("[iOS] Configuring ARSession for mode: \(syncMode.rawValue)")
-        // Always use ARWorldTrackingConfiguration as it supports both world tracking and image detection.
+        // Use ARWorldTrackingConfiguration as it supports world tracking, image detection, and object detection.
         let config = ARWorldTrackingConfiguration()
-        
-        // Basic configuration applicable to both modes
+
+        // Basic configuration applicable to all modes
         config.planeDetection = [.horizontal, .vertical]
         if ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) {
             config.sceneReconstruction = .meshWithClassification
@@ -45,7 +46,23 @@ class ARSessionManager {
             config.detectionImages = Set()
             print("[iOS] Configured ARWorldTrackingConfiguration for World Space Sync.")
         }
-        
+
+        // Configure for Object Target mode
+        if syncMode == .objectTarget {
+            if referenceObjects.isEmpty {
+                 print("[iOS] Warning: Object Target mode selected, but no reference objects provided.")
+                 config.detectionObjects = Set() // Ensure it's empty
+            } else {
+                 config.detectionObjects = referenceObjects
+                 print("[iOS] Configured ARWorldTrackingConfiguration with \(referenceObjects.count) detection objects.")
+            }
+            // Ensure detectionImages is empty for object mode
+            config.detectionImages = Set()
+        } else if syncMode != .imageTarget { // Ensure detectionObjects is empty if not in object mode
+             config.detectionObjects = Set()
+        }
+
+
         // Run the session with the new configuration
         // Reset tracking and remove existing anchors to apply the new settings cleanly
         arView.session.run(config, options: [.resetTracking, .removeExistingAnchors])

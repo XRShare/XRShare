@@ -22,7 +22,10 @@ enum ModelCategory: String, CaseIterable, Identifiable {
 
 struct ModelType: Hashable, Identifiable {
     let rawValue: String
-    let id = UUID()
+    
+    // Instead of a random UUID, use the rawValue as the basis for the ID
+    // This ensures models with the same rawValue have the same ID
+    var id: String { rawValue.lowercased() }
     
     static let categoryyMap: [String: ModelCategory] = [
         "heart": .anatomy,

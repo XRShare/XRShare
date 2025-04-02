@@ -120,54 +120,69 @@ struct InSession: View {
                 for model in modelManager.placedModels {
                     guard let entity = model.modelEntity else { continue }
 
-                    let targetParent: Entity?
-                    if arViewModel.currentSyncMode == .imageTarget {
-                        targetParent = arViewModel.sharedAnchorEntity
-                        // Ensure shared anchor is in the scene if needed
+                    // Determine the INTENDED parent based on the current sync mode
+                    let intendedParent: Entity?
+                    let intendedParentName: String
+                    switch arViewModel.currentSyncMode {
+                    case .imageTarget, .objectTarget:
+                        // Ensure shared anchor is in the scene before considering it the intended parent
                         if arViewModel.sharedAnchorEntity.scene == nil {
-                            content.add(arViewModel.sharedAnchorEntity)
-                            print("Added sharedAnchorEntity to content in update.")
+                            // Check if it's in the RealityView content but not yet assigned to the scene graph
+                            if content.entities.contains(arViewModel.sharedAnchorEntity) {
+                                // It exists in content, likely okay to parent to, scene assignment might be pending
+                                intendedParent = arViewModel.sharedAnchorEntity
+                            } else {
+                                // Not in content, add it first
+                                content.add(arViewModel.sharedAnchorEntity)
+                                print("Added sharedAnchorEntity to content in update (was missing).")
+                                intendedParent = arViewModel.sharedAnchorEntity
+                            }
+                        } else {
+                            intendedParent = arViewModel.sharedAnchorEntity
                         }
-                    } else {
-                        targetParent = modelAnchor
+                        intendedParentName = "sharedAnchorEntity (\(arViewModel.currentSyncMode.rawValue))"
+                    case .world:
                         // Ensure model anchor is in the scene
                         if modelAnchor.scene == nil {
-                             content.add(modelAnchor)
-                             print("Added modelAnchor to content in update.")
-                        }
-                    }
-
-                    // If the entity has no parent or the wrong parent, add it to the correct one
-                    if entity.parent != targetParent {
-                        if let currentParent = entity.parent {
-                             print("Removing \(entity.name) from incorrect parent \(currentParent.name)")
-                             entity.removeFromParent()
-                        }
-                        
-                        if let targetParent = targetParent {
-                             targetParent.addChild(entity)
-                             print("Added \(entity.name) to correct parent \(targetParent.name). SyncMode: \(arViewModel.currentSyncMode.rawValue)")
-                             
-                             // Set initial transform relative to the new parent if just added
-                             if entity.transform == Transform() { // Check if transform is identity (likely just added)
-                                 entity.setPosition([0, 0, 0], relativeTo: targetParent) // Position at parent's origin
-                                 // Apply model-specific scaling
-                                 if model.modelType.rawValue.lowercased() == "pancakes" {
-                                     entity.scale = SIMD3<Float>(repeating: 0.08)
-                                 } else if model.modelType.rawValue.lowercased() == "heart" ||
-                                           model.modelType.rawValue.lowercased() == "arterieshead" {
-                                     entity.scale = SIMD3<Float>(repeating: 0.2)
-                                 } else {
-                                     entity.scale = SIMD3<Float>(repeating: 0.15)
-                                 }
-                                 model.position = entity.position(relativeTo: targetParent)
-                                 model.scale = entity.scale
-                                 print("Set initial transform for \(entity.name) relative to \(targetParent.name)")
+                             if content.entities.contains(modelAnchor) {
+                                 intendedParent = modelAnchor
+                             } else {
+                                 content.add(modelAnchor)
+                                 print("Added modelAnchor to content in update (was missing).")
+                                 intendedParent = modelAnchor
                              }
                         } else {
-                             print("Warning: Target parent is nil for \(entity.name). Cannot add to scene.")
+                            intendedParent = modelAnchor
+                        }
+                        intendedParentName = "modelAnchor (World)"
+                    }
+
+                    // Get the current parent
+                    let currentParent = entity.parent
+
+                    // Reparent ONLY if the current parent is different from the intended parent
+                    if currentParent !== intendedParent {
+                        // Log the reparenting action
+                        print("Reparenting \(entity.name): Current parent (\(currentParent?.name ?? "nil")) != Intended parent (\(intendedParentName)). SyncMode: \(arViewModel.currentSyncMode.rawValue)")
+
+                        // Ensure the intended parent is valid before reparenting
+                        if let validIntendedParent = intendedParent {
+                            // Preserve world transform during reparenting to avoid visual jumps
+                            entity.setParent(validIntendedParent, preservingWorldTransform: true)
+                            print("Successfully reparented \(entity.name) to \(intendedParentName).")
+
+                            // After reparenting, update the model's local state if needed (optional)
+                            // model.position = entity.position(relativeTo: validIntendedParent)
+                            // model.rotation = entity.orientation(relativeTo: validIntendedParent)
+                            // model.scale = entity.scale(relativeTo: validIntendedParent)
+
+                        } else {
+                            print("Warning: Cannot reparent \(entity.name) because intended parent (\(intendedParentName)) is nil or not ready.")
+                            // If intended parent is nil, maybe remove the entity? Or leave it detached?
+                            // For now, just log the warning.
                         }
                     }
+                    // Else: Entity already has the correct parent, no action needed.
                 }
 
                 // Update model selection highlights and broadcast transforms
@@ -190,64 +205,63 @@ struct InSession: View {
             .simultaneousGesture(DragGesture()
                  .targetedToAnyEntity()
                  .onChanged { value in
-                     // Store starting info on first change
+                     // Store the entity being dragged if not already set
                      if draggedEntity == nil {
-                         draggedEntity = value.entity
-                         startLocation3D = value.location3D
-                     }
-                     
-                     // Ensure we have start location and are dragging the same entity
-                     guard let currentStartLocation = startLocation3D, value.entity == draggedEntity else {
-                         print("Drag changed: Mismatched entity or missing start location.")
-                         return
-                     }
-                     
-                     // Calculate the translation delta in the parent's coordinate space
-                     let currentLocation3D = value.location3D
-                     let deltaX = Float(currentLocation3D.x - currentStartLocation.x)
-                     let deltaY = Float(currentLocation3D.y - currentStartLocation.y)
-                     let deltaZ = Float(currentLocation3D.z - currentStartLocation.z)
-                     let translationDelta = SIMD3<Float>(deltaX, deltaY, deltaZ)
-
-                     // Call handleDragChange with the delta
-                     // Note: handleDragChange expects a delta, not an absolute position change
-                     Task { @MainActor in
-                         // Check if the entity still exists in the manager before handling
+                         // Ensure the entity exists in the model manager before starting drag
                          if modelManager.modelDict[value.entity] != nil {
-                              modelManager.handleDragChange(entity: value.entity, translation: translationDelta, arViewModel: arViewModel)
+                             draggedEntity = value.entity
+                             print("Drag started on: \(value.entity.name)")
                          } else {
-                              print("Drag changed: Entity \(value.entity.name) no longer managed.")
-                              // Reset drag state if entity is gone
-                              draggedEntity = nil
-                              startLocation3D = nil
+                             print("Attempted drag on unmanaged entity: \(value.entity.name)")
+                             return // Don't start drag if entity isn't managed
                          }
                      }
-                     
-                     // Update start location for the next delta calculation
-                     startLocation3D = currentLocation3D
-                     
+
+                     // Ensure we are dragging the correct entity
+                     guard value.entity == draggedEntity else {
+                         // print("Drag changed: Mismatched entity. Current: \(value.entity.name), Expected: \(draggedEntity?.name ?? "None")")
+                         return
+                     }
+
+                     // Use translation3D for a direct delta relative to the start of the gesture in world space
+                     let translationDelta = SIMD3<Float>(Float(value.translation3D.x),
+                                                         Float(value.translation3D.y),
+                                                         Float(value.translation3D.z))
+
+                     // Call handleDragChange with the calculated world-space delta
+                     Task { @MainActor in
+                         // Double-check entity existence before applying change
+                         if let currentDraggedEntity = draggedEntity, modelManager.modelDict[currentDraggedEntity] != nil {
+                             modelManager.handleDragChange(entity: currentDraggedEntity, translation: translationDelta, arViewModel: arViewModel)
+                         } else {
+                             // If entity disappeared mid-drag, reset state
+                             print("Drag changed: Entity \(draggedEntity?.name ?? "None") disappeared.")
+                             draggedEntity = nil
+                         }
+                     }
+
                      lastGestureEvent = "Dragging \(value.entity.name)"
                  }
                  .onEnded { value in
-                     // Ensure we have the dragged entity before ending
+                     // Use the stored draggedEntity for ending the gesture
                      guard let entityToEnd = draggedEntity else {
-                         print("Drag ended: No entity was being tracked.")
+                         // print("Drag ended: No entity was being tracked.")
                          return
                      }
-                     
+
                      Task { @MainActor in
-                         // Check if the entity still exists before ending
+                         // Check if the entity still exists before finalizing
                          if modelManager.modelDict[entityToEnd] != nil {
-                              modelManager.handleDragEnd(entity: entityToEnd, arViewModel: arViewModel)
+                             modelManager.handleDragEnd(entity: entityToEnd, arViewModel: arViewModel)
+                             print("Drag ended successfully for \(entityToEnd.name)")
                          } else {
-                              print("Drag ended: Entity \(entityToEnd.name) no longer managed.")
+                             print("Drag ended: Entity \(entityToEnd.name) no longer managed.")
                          }
                      }
                      lastGestureEvent = "Drag ended for \(entityToEnd.name)"
-                     
-                     // Reset state
+
+                     // Reset drag state reliably
                      draggedEntity = nil
-                     startLocation3D = nil
                  }
             )
              .simultaneousGesture(MagnifyGesture()

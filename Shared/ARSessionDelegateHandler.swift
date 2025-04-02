@@ -49,14 +49,28 @@ class ARSessionDelegateHandler: NSObject, ARSessionDelegate {
                             // Do not reset isSyncedToImage
                         }
                     }
-                } else {
-                     // Log other unknown anchor types if necessary
-                     // print("Ignoring unknown anchor type added: \(anchor.identifier), Type: \(type(of: anchor))")
+                } else if let objectAnchor = anchor as? ARObjectAnchor {
+                     // Handle Object Anchors
+                     let objectName = objectAnchor.referenceObject.name ?? "unknown object"
+                     guard arViewModel.currentSyncMode == .objectTarget else { continue }
+
+                     // When object is detected, update tracking state
+                     if !arViewModel.isSyncedToObject {
+                         // Perform one-time sync
+                         arViewModel.sharedAnchorEntity.setTransformMatrix(objectAnchor.transform, relativeTo: nil)
+                         arViewModel.isSyncedToObject = true
+                         arViewModel.isObjectTracked = true
+                         print("✅ [iOS] Object Target '\(objectName)' detected. Synced sharedAnchorEntity.")
+                     } else if !arViewModel.isObjectTracked {
+                         // Already synced, just update detection status
+                         arViewModel.isObjectTracked = true
+                         print("👀 [iOS] Object Target '\(objectName)' re-detected (already synced).")
+                     }
                 }
             }
         }
     }
-    
+
     func session(_ session: ARSession, didUpdate anchors: [ARAnchor]) {
         // Use weak self to avoid retain cycles in async blocks
         DispatchQueue.main.async { [weak self] in
@@ -90,6 +104,23 @@ class ARSessionDelegateHandler: NSObject, ARSessionDelegate {
                             // Do not reset isSyncedToImage
                         }
                     }
+                } else if let objectAnchor = anchor as? ARObjectAnchor {
+                    // Handle Object Anchors
+                    let objectName = objectAnchor.referenceObject.name ?? "unknown object"
+                    guard arViewModel.currentSyncMode == .objectTarget else { continue }
+
+                    // When object is updated, consider it tracked and update
+                    if !arViewModel.isSyncedToObject {
+                        // Perform one-time sync if detected during update
+                        arViewModel.sharedAnchorEntity.setTransformMatrix(objectAnchor.transform, relativeTo: nil)
+                        arViewModel.isSyncedToObject = true
+                        arViewModel.isObjectTracked = true
+                        print("✅ [iOS] Object Target '\(objectName)' detected via update. Synced sharedAnchorEntity.")
+                    } else if !arViewModel.isObjectTracked {
+                        // Already synced, just update detection status
+                        arViewModel.isObjectTracked = true
+                        print("👀 [iOS] Object Target '\(objectName)' re-detected via update (already synced).")
+                    }
                 }
             }
         }
@@ -111,6 +142,15 @@ class ARSessionDelegateHandler: NSObject, ARSessionDelegate {
                         arViewModel.isImageTracked = false // Mark as not detected
                         // Do not reset isSyncedToImage
                     }
+                } else if let objectAnchor = anchor as? ARObjectAnchor {
+                     let objectName = objectAnchor.referenceObject.name ?? "unknown object"
+                     guard arViewModel.currentSyncMode == .objectTarget else { continue }
+
+                     print("❌ [iOS] Object Target '\(objectName)' anchor removed.")
+                     if arViewModel.isObjectTracked {
+                         arViewModel.isObjectTracked = false // Mark as not detected
+                         // Do not reset isSyncedToObject
+                     }
                 }
                 // Clean up associated content if needed
                 arViewModel.processedAnchorIDs.remove(anchor.identifier)

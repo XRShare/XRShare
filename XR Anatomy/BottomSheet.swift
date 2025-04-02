@@ -6,6 +6,7 @@
 //
 import SwiftUI
 import ARKit
+import RealityFoundation
 
 struct BottomSheet<Content: View>: View {
     var content: Content
@@ -126,6 +127,58 @@ struct SettingsView: View {
                 .disabled(arViewModel.currentSyncMode != .imageTarget)
                 .padding(.top, 5)
             }
+            // Object Sync Status and Button
+            else if arViewModel.currentSyncMode == .objectTarget {
+                 HStack {
+                     Circle()
+                         .fill(arViewModel.isObjectTracked ? Color.green : (arViewModel.isSyncedToObject ? Color.blue : Color.red))
+                         .frame(width: 10, height: 10)
+
+                     if arViewModel.isSyncedToObject {
+                         Text(arViewModel.isObjectTracked ? "Object Detected (Synced)" : "Synced via Object (Not Detected)")
+                             .font(.caption)
+                     } else {
+                         Text(arViewModel.isObjectTracked ? "Object Detected (Syncing...)" : "Awaiting Object Sync...")
+                             .font(.caption)
+                             .foregroundColor(.orange)
+                     }
+                 }
+                 Button("Re-Sync Object") {
+                     arViewModel.triggerImageSync() // Reusing triggerImageSync which now handles object mode too
+                 }
+                 .buttonStyle(.bordered)
+                 .disabled(arViewModel.currentSyncMode != .objectTarget)
+                 .padding(.top, 5)
+
+                 // Debug button to load the reference object's model
+                 Button("Load Reference Model") {
+                     // Define the model type for the reference object model
+                     let referenceModelType = ModelType(rawValue: "model-mobile") // Ensure this USDZ exists
+
+                     // Load the model locally without broadcasting
+                     Task { @MainActor in
+                         guard let modelManager = arViewModel.modelManager, let arView = arViewModel.arView else { return }
+                         let model = await Model.load(modelType: referenceModelType, arViewModel: arViewModel)
+                         if let entity = model.modelEntity {
+                             // Clone it so we don't interfere with potential future managed instances
+                             let clonedEntity = entity.clone(recursive: true)
+                             // Add the visual model directly to the sharedAnchorEntity (which tracks the physical object)
+                             // Set its transform to identity so it aligns perfectly
+                             clonedEntity.transform = Transform()
+                             arViewModel.sharedAnchorEntity.addChild(clonedEntity)
+                             print("Loaded reference model 'model-mobile.usdz' visually onto tracked object.")
+                             // DO NOT add to modelManager.placedModels or broadcast this debug model
+                         } else {
+                             arViewModel.alertItem = AlertItem(title: "Load Failed", message: "Could not load 'model-mobile.usdz'.")
+                         }
+                     }
+                 }
+                 .buttonStyle(.bordered)
+                 .tint(.purple)
+                 .disabled(!arViewModel.isSyncedToObject) // Only enable after initial sync
+                 .padding(.top, 5)
+            }
+
 
             Spacer()
             Button("Close") {

@@ -211,12 +211,18 @@ struct DebugControlsView: View {
                         }
                     }
                     .pickerStyle(.segmented)
-                    .onChange(of: arViewModel.currentSyncMode) { _ in
+                    .onChange(of: arViewModel.currentSyncMode) { _, newMode in
                         // Post notification for sync mode change
                         NotificationCenter.default.post(name: Notification.Name("syncModeChanged"), object: nil)
-                        lastAction = "Switched to \(arViewModel.currentSyncMode.rawValue)"
+                        lastAction = "Switched to \(newMode.rawValue)"
+                        // Reset sync state immediately
+                        arViewModel.isSyncedToImage = false
+                        appState.isImageTracked = false
+                        arViewModel.isSyncedToObject = false
+                        appState.isObjectTracked = false
                     }
-                    
+
+                    // --- Sync Status Indicators ---
                     // Show image tracking status when in image target mode
                     if arViewModel.currentSyncMode == .imageTarget {
                         HStack {
@@ -253,11 +259,72 @@ struct DebugControlsView: View {
                                  .padding(.top, 4)
                         }
                     }
+                    // Show object tracking status when in object target mode
+                    else if arViewModel.currentSyncMode == .objectTarget {
+                         HStack {
+                             Circle()
+                                 .fill(appState.isObjectTracked ? Color.green : Color.red)
+                                 .frame(width: 10, height: 10)
+
+                             Text(appState.isObjectTracked ? "Object Target Detected" : "Searching for Object Target...")
+                                 .font(.caption)
+                                 .foregroundColor(appState.isObjectTracked ? .primary : .secondary)
+                         }
+                         .padding(.top, 4)
+
+                         // Sync Status and Re-Sync Button
+                         if arViewModel.isSyncedToObject {
+                             HStack {
+                                 Image(systemName: "checkmark.circle.fill")
+                                     .foregroundColor(.green)
+                                 Text("Synced via Object")
+                                     .font(.caption)
+                                 Spacer()
+                                 Button("Re-Sync") {
+                                     arViewModel.triggerImageSync() // Reusing triggerImageSync
+                                     lastAction = "Triggered Object Re-Sync"
+                                 }
+                                 .buttonStyle(.bordered)
+                                 .controlSize(.small)
+                             }
+                             .padding(.top, 4)
+
+                             // Debug button to load the reference object's model
+                             Button("Load Reference Model") {
+                                 let referenceModelType = ModelType(rawValue: "model-mobile")
+                                 Task { @MainActor in
+                                     guard let modelManager = arViewModel.modelManager else { return }
+                                     let model = await Model.load(modelType: referenceModelType, arViewModel: arViewModel)
+                                     if let entity = model.modelEntity {
+                                         let clonedEntity = entity.clone(recursive: true)
+                                         clonedEntity.transform = Transform() // Align at origin
+                                         arViewModel.sharedAnchorEntity.addChild(clonedEntity)
+                                         print("Loaded reference model 'model-mobile.usdz' visually onto tracked object.")
+                                         lastAction = "Loaded reference model"
+                                         // DO NOT add to modelManager.placedModels or broadcast
+                                     } else {
+                                         arViewModel.alertItem = AlertItem(title: "Load Failed", message: "Could not load 'model-mobile.usdz'.")
+                                         lastAction = "Failed to load ref model"
+                                     }
+                                 }
+                             }
+                             .buttonStyle(.bordered)
+                             .tint(.purple)
+                             .disabled(!arViewModel.isSyncedToObject) // Only enable after initial sync
+                             .padding(.top, 5)
+
+                         } else {
+                              Text("Awaiting Object Sync...")
+                                  .font(.caption)
+                                  .foregroundColor(.orange)
+                                  .padding(.top, 4)
+                         }
+                    }
                 }
                 .padding(.vertical, 8)
                 .background(Color.secondary.opacity(0.1))
                 .cornerRadius(8)
-                
+
                 // Test Message Button
                 Button("Send Test Message") {
                     arViewModel.sendTestMessage()
