@@ -66,8 +66,10 @@ struct XRAnatomyView: View {
                     }
                     
                     // Right side buttons
-                    if arViewModel.userRole != .viewer || arViewModel.isHostPermissionGranted {
-                        VStack(spacing: 10) {
+                    // Removed outer condition: if arViewModel.userRole != .viewer || arViewModel.isHostPermissionGranted {
+                    VStack(spacing: 10) {
+                        // Keep conditions for specific buttons that ARE role-dependent
+                        if arViewModel.userRole != .viewer || arViewModel.isHostPermissionGranted {
                             // Model menu
                             Button(action: { showModelMenu.toggle() }) {
                                 Image(systemName: "figure")
@@ -113,23 +115,24 @@ struct XRAnatomyView: View {
                                     .padding(5)
                             }
                             .padding(.bottom, 190)
-                            
-                            // Host permission toggle
-                            if arViewModel.userRole == .host {
-                                Button(action: {
-                                    arViewModel.isHostPermissionGranted.toggle() // Directly toggle the boolean property
-                                }) {
-                                    Image(systemName: arViewModel.isHostPermissionGranted ? "lock.open" : "lock")
-                                        .font(.system(size: 24))
-                                        .foregroundColor(.white)
-                                        .padding(10)
-                                        .contentShape(Circle())
-                                        .padding(10)
-                                }
+                        } // End of role-dependent buttons
+
+                        // Host permission toggle (still role-dependent)
+                        if arViewModel.userRole == .host {
+                            Button(action: {
+                                arViewModel.isHostPermissionGranted.toggle() // Directly toggle the boolean property
+                            }) {
+                                Image(systemName: arViewModel.isHostPermissionGranted ? "lock.open" : "lock")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(.white)
+                                    .padding(10)
+                                    .contentShape(Circle())
+                                    .padding(10)
                             }
-                            
-                            // Debug settings
-                            Button(action: { showSettingsOptions.toggle() }) {
+                        }
+                        
+                        // Debug settings button (NOW ALWAYS VISIBLE after mode selection)
+                        Button(action: { showSettingsOptions.toggle() }) {
                                 Image(systemName: "wrench.and.screwdriver")
                                     .font(.system(size: 24))
                                     .foregroundColor(.white)
@@ -142,7 +145,7 @@ struct XRAnatomyView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                         .padding(.trailing, -10)
                         .padding(.bottom, -10)
-                    }
+                    // Removed closing brace for the outer condition
                     
                     // Bottom sheet for debug settings
                     if showSettingsOptions {

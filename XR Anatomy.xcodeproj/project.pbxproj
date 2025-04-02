@@ -39,13 +39,6 @@
 			);
 			target = 0D64C65B2CE003FE00D34085 /* XR Anatomy */;
 		};
-		6ED02ED52D9DAA82004EA397 /* Exceptions for "Shared" folder in "XR Anatomy" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Assets.xcassets,
-			);
-			target = 0D64C65B2CE003FE00D34085 /* XR Anatomy */;
-		};
 		87B9745A2D09106E00168B98 /* Exceptions for "XR Anatomy Vision" folder in "XR Anatomy Vision" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -74,9 +67,6 @@
 		};
 		87B9745C2D09107E00168B98 /* Shared */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				6ED02ED52D9DAA82004EA397 /* Exceptions for "Shared" folder in "XR Anatomy" target */,
-			);
 			path = Shared;
 			sourceTree = "<group>";
 		};
@@ -404,7 +394,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"XR Anatomy/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "\"/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/XR Anatomy/Assets.xcassets\" \"XR Anatomy/\"";
 				DEVELOPMENT_TEAM = GB5R6DTC6N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -440,7 +430,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"XR Anatomy/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "\"XR Anatomy/\"";
 				DEVELOPMENT_TEAM = GB5R6DTC6N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -475,7 +465,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"XR Anatomy Vision/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "\"XR Anatomy Vision/\"";
 				DEVELOPMENT_TEAM = VNP9N3NZN6;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -505,7 +495,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"XR Anatomy Vision/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "\"XR Anatomy Vision/\"";
 				DEVELOPMENT_TEAM = VNP9N3NZN6;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
