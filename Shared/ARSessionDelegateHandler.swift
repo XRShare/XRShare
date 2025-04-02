@@ -12,68 +12,72 @@ class ARSessionDelegateHandler: NSObject, ARSessionDelegate {
         super.init()
     }
     
-    @MainActor func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
-        guard let arViewModel = arViewModel else { return }
-        for anchor in anchors {
-            // Handle plane anchors, image anchors, etc. if needed
-            if anchor is ARPlaneAnchor {
-                // print("Plane anchor added/updated: \(anchor.identifier)")
-            } else if let imageAnchor = anchor as? ARImageAnchor {
-                print("Image anchor detected: \(imageAnchor.referenceImage.name ?? "unknown")")
-                // Update shared anchor transform based on image anchor
-                DispatchQueue.main.async {
+    // Removed @MainActor - Delegate methods are not called on main thread
+    func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
+        // Use weak self to avoid retain cycles in async blocks
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, let arViewModel = self.arViewModel else { return }
+            
+            for anchor in anchors {
+                // Handle plane anchors, image anchors, etc. if needed
+                if anchor is ARPlaneAnchor {
+                    // print("Plane anchor added/updated: \(anchor.identifier)")
+                } else if let imageAnchor = anchor as? ARImageAnchor {
+                    print("Image anchor detected: \(imageAnchor.referenceImage.name ?? "unknown")")
+                    // Update shared anchor transform based on image anchor
+                    // Access arViewModel properties safely within the main queue block
                     arViewModel.sharedAnchorEntity.setTransformMatrix(imageAnchor.transform, relativeTo: nil)
                     arViewModel.isImageTracked = imageAnchor.isTracked // Update tracking status
                     
                     // If sync mode is image target, notify that the anchor is found
                     if arViewModel.currentSyncMode == .imageTarget {
                         // Potentially trigger synchronization of models relative to this anchor
+                        print("Image anchor added/updated in Image Target mode.")
                     }
+                // Removed handling for user-placed anchors (arViewModel.placedAnchors)
+                // Placement is now handled directly in ARViewModel.handleTap
+                } else {
+                     // Log other unknown anchor types if necessary
+                     // print("Ignoring unknown anchor type added: \(anchor.identifier), Type: \(type(of: anchor))")
                 }
-            } else if arViewModel.placedAnchors.contains(where: { $0.identifier == anchor.identifier }) {
-                // Handle anchors specifically placed by our tap gesture (handleTap)
-                // These might be unnamed initially.
-                print("Detected anchor added via tap gesture: \(anchor.identifier)")
-                arViewModel.placeModel(for: anchor)
-            } else {
-                 // Log other unknown anchor types if necessary
-                 print("Ignoring unknown anchor type added: \(anchor.identifier), Type: \(type(of: anchor))")
             }
         }
     }
     
     func session(_ session: ARSession, didUpdate anchors: [ARAnchor]) {
-         guard let arViewModel = arViewModel else { return }
-         for anchor in anchors {
-             if let imageAnchor = anchor as? ARImageAnchor {
-                 // Update shared anchor transform and tracking status
-                 DispatchQueue.main.async {
-                     if imageAnchor.isTracked {
-                         arViewModel.sharedAnchorEntity.setTransformMatrix(imageAnchor.transform, relativeTo: nil)
-                     }
-                     // Only update state if it changed
-                     if arViewModel.isImageTracked != imageAnchor.isTracked {
-                         arViewModel.isImageTracked = imageAnchor.isTracked
-                         print("Image anchor tracking status changed: \(arViewModel.isImageTracked)")
-                     }
-                 }
-             }
-         }
+        // Use weak self to avoid retain cycles in async blocks
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, let arViewModel = self.arViewModel else { return }
+            
+            for anchor in anchors {
+                if let imageAnchor = anchor as? ARImageAnchor {
+                    // Update shared anchor transform and tracking status
+                    if imageAnchor.isTracked {
+                        arViewModel.sharedAnchorEntity.setTransformMatrix(imageAnchor.transform, relativeTo: nil)
+                    }
+                    // Only update state if it changed
+                    if arViewModel.isImageTracked != imageAnchor.isTracked {
+                        arViewModel.isImageTracked = imageAnchor.isTracked
+                        print("Image anchor tracking status changed: \(arViewModel.isImageTracked)")
+                    }
+                }
+            }
+        }
     }
     
     func session(_ session: ARSession, didRemove anchors: [ARAnchor]) {
-        guard let arViewModel = arViewModel else { return }
-        for anchor in anchors {
-            if let imageAnchor = anchor as? ARImageAnchor {
-                print("Image anchor removed: \(imageAnchor.referenceImage.name ?? "unknown")")
-                DispatchQueue.main.async {
+        // Use weak self to avoid retain cycles in async blocks
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, let arViewModel = self.arViewModel else { return }
+            
+            for anchor in anchors {
+                if let imageAnchor = anchor as? ARImageAnchor {
+                    print("Image anchor removed: \(imageAnchor.referenceImage.name ?? "unknown")")
                     if arViewModel.isImageTracked {
                         arViewModel.isImageTracked = false // Mark as not tracked
                     }
                 }
-            }
-            // Clean up associated content if needed
-            DispatchQueue.main.async {
+                // Clean up associated content if needed
                 arViewModel.processedAnchorIDs.remove(anchor.identifier)
                 if let index = arViewModel.placedAnchors.firstIndex(where: { $0.identifier == anchor.identifier }) {
                     arViewModel.placedAnchors.remove(at: index)
@@ -84,26 +88,30 @@ class ARSessionDelegateHandler: NSObject, ARSessionDelegate {
                     let anchorsToRemove = scene.anchors.filter { $0.anchorIdentifier == anchor.identifier }
                     for anchorToRemove in anchorsToRemove {
                         scene.removeAnchor(anchorToRemove)
+                        print("Removed RealityKit anchor associated with ARAnchor: \(anchor.identifier)")
                     }
                 }
             }
         }
     }
 
+    // No @MainActor needed here, but access arViewModel safely if needed later
     func session(_ session: ARSession, didOutputCollaborationData data: ARSession.CollaborationData) {
-        guard let arViewModel = arViewModel,
-              let mpSession = arViewModel.multipeerSession,
-              !mpSession.session.connectedPeers.isEmpty else { return }
+        // Access arViewModel and multipeerSession safely
+        guard let viewModel = self.arViewModel, // Use self.arViewModel
+              let mpSession = viewModel.multipeerSession,
+              !mpSession.session.connectedPeers.isEmpty else {
+            // print("Collaboration data received but no session or peers to send to.")
+            return
+        }
         
         // Only send if it's critical or few peers
         guard data.priority == .critical || mpSession.session.connectedPeers.count < 3 else { return }
         
         do {
             let archivedData = try NSKeyedArchiver.archivedData(withRootObject: data, requiringSecureCoding: true)
-            // Verify mpSession type (for debugging, won't fix compile error directly)
-            // print("Type of mpSession: \(type(of: mpSession))") // Should print Optional<MultipeerSession> or MultipeerSession
-            
             // Use the helper method with correct parameter order (no need for line breaks)
+            // Ensure mpSession is accessed correctly
             mpSession.sendToAllPeers(archivedData, dataType: .collaborationData, reliable: true)
         } catch {
             print("Error archiving/sending collaboration data: \(error)")
@@ -112,8 +120,10 @@ class ARSessionDelegateHandler: NSObject, ARSessionDelegate {
     
     func session(_ session: ARSession, didFailWithError error: Error) {
         print("ARSession failed: \(error.localizedDescription)")
-        DispatchQueue.main.async {
-            self.arViewModel?.alertItem = AlertItem(title: "AR Error", message: error.localizedDescription)
+        // Use weak self to avoid retain cycles in async blocks
+        DispatchQueue.main.async { [weak self] in
+            // Access arViewModel safely using self?
+            self?.arViewModel?.alertItem = AlertItem(title: "AR Error", message: error.localizedDescription)
         }
     }
 }

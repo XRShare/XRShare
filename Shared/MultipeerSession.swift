@@ -21,14 +21,15 @@ class MultipeerSession: NSObject {
     private let myPeerID: MCPeerID
     private let advertiser: MCNearbyServiceAdvertiser
     private let browser: MCNearbyServiceBrowser
-    private let metadata: [String: String]
+    private var discoveryInfo: [String: String]? // Store discovery info
     
     weak var delegate: MultipeerSessionDelegate?
     
     // MARK: - Initialization
     
-    init(serviceName: String = "xr-anatomy", displayName: String) {
-        self.metadata = [:]
+    // Accept discoveryInfo in the initializer
+    init(serviceName: String = "xr-anatomy", displayName: String, discoveryInfo: [String: String]? = nil) {
+        self.discoveryInfo = discoveryInfo // Store it
         
         #if os(iOS)
         self.myPeerID = MCPeerID(displayName: displayName)
@@ -39,10 +40,10 @@ class MultipeerSession: NSObject {
         // Create the session
         self.session = MCSession(peer: myPeerID, securityIdentity: nil, encryptionPreference: .required)
         
-        // Create advertiser
+        // Create advertiser using the provided discoveryInfo
         self.advertiser = MCNearbyServiceAdvertiser(
             peer: myPeerID,
-            discoveryInfo: nil,
+            discoveryInfo: self.discoveryInfo, // Use stored discovery info
             serviceType: serviceType
         )
         
@@ -161,9 +162,11 @@ extension MultipeerSession: MCNearbyServiceAdvertiserDelegate {
 // MARK: - MCNearbyServiceBrowserDelegate
 extension MultipeerSession: MCNearbyServiceBrowserDelegate {
     func browser(_ browser: MCNearbyServiceBrowser, foundPeer peerID: MCPeerID, withDiscoveryInfo info: [String: String]?) {
-        // Extract sessionID and sessionName from discovery info
-        let sessionID = info?["sessionID"] ?? "unknown-session"
-        let sessionName = info?["sessionName"] ?? "Unnamed Session"
+        // Extract sessionID and sessionName from discovery info, provide defaults if missing
+        let sessionID = info?["sessionID"] ?? UUID().uuidString // Generate a fallback ID if needed
+        let sessionName = info?["sessionName"] ?? peerID.displayName // Use peer display name as fallback
+        
+        print("Found peer \(peerID.displayName) with discovery info: \(info ?? [:]) -> SessionName: \(sessionName), SessionID: \(sessionID)")
         
         DispatchQueue.main.async {
             self.delegate?.foundPeer(peerID: peerID, sessionID: sessionID, sessionName: sessionName)

@@ -83,15 +83,21 @@ struct XRAnatomyView: View {
                                     title: Text("Select a Model"),
                                     buttons: modelManager.modelTypes.map { modelType in
                                         .default(Text(modelType.rawValue.capitalized)) {
-                                            // Find the corresponding Model object if needed
+                                            // Set the selected model ID in ModelManager for handleTap
+                                            modelManager.selectedModelID = modelType
+                                            
+                                            // Keep setting arViewModel.selectedModel if other UI relies on it (optional)
                                             if let model = arViewModel.models.first(where: { $0.modelType == modelType }) {
-                                                arViewModel.selectedModel = model
-                                                print("Selected model for placement: \(modelType.rawValue)")
-                                                // Show placement instructions
-                                                arViewModel.alertItem = AlertItem(title: "Model Selected", message: "Tap on a surface to place the \(modelType.rawValue).")
+                                                 arViewModel.selectedModel = model
                                             } else {
-                                                print("Error: Could not find Model object for type \(modelType.rawValue)")
+                                                 // If the model isn't in arViewModel.models yet, maybe load it?
+                                                 // Or rely solely on modelManager.selectedModelID
+                                                 print("Note: Model object for \(modelType.rawValue) not found in arViewModel.models list.")
                                             }
+                                            
+                                            print("Selected model type for placement: \(modelType.rawValue)")
+                                            // Show placement instructions
+                                            arViewModel.alertItem = AlertItem(title: "Model Selected", message: "Tap on a surface to place the \(modelType.rawValue).")
                                         }
                                     } + [.cancel()]
                                 )

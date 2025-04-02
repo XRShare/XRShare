@@ -282,67 +282,84 @@ class MyCustomConnectivityService: NSObject {
                             modelEntity.components[InstanceIDComponent.self] = InstanceIDComponent(id: instanceID)
                             
                             // Determine the target parent and add the entity
+                            let targetParent: Entity?
+                            let transformToSet: simd_float4x4 = matrix // The transform received in the payload
+
                             if isRelativeToImageAnchor, let sharedAnchor = self.arViewModel?.sharedAnchorEntity {
-                                // Parent under the shared image anchor
-                                if sharedAnchor.scene == nil {
-                                     print("Warning: SharedAnchorEntity is not in the scene. Cannot add received model \(payload.modelType).")
-                                     return
-                                }
-                                sharedAnchor.addChild(modelEntity)
-                                modelEntity.transform.matrix = matrix // Set transform relative to parent
-                                print("Added received model \(payload.modelType) to sharedAnchorEntity.")
-                            } else if let scene = self.arViewModel?.currentScene {
-                                // Parent under the world (scene root)
-                                // Create an AnchorEntity and add the model to it
-                                let worldAnchor = AnchorEntity(world: matrix)
-                                worldAnchor.addChild(modelEntity)
-                                
-                                // Platform-specific anchor handling
+                                // --- Image Target Mode ---
+                                targetParent = sharedAnchor
+                                // Ensure shared anchor is in the scene (especially important on iOS)
                                 #if os(iOS)
-                                scene.addAnchor(worldAnchor) // Add the anchor to the scene
-                                #elseif os(visionOS)
-                                // In visionOS, find a suitable world anchor or parent
-                                if let modelAnchor = scene.findEntity(named: "modelAnchor") as? AnchorEntity {
-                                    // If there's a modelAnchor in the scene, use that as parent
-                                    modelEntity.removeFromParent()
-                                    modelAnchor.addChild(modelEntity)
-                                } else {
-                                    // In visionOS, we can't directly add anchors to the scene
-                                    print("Created world anchor for visionOS - will be managed by RealityView")
+                                if sharedAnchor.scene == nil, let scene = self.arViewModel?.currentScene {
+                                    scene.addAnchor(sharedAnchor)
+                                    print("Added sharedAnchorEntity to scene in handleAddModel (iOS).")
                                 }
                                 #endif
-                                // Set its world transform
-                                modelEntity.setTransformMatrix(matrix, relativeTo: nil)
-                                print("Added received model \(payload.modelType) directly to scene (world space).")
-                            } else {
-                                // Create a new anchor at the world position
-                                let newAnchor = AnchorEntity(world: .zero)
-                                newAnchor.addChild(modelEntity)
-                                modelEntity.transform.matrix = matrix
-                                
-                                if let scene = self.arViewModel?.currentScene {
-                                    // Platform-specific anchor handling
-                                    #if os(iOS)
-                                    scene.addAnchor(newAnchor)
-                                    #elseif os(visionOS)
-                                    // In visionOS, use RealityView entity management
-                                    if let modelAnchor = scene.findEntity(named: "modelAnchor") as? AnchorEntity {
-                                        modelAnchor.addChild(modelEntity)
-                                    } else {
-                                        print("Created new anchor for visionOS - will be managed by RealityView")
-                                    }
-                                    #endif
+                                if sharedAnchor.scene == nil {
+                                     print("Warning: SharedAnchorEntity is not in the scene. Cannot add received model \(payload.modelType) relative to it.")
+                                     // Optionally fallback to world placement or skip
+                                     return
                                 }
+                                print("Target parent for \(payload.modelType) is sharedAnchorEntity.")
+                                // The received transform `matrix` is already relative to the shared anchor.
+                                modelEntity.transform.matrix = transformToSet
+
+                            } else {
+                                // --- World Mode ---
+                                #if os(iOS)
+                                // On iOS, create a new AnchorEntity at the received world transform and add the model to it.
+                                let worldAnchor = AnchorEntity(world: transformToSet)
+                                targetParent = worldAnchor
+                                // Add the anchor to the scene
+                                if let scene = self.arViewModel?.currentScene {
+                                    scene.addAnchor(worldAnchor)
+                                    print("Added new world AnchorEntity to scene for received model \(payload.modelType) (iOS).")
+                                } else {
+                                     print("Warning: No scene found, cannot add world anchor for \(payload.modelType) (iOS).")
+                                     return
+                                }
+                                // Model's transform relative to its own anchor is identity
+                                modelEntity.transform = Transform()
+
+                                #elseif os(visionOS)
+                                // On visionOS, parent under the predefined 'modelAnchor' if available.
+                                if let scene = self.arViewModel?.currentScene,
+                                   let modelAnchor = scene.findEntity(named: "modelAnchor") as? AnchorEntity {
+                                    targetParent = modelAnchor
+                                    print("Target parent for \(payload.modelType) is modelAnchor (visionOS).")
+                                    // The received transform `matrix` is a world transform. Set it relative to nil.
+                                    // The entity will be added to modelAnchor below.
+                                    modelEntity.setTransformMatrix(transformToSet, relativeTo: nil)
+                                } else {
+                                    // Fallback if modelAnchor isn't found (shouldn't happen ideally)
+                                    print("Warning: modelAnchor not found in visionOS scene. Cannot place received model \(payload.modelType).")
+                                    // Maybe add directly to scene content if possible, but RealityView manages this.
+                                    targetParent = nil // Indicate failure to find parent
+                                }
+                                #else
+                                // Fallback for other potential platforms
+                                targetParent = nil
+                                print("Warning: Unsupported platform for world mode placement in handleAddModel.")
+                                #endif
                             }
 
-                            // Register the entity (owned by peer) - Ensure InstanceID is set first!
-                            print("Registering received entity \(modelEntity.id) with InstanceID \(instanceID)")
-                            self.registerEntity(modelEntity, modelType: modelType, ownedByLocalPeer: false)
+                            // Add the model entity to the determined parent if found
+                            if let parent = targetParent {
+                                parent.addChild(modelEntity)
+                                print("Added received model \(payload.modelType) (InstanceID: \(instanceID)) to parent \(parent.name). Relative: \(isRelativeToImageAnchor)")
 
-                            // Add to ModelManager's tracking (using the guaranteed strong reference)
-                            self.modelManager.modelDict[modelEntity] = model
-                            self.modelManager.placedModels.append(model)
-                            print("Added received model \(payload.modelType) (InstanceID: \(instanceID)) to ModelManager.")
+                                // Register the entity (owned by peer) - Ensure InstanceID is set first!
+                                print("Registering received entity \(modelEntity.id) with InstanceID \(instanceID)")
+                                self.registerEntity(modelEntity, modelType: modelType, ownedByLocalPeer: false)
+
+                                // Add to ModelManager's tracking (using the guaranteed strong reference)
+                                self.modelManager.modelDict[modelEntity] = model
+                                self.modelManager.placedModels.append(model)
+                                print("Added received model \(payload.modelType) (InstanceID: \(instanceID)) to ModelManager.")
+
+                            } else {
+                                print("Failed to add received model \(payload.modelType) because a suitable parent could not be determined or added.")
+                            }
                         }
                     } else {
                         print("Failed to load model entity for received model: \(payload.modelType)")
@@ -526,61 +543,73 @@ class MyCustomConnectivityService: NSObject {
                         expectedParent = nil // Representing world space (or an appropriate world anchor)
                     }
 
-                    // Check current parent and reparent if necessary
+                    // --- Reparenting and Transform Logic ---
                     let currentParent = entity.parent
-                    
+
                     if isRelativeToImageAnchor {
-                        // Expecting sharedAnchorEntity as parent
-                        if currentParent !== expectedParent {
-                            print("Reparenting \(instanceID) to sharedAnchorEntity.")
-                            entity.removeFromParent()
-                            arViewModel.sharedAnchorEntity.addChild(entity)
-                            // Now set the transform, which is relative to the new parent (sharedAnchorEntity)
-                            entity.transform.matrix = matrix
-                        } else {
-                            // Already correctly parented, just set the relative transform
-                            entity.transform.matrix = matrix
+                        // --- Image Target Mode ---
+                        // Ensure parent is sharedAnchorEntity
+                        if currentParent !== arViewModel.sharedAnchorEntity {
+                            print("Reparenting \(instanceID) to sharedAnchorEntity for Image Target mode.")
+                            // Ensure shared anchor is in scene first (iOS mainly)
+                            #if os(iOS)
+                            if arViewModel.sharedAnchorEntity.scene == nil, let scene = arViewModel.currentScene {
+                                scene.addAnchor(arViewModel.sharedAnchorEntity)
+                            }
+                            #endif
+                            if arViewModel.sharedAnchorEntity.scene != nil {
+                                entity.setParent(arViewModel.sharedAnchorEntity, preservingWorldTransform: true)
+                            } else {
+                                print("Warning: Cannot reparent \(instanceID) to sharedAnchorEntity because it's not in the scene.")
+                                // Skip transform update if reparenting failed
+                                return
+                            }
                         }
+                        // Apply the received transform (which is relative to sharedAnchorEntity)
+                        entity.transform.matrix = matrix
+
                     } else {
-                        // Expecting world space (e.g., under a world AnchorEntity or scene root)
-                        if let currentParentAnchor = currentParent as? AnchorEntity, currentParentAnchor === arViewModel.sharedAnchorEntity {
-                             // Currently under image anchor, needs to move to world space.
-                             print("Reparenting \(instanceID) from sharedAnchorEntity to world space.")
-                             // We received a world transform (matrix). Create/find a world anchor.
-                             // Simplest: Create a new anchor at the target world location.
-                             entity.removeFromParent() // Remove from image anchor
-                             
-                             // Handle platform differences for adding to world space
+                        // --- World Mode ---
+                        // Ensure parent is NOT sharedAnchorEntity. Move to appropriate world anchor.
+                        if currentParent === arViewModel.sharedAnchorEntity {
+                             print("Reparenting \(instanceID) from sharedAnchorEntity to World mode parent.")
                              #if os(iOS)
-                             let worldAnchor = AnchorEntity(world: matrix) // New anchor at the target world pos
-                             worldAnchor.addChild(entity) // Add entity to it
-                             entity.transform = Transform() // Reset local transform relative to new anchor
-                             arViewModel.currentScene?.addAnchor(worldAnchor) // Add anchor to scene
+                             // Create a new world anchor at the target world position and reparent.
+                             let worldAnchor = AnchorEntity(world: matrix)
+                             if let scene = arViewModel.currentScene {
+                                 scene.addAnchor(worldAnchor)
+                                 entity.setParent(worldAnchor, preservingWorldTransform: false) // World transform is handled by anchor
+                                 entity.transform = Transform() // Reset local transform
+                             } else {
+                                 print("Warning: Cannot reparent \(instanceID) to world anchor (iOS) - scene missing.")
+                                 return // Skip update
+                             }
                              #elseif os(visionOS)
-                             // On visionOS, find a suitable world anchor
+                             // Reparent to the 'modelAnchor'
                              if let scene = arViewModel.currentScene, let modelAnchor = scene.findEntity(named: "modelAnchor") as? AnchorEntity {
-                                 modelAnchor.addChild(entity)
+                                 entity.setParent(modelAnchor, preservingWorldTransform: true)
+                                 // Apply the received world transform after reparenting
                                  entity.setTransformMatrix(matrix, relativeTo: nil)
                              } else {
-                                 // Fallback to using the scene as parent
-                                 let worldAnchor = AnchorEntity(world: matrix)
-                                 worldAnchor.addChild(entity)
-                                 entity.transform = Transform()
-                                 print("Created new world anchor for transform update (visionOS) - will be managed by RealityView")
+                                 print("Warning: Cannot reparent \(instanceID) to modelAnchor (visionOS) - anchor missing.")
+                                 return // Skip update
                              }
                              #endif
                         } else {
-                             // Already in world space (or should be).
-                             // Apply the received world transform directly.
+                             // Already in world space (or should be). Apply the received world transform.
                              entity.setTransformMatrix(matrix, relativeTo: nil)
                         }
                     }
-                    
+                    // --- End Reparenting ---
+
+                    // Update the LastTransformComponent cache *after* applying
+                    entity.components[LastTransformComponent.self] = LastTransformComponent(matrix: entity.transform.matrix)
+
                     print("Applied transform to \(instanceID). RelativeToImage: \(isRelativeToImageAnchor)")
                     return
                 }
-                
-                // Fallback: Try to find the entity by its model type
+
+                // Fallback: Try to find the entity by its model type (Less reliable, keep as last resort)
                 if let modelTypeStr = payload.modelType {
                     // Check model manager
                     for (entity, model) in self.modelManager.modelDict {

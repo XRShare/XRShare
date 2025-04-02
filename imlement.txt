@@ -1,137 +1,211 @@
 <Plan>
-1.  Modify `InSession.swift` for the visionOS target.
-2.  Introduce `@State` variables `draggedEntity` and `startLocation3D` to track the entity being dragged and its initial 3D location during the gesture.
-3.  Update the `.simultaneousGesture(DragGesture()...)` block:
-    *   In `.onChanged`, capture the starting entity and location if `draggedEntity` is nil.
-    *   Calculate the 3D translation delta using `value.location3D` relative to the stored `startLocation3D`.
-    *   Call `modelManager.handleDragChange` with the calculated 3D delta.
-    *   Update `startLocation3D` for the next change event.
-    *   Remove the incorrect line that tried to access `value.translation.depth`.
-    *   In `.onEnded`, call `modelManager.handleDragEnd` and reset the state variables.
+1.  **Fix iOS Tap-to-Add:** Modify the `ActionSheet` button action in `XRAnatomyView.swift` to set `modelManager.selectedModelID` when a model is chosen for placement. This ensures the `handleTap` function in `ARViewModel` finds the selected model type.
+2.  **Fix iOS Early Multipeer Start:**
+    *   Remove the logic within `ARViewModel.loadModels()` that automatically starts multipeer services when `shouldStartMultipeerAfterModelsLoad` is true. Multipeer should *only* be started explicitly by user action in `StartupMenuView`.
+    *   Remove the `shouldStartMultipeerAfterModelsLoad` property from `ARViewModel`.
+    *   Remove the `deferMultipeerServicesUntilModelsLoad()` method from `ARViewModel`.
+    *   Remove the call to `deferMultipeerServicesUntilModelsLoad()` in `XRAnatomyApp.swift`.
 </Plan>
 
-<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/XR Anatomy Vision/Scenes/InSession.swift" action="modify">
+<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/XR Anatomy/XRAnatomyView.swift" action="modify">
   <change>
-    <description>Fix DragGesture handling for visionOS using location3D</description>
+    <description>Update ActionSheet button action to set modelManager.selectedModelID</description>
     <search>
 ===
-    @State private var showDebugInfo = true
-    @State private var refreshTimer: Timer? = nil
-    @State private var timerCounter = 0
-
-    var body: some View {
-        ZStack {
+                                    buttons: modelManager.modelTypes.map { modelType in
+                                        .default(Text(modelType.rawValue.capitalized)) {
+                                            // Find the corresponding Model object if needed
+                                            if let model = arViewModel.models.first(where: { $0.modelType == modelType }) {
+                                                arViewModel.selectedModel = model
+                                                print("Selected model for placement: \(modelType.rawValue)")
+                                                // Show placement instructions
+                                                arViewModel.alertItem = AlertItem(title: "Model Selected", message: "Tap on a surface to place the \(modelType.rawValue).")
+                                            } else {
+                                                print("Error: Could not find Model object for type \(modelType.rawValue)")
+                                            }
+                                        }
+                                    } + [.cancel()]
+                                )
+                            }
+                            
+                            // Trash / reset
 ===
     </search>
     <content>
 ===
-    @State private var showDebugInfo = true
-    @State private var refreshTimer: Timer? = nil
-    @State private var timerCounter = 0
-    
-    // State for Drag Gesture
-    @State private var draggedEntity: Entity? = nil
-    @State private var startLocation3D: Point3D? = nil
+                                    buttons: modelManager.modelTypes.map { modelType in
+                                        .default(Text(modelType.rawValue.capitalized)) {
+                                            // Set the selected model ID in ModelManager for handleTap
+                                            modelManager.selectedModelID = modelType
+                                            
+                                            // Keep setting arViewModel.selectedModel if other UI relies on it (optional)
+                                            if let model = arViewModel.models.first(where: { $0.modelType == modelType }) {
+                                                 arViewModel.selectedModel = model
+                                            } else {
+                                                 // If the model isn't in arViewModel.models yet, maybe load it?
+                                                 // Or rely solely on modelManager.selectedModelID
+                                                 print("Note: Model object for \(modelType.rawValue) not found in arViewModel.models list.")
+                                            }
+                                            
+                                            print("Selected model type for placement: \(modelType.rawValue)")
+                                            // Show placement instructions
+                                            arViewModel.alertItem = AlertItem(title: "Model Selected", message: "Tap on a surface to place the \(modelType.rawValue).")
+                                        }
+                                    } + [.cancel()]
+                                )
+                            }
+                            
+                            // Trash / reset
+===
+    </content>
+  </change>
+</file>
 
-    var body: some View {
-        ZStack {
+<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/Shared/ARViewModel.swift" action="modify">
+  <change>
+    <description>Remove shouldStartMultipeerAfterModelsLoad property</description>
+    <search>
+===
+    private var subscriptions = Set<AnyCancellable>()
+
+    // Multipeer state flags
+    private var shouldStartMultipeerAfterModelsLoad: Bool = false
+
+    // Reference to ModelManager (Now shared)
+    // Use weak var if ModelManager might hold a strong ref back, otherwise strong is fine.
+===
+    </search>
+    <content>
+===
+    private var subscriptions = Set<AnyCancellable>()
+
+    // Reference to ModelManager (Now shared)
+    // Use weak var if ModelManager might hold a strong ref back, otherwise strong is fine.
 ===
     </content>
   </change>
   <change>
-    <description>Implement correct 3D drag handling using location3D</description>
+    <description>Remove automatic multipeer start from loadModels()</description>
     <search>
 ===
-            .simultaneousGesture(DragGesture()
-                .targetedToAnyEntity()
-                .onChanged { value in
-                    // Calculate translation in world space might be complex depending on coordinate spaces.
-                    // For simplicity, let's use the gesture's translation directly, assuming it's somewhat relative.
-                    // A more robust solution might involve projecting onto a plane or using ARKit anchors.
-                    let translation = SIMD3<Float>(Float(value.translation.width), Float(value.translation.height), Float(value.translation.depth))
-                    
-                    // Call handleDragChange on the main actor
-                    Task { @MainActor in
-                        modelManager.handleDragChange(entity: value.entity, translation: translation, arViewModel: arViewModel)
-                    }
-                    lastGestureEvent = "Dragging \(value.entity.name)"
-                }
-                .onEnded { value in
-                    Task { @MainActor in
-                         modelManager.handleDragEnd(entity: value.entity, arViewModel: arViewModel)
-                    }
-                    lastGestureEvent = "Drag ended for \(value.entity.name)"
-                }
-            )
-             .simultaneousGesture(MagnifyGesture()
+                    message: "\(mt.rawValue.capitalized): \(error.localizedDescription)"
+                )
+            default:
+                break
+            }
+
+            // REMOVE THIS BLOCK - Multipeer should only start on user action from menu
+            // if (loadedModels + failedModels) >= totalModels && self.shouldStartMultipeerAfterModelsLoad {
+            //     self.startMultipeerServices()
+            //     self.shouldStartMultipeerAfterModelsLoad = false
+            // }
+        }
+    }
+
+    private func updateLoadingProgress(loaded: Int, failed: Int, total: Int) {
 ===
     </search>
     <content>
 ===
-            .simultaneousGesture(DragGesture()
-                 .targetedToAnyEntity()
-                 .onChanged { value in
-                     // Store starting info on first change
-                     if draggedEntity == nil {
-                         draggedEntity = value.entity
-                         startLocation3D = value.location3D
-                     }
-                     
-                     // Ensure we have start location and are dragging the same entity
-                     guard let currentStartLocation = startLocation3D, value.entity == draggedEntity else {
-                         print("Drag changed: Mismatched entity or missing start location.")
-                         return
-                     }
-                     
-                     // Calculate the translation delta in the parent's coordinate space
-                     let currentLocation3D = value.location3D
-                     let deltaX = Float(currentLocation3D.x - currentStartLocation.x)
-                     let deltaY = Float(currentLocation3D.y - currentStartLocation.y)
-                     let deltaZ = Float(currentLocation3D.z - currentStartLocation.z)
-                     let translationDelta = SIMD3<Float>(deltaX, deltaY, deltaZ)
+                    message: "\(mt.rawValue.capitalized): \(error.localizedDescription)"
+                )
+            default:
+                break
+            }
 
-                     // Call handleDragChange with the delta
-                     // Note: handleDragChange expects a delta, not an absolute position change
-                     Task { @MainActor in
-                         // Check if the entity still exists in the manager before handling
-                         if modelManager.modelDict[value.entity] != nil {
-                              modelManager.handleDragChange(entity: value.entity, translation: translationDelta, arViewModel: arViewModel)
-                         } else {
-                              print("Drag changed: Entity \(value.entity.name) no longer managed.")
-                              // Reset drag state if entity is gone
-                              draggedEntity = nil
-                              startLocation3D = nil
-                         }
-                     }
-                     
-                     // Update start location for the next delta calculation
-                     startLocation3D = currentLocation3D
-                     
-                     lastGestureEvent = "Dragging \(value.entity.name)"
-                 }
-                 .onEnded { value in
-                     // Ensure we have the dragged entity before ending
-                     guard let entityToEnd = draggedEntity else {
-                         print("Drag ended: No entity was being tracked.")
-                         return
-                     }
-                     
-                     Task { @MainActor in
-                         // Check if the entity still exists before ending
-                         if modelManager.modelDict[entityToEnd] != nil {
-                              modelManager.handleDragEnd(entity: entityToEnd, arViewModel: arViewModel)
-                         } else {
-                              print("Drag ended: Entity \(entityToEnd.name) no longer managed.")
-                         }
-                     }
-                     lastGestureEvent = "Drag ended for \(entityToEnd.name)"
-                     
-                     // Reset state
-                     draggedEntity = nil
-                     startLocation3D = nil
-                 }
-            )
-             .simultaneousGesture(MagnifyGesture()
+            // Removed automatic start of multipeer services after model loading.
+            // This should now only happen explicitly via StartupMenuView or MainMenu.
+
+        } // End of loop
+        
+        // Ensure progress hits 1.0 if it hasn't already
+        if loadingProgress < 1.0 {
+             updateLoadingProgress(loaded: loadedModels, failed: failedModels, total: totalModels)
+        }
+    }
+
+    private func updateLoadingProgress(loaded: Int, failed: Int, total: Int) {
+===
+    </content>
+  </change>
+  <change>
+    <description>Remove deferMultipeerServicesUntilModelsLoad method</description>
+    <search>
+===
+        self.selectedSession = session
+    }
+
+    /// Defers multipeer service start until models are loaded
+    func deferMultipeerServicesUntilModelsLoad() {
+        print("Deferring multipeer services until models load")
+        self.shouldStartMultipeerAfterModelsLoad = true
+    }
+
+    // MARK: - Test Messaging
+===
+    </search>
+    <content>
+===
+        self.selectedSession = session
+    }
+
+    // Removed deferMultipeerServicesUntilModelsLoad() - No longer needed.
+
+    // MARK: - Test Messaging
+===
+    </content>
+  </change>
+  <change>
+    <description>Remove check for shouldStartMultipeerAfterModelsLoad in setupARView</description>
+    <search>
+===
+        // For now, let's assume default behavior is acceptable.
+
+        // Only start multipeer here if it wasn't deferred
+        if !self.shouldStartMultipeerAfterModelsLoad && self.multipeerSession == nil {
+            self.startMultipeerServices()
+        }
+    }
+
+    /// Handle tap gestures for model placement OR selection/interaction (iOS)
+===
+    </search>
+    <content>
+===
+        // For now, let's assume default behavior is acceptable.
+
+        // Removed automatic start of multipeer services from setupARView.
+        // Multipeer is now started only via StartupMenuView actions.
+    }
+
+    /// Handle tap gestures for model placement OR selection/interaction (iOS)
+===
+    </content>
+  </change>
+</file>
+
+<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/XR Anatomy/XRAnatomy.swift" action="modify">
+  <change>
+    <description>Remove call to deferMultipeerServicesUntilModelsLoad in onAppear</description>
+    <search>
+===
+                    arViewModel.modelManager = modelManager
+                    
+                    // Initialize the model loading process but defer multipeer
+                    arViewModel.deferMultipeerServicesUntilModelsLoad()
+                    // Use Task for async loading
+                    Task {
+                        await arViewModel.loadModels()
+===
+    </search>
+    <content>
+===
+                    arViewModel.modelManager = modelManager
+                    
+                    // Initialize the model loading process. Multipeer is started via menu selection.
+                    // Use Task for async loading
+                    Task {
+                        await arViewModel.loadModels()
 ===
     </content>
   </change>

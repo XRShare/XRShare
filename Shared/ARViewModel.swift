@@ -83,9 +83,6 @@ class ARViewModel: NSObject, ObservableObject {
     // Subscription storage
     private var subscriptions = Set<AnyCancellable>()
 
-    // Multipeer state flags
-    private var shouldStartMultipeerAfterModelsLoad: Bool = false
-
     // Reference to ModelManager (Now shared)
     // Use weak var if ModelManager might hold a strong ref back, otherwise strong is fine.
     @Published var modelManager: ModelManager? // Make it published if UI needs to react to its existence
@@ -173,10 +170,14 @@ class ARViewModel: NSObject, ObservableObject {
                 break
             }
 
-            if (loadedModels + failedModels) >= totalModels && self.shouldStartMultipeerAfterModelsLoad {
-                self.startMultipeerServices()
-                self.shouldStartMultipeerAfterModelsLoad = false
-            }
+            // Removed automatic start of multipeer services after model loading.
+            // This should now only happen explicitly via StartupMenuView or MainMenu.
+
+        } // End of loop
+        
+        // Ensure progress hits 1.0 if it hasn't already
+        if loadingProgress < 1.0 {
+             updateLoadingProgress(loaded: loadedModels, failed: failedModels, total: totalModels)
         }
     }
 
@@ -220,9 +221,16 @@ class ARViewModel: NSObject, ObservableObject {
         if self.sessionName.isEmpty {
             self.sessionName = displayName
         }
-        self.multipeerSession = MultipeerSession(serviceName: "xr-anatomy", displayName: displayName)
+        // Prepare discovery info
+        let discoveryInfo = ["sessionID": self.sessionID, "sessionName": self.sessionName]
+        
+        self.multipeerSession = MultipeerSession(
+            serviceName: "xr-anatomy",
+            displayName: displayName,
+            discoveryInfo: discoveryInfo // Pass discovery info here
+        )
         self.multipeerSession?.delegate = self
-        print("Created multipeer session with name: \(displayName), advertising name: \(self.sessionName)")
+        print("Created multipeer session with name: \(displayName), advertising name: \(self.sessionName), discoveryInfo: \(discoveryInfo)")
 
 
         // Create connectivity service if it doesn't exist
@@ -281,11 +289,7 @@ class ARViewModel: NSObject, ObservableObject {
         self.selectedSession = session
     }
 
-    /// Defers multipeer service start until models are loaded
-    func deferMultipeerServicesUntilModelsLoad() {
-        print("Deferring multipeer services until models load")
-        self.shouldStartMultipeerAfterModelsLoad = true
-    }
+    // Removed deferMultipeerServicesUntilModelsLoad() - No longer needed.
 
     // MARK: - Test Messaging
 
@@ -345,42 +349,49 @@ class ARViewModel: NSObject, ObservableObject {
         // You might need to implement UIGestureRecognizerDelegate methods if more complex gesture interactions are required.
         // For now, let's assume default behavior is acceptable.
 
-        // Only start multipeer here if it wasn't deferred
-        if !self.shouldStartMultipeerAfterModelsLoad && self.multipeerSession == nil {
-            self.startMultipeerServices()
-        }
+        // Removed automatic start of multipeer services from setupARView.
+        // Multipeer is now started only via StartupMenuView actions.
     }
 
-    /// Handle tap gestures for model placement OR selection/interaction
+    /// Handle tap gestures for model placement OR selection/interaction (iOS)
     @MainActor @objc func handleTap(_ sender: UITapGestureRecognizer) {
-        guard let arView = self.arView, let modelManager = self.modelManager else { return }
+        guard let arView = self.arView, let modelManager = self.modelManager, let customService = self.customService else {
+            print("ARView, ModelManager, or CustomService not available for tap handling.")
+            return
+        }
         let tapLocation = sender.location(in: arView)
 
         // 1. Try to hit test existing entities first
         if let hitEntity = arView.entity(at: tapLocation), modelManager.modelDict[hitEntity] != nil {
             print("Tap hit existing model: \(hitEntity.name)")
             modelManager.handleTap(entity: hitEntity)
+            // Ensure the tapped model is selected
+            if let model = modelManager.modelDict[hitEntity] {
+                modelManager.selectedModelID = model.modelType
+            }
             return // Don't proceed to placement if we hit an existing model
         }
 
-        // 2. If no entity hit, proceed with placement logic (if a model is selected)
-        guard let selectedModel = self.selectedModel else {
-             print("Tap missed entities and no model selected for placement.")
-             return
+        // 2. If no entity hit, proceed with placement logic (if a model is selected in ModelManager)
+        guard let selectedModelType = modelManager.selectedModelID,
+              let modelToPlace = self.models.first(where: { $0.modelType == selectedModelType }) else {
+            print("Tap missed entities and no model selected in ModelManager for placement.")
+            // Optionally show an alert to select a model first
+            // self.alertItem = AlertItem(title: "Select Model", message: "Please select a model from the menu before placing.")
+            return
         }
 
-        // Ensure user has permission to add models (only check if placing)
+        // Ensure user has permission to add models
         guard self.userRole != .viewer || self.isHostPermissionGranted else {
             self.alertItem = AlertItem(
                 title: "Permission Denied",
-                message: "You don't have permission to add models. Ask the host to grant you permission."
+                message: "You don't have permission to add models. Ask the host for permission."
             )
             return
         }
 
         // Raycast to find placement position on a plane
         let results = arView.raycast(from: tapLocation, allowing: .estimatedPlane, alignment: .any)
-
         guard let firstResult = results.first else {
             self.alertItem = AlertItem(
                 title: "Placement Failed",
@@ -389,21 +400,91 @@ class ARViewModel: NSObject, ObservableObject {
             return
         }
 
-        // Create ARAnchor for the model placement
-        let anchorName = "\(selectedModel.modelType.rawValue)_\(UUID().uuidString)" // Optional name for debugging
-        let anchor = ARAnchor(name: anchorName, transform: firstResult.worldTransform) // Add name here
+        // --- Direct Placement Logic ---
+        Task {
+            // Ensure the model is loaded
+            if !modelToPlace.isLoaded() {
+                await modelToPlace.loadModelEntity()
+            }
 
-        // Add the ARAnchor to the session. The delegate will handle placing the RealityKit content.
-        arView.session.add(anchor: anchor)
-        self.placedAnchors.append(anchor) // Track the anchor we intend to place a model on
+            guard let modelEntity = modelToPlace.modelEntity?.clone(recursive: true) else {
+                print("Failed to get or clone model entity for placement: \(modelToPlace.modelType.rawValue)")
+                self.alertItem = AlertItem(title: "Placement Error", message: "Could not load the selected model.")
+                return
+            }
 
-        // Optional: Store mapping if needed elsewhere, though delegate logic should handle it
-        // let userInfo = ["modelName": selectedModel.modelType.rawValue, "anchorName": anchorName]
-        // NotificationCenter.default.post(name: Notification.Name("AnchorCreated"), object: anchor.identifier, userInfo: userInfo)
+            // Assign a unique instance ID if it doesn't have one
+            if modelEntity.components[InstanceIDComponent.self] == nil {
+                modelEntity.components.set(InstanceIDComponent())
+            }
+            let instanceID = modelEntity.components[InstanceIDComponent.self]!.id
 
-        print("Initiated placement for model \(selectedModel.modelType.rawValue) via ARAnchor \(anchor.identifier)")
-        // Deselect model after placing? Optional.
-        // self.selectedModel = nil
+            // Determine the target parent and transform based on sync mode
+            let targetParent: Entity
+            let transformMatrix: simd_float4x4
+            let isRelativeToImageAnchor: Bool
+
+            if self.currentSyncMode == .imageTarget {
+                // Place relative to the shared image anchor
+                targetParent = self.sharedAnchorEntity
+                // Ensure shared anchor is in the scene
+                if targetParent.scene == nil {
+                    arView.scene.addAnchor(targetParent as! AnchorEntity) // Cast is safe here
+                    print("Added sharedAnchorEntity to scene during placement.")
+                }
+                // Calculate transform relative to the shared anchor
+                transformMatrix = firstResult.worldTransform * targetParent.transformMatrix(relativeTo: nil).inverse
+                isRelativeToImageAnchor = true
+                print("Placing \(modelToPlace.modelType.rawValue) relative to Image Target Anchor.")
+            } else {
+                // Place relative to the world (add to scene root or a world anchor)
+                // For simplicity on iOS, let's add directly to the scene using an AnchorEntity
+                // The transformMatrix will be the world transform from the raycast
+                let worldAnchor = AnchorEntity(world: firstResult.worldTransform)
+                arView.scene.addAnchor(worldAnchor)
+                targetParent = worldAnchor // Parent is the new world anchor
+                transformMatrix = matrix_identity_float4x4 // Model's local transform relative to its anchor is identity
+                isRelativeToImageAnchor = false
+                print("Placing \(modelToPlace.modelType.rawValue) relative to World Anchor at \(firstResult.worldTransform.position).")
+            }
+
+            // Add the cloned entity to the target parent
+            targetParent.addChild(modelEntity)
+            // Set the calculated transform
+            modelEntity.transform.matrix = transformMatrix
+
+            // Create a new Model instance for ModelManager tracking
+            // Use the existing loaded model data but create a new instance for tracking this placement
+            let placedModelInstance = Model(modelType: modelToPlace.modelType, arViewModel: self)
+            placedModelInstance.modelEntity = modelEntity // Assign the placed entity
+            placedModelInstance.loadingState = .loaded // Mark as loaded
+
+            // Register with ModelManager and ConnectivityService
+            modelManager.modelDict[modelEntity] = placedModelInstance
+            modelManager.placedModels.append(placedModelInstance)
+            customService.registerEntity(modelEntity, modelType: modelToPlace.modelType, ownedByLocalPeer: true)
+            print("Registered placed model \(modelToPlace.modelType.rawValue) (InstanceID: \(instanceID)) with ModelManager and ConnectivityService.")
+
+            // Broadcast the addition
+            let broadcastTransform = isRelativeToImageAnchor ? transformMatrix : firstResult.worldTransform // Send world transform if not relative
+            let payload = AddModelPayload(
+                instanceID: instanceID,
+                modelType: modelToPlace.modelType.rawValue,
+                transform: broadcastTransform.toArray(), // Send the appropriate transform
+                isRelativeToImageAnchor: isRelativeToImageAnchor
+            )
+            do {
+                let data = try JSONEncoder().encode(payload)
+                self.multipeerSession?.sendToAllPeers(data, dataType: .addModel)
+                print("Broadcasted addModel: \(modelToPlace.modelType.rawValue) (ID: \(instanceID)), Relative: \(isRelativeToImageAnchor)")
+            } catch {
+                print("Error encoding AddModelPayload for placement: \(error)")
+            }
+
+            // Optional: Deselect model after placing
+            // modelManager.selectedModelID = nil
+            self.alertItem = AlertItem(title: "Model Placed", message: "\(modelToPlace.modelType.rawValue) placed successfully.")
+        }
     }
 
     /// Reset the AR session
@@ -451,52 +532,7 @@ class ARViewModel: NSObject, ObservableObject {
         print("All models cleared")
     }
 
-    /// Process an AR anchor and place the appropriate model
-    @MainActor func placeModel(for anchor: ARAnchor) {
-        guard let arView = self.arView else { return }
-
-        // Check if we've already processed this anchor
-        if self.processedAnchorIDs.contains(anchor.identifier) {
-            return
-        }
-
-        // Mark as processed to avoid duplicates
-        self.processedAnchorIDs.insert(anchor.identifier)
-
-        // Default to the first model type if we can't determine which one was intended
-        // In a real app, you'd want a more robust way to track which anchor maps to which model
-        let defaultModelType = self.models.first?.modelType
-
-        // Try to find if this anchor has a model type associated with it through our notification system
-        // Real apps would use a more robust approach like storing this mapping in a dictionary
-        var modelName = defaultModelType?.rawValue
-
-        // Simple approach: just place the selected model
-        if let selectedModel = self.selectedModel {
-            modelName = selectedModel.modelType.rawValue
-        }
-
-        // Find corresponding model
-        guard let modelName = modelName else {
-            print("No model selected to place for anchor: \(anchor.identifier)")
-            return
-        }
-
-        let matchingModels = self.models.filter { $0.modelType.rawValue.lowercased() == modelName.lowercased() }
-        guard let model = matchingModels.first,
-              let modelEntity = model.modelEntity?.clone(recursive: true) else {
-            print("No matching model found for anchor")
-            return
-        }
-
-        // Create anchor entity positioned at the ARAnchor's world transform
-        let anchorEntity = AnchorEntity(world: anchor.transform)
-        anchorEntity.addChild(modelEntity)
-
-        // Add to scene
-        arView.scene.addAnchor(anchorEntity)
-        print("Placed model \(modelName) for anchor: \(anchor.identifier)")
-    }
+    // Removed placeModel(for:) as placement is now handled directly in handleTap
 
     /// Broadcasts model transform using the unified sendTransform method.
     func broadcastModelTransform(entity: Entity, modelType: ModelType) {
@@ -526,15 +562,41 @@ class ARViewModel: NSObject, ObservableObject {
             }
         case .changed:
             guard let entity = activeGestureEntity else { return }
-            let translation = sender.translation(in: arView)
-            // Convert 2D screen translation to 3D world translation - this is approximate
-            // A better approach involves raycasting onto a plane relative to the camera or entity
-            let cameraTransform = arView.cameraTransform
-            var worldTranslation = SIMD3<Float>(Float(translation.x), -Float(translation.y), 0) * 0.001 // Adjust sensitivity
-            worldTranslation = cameraTransform.rotation.act(worldTranslation) // Rotate translation to world space
-
-            modelManager.handleDragChange(entity: entity, translation: worldTranslation, arViewModel: self)
-            sender.setTranslation(.zero, in: arView) // Reset translation for next change
+            
+            // --- Improved Pan Translation using Raycasting ---
+            // 1. Get the current 2D location of the gesture.
+            let currentTapLocation = sender.location(in: arView)
+            
+            // 2. Perform a raycast from the current touch location.
+            //    We aim for the horizontal plane the entity is on, or a plane at the entity's depth.
+            //    Using existing planes is often more stable.
+            let results = arView.raycast(from: currentTapLocation, allowing: .existingPlaneGeometry, alignment: .any)
+            
+            if let firstResult = results.first {
+                // 3. Calculate the desired world position based on the raycast hit.
+                let desiredWorldPosition = firstResult.worldTransform.position
+                
+                // 4. Calculate the delta needed to move the entity from its current position to the desired position.
+                //    Get the entity's current world position.
+                let currentWorldPosition = entity.position(relativeTo: nil)
+                let translationDelta = desiredWorldPosition - currentWorldPosition
+                
+                // 5. Apply the delta using the ModelManager's handler (which might apply smoothing/clamping).
+                //    Note: handleDragChange expects a *delta*, not an absolute position.
+                modelManager.handleDragChange(entity: entity, translation: translationDelta, arViewModel: self)
+                
+            } else {
+                // Fallback: If raycast fails (e.g., pointing off into space), maybe use the old approximate method or do nothing.
+                print("Pan raycast failed, using approximate translation.")
+                let translation = sender.translation(in: arView)
+                let cameraTransform = arView.cameraTransform
+                var worldTranslation = SIMD3<Float>(Float(translation.x), -Float(translation.y), 0) * 0.001 // Adjust sensitivity
+                worldTranslation = cameraTransform.rotation.act(worldTranslation) // Rotate translation to world space
+                modelManager.handleDragChange(entity: entity, translation: worldTranslation, arViewModel: self)
+                sender.setTranslation(.zero, in: arView) // Reset translation only for fallback
+            }
+            // --- End Improved Pan ---
+            
         case .ended, .cancelled:
              if let entity = activeGestureEntity {
                  modelManager.handleDragEnd(entity: entity, arViewModel: self)

@@ -34,48 +34,65 @@ final class ModelManager: ObservableObject {
                     
                     // Automatically select newly loaded model
                     self.selectedModelID = modelType
-                }
-                // Add await here to fix visionOS build error
-                let customService = arViewModel?.customService // Directly access after await
-                if let customService = customService {
-                    customService.registerEntity(entity, modelType: modelType) // No await needed unless method is async
-                }
-                
-                // Broadcast the addition of this model instance
-                if let arViewModel = arViewModel, let _ = arViewModel.customService {
-                    // Use InstanceIDComponent for a stable ID across sessions if available
-                    let instanceID = entity.components[InstanceIDComponent.self]?.id ?? entity.id.stringValue
                     
-                    // Determine the transform based on sync mode
-                    let transformMatrix: simd_float4x4
-                    let isRelativeToImageAnchor: Bool
+                    // Ensure InstanceIDComponent exists before broadcasting
+                    if entity.components[InstanceIDComponent.self] == nil {
+                        entity.components.set(InstanceIDComponent())
+                    }
+                    let instanceID = entity.components[InstanceIDComponent.self]!.id
                     
-                    if arViewModel.currentSyncMode == .imageTarget {
-                        // Send transform relative to the shared image anchor
-                        transformMatrix = entity.transformMatrix(relativeTo: arViewModel.sharedAnchorEntity)
-                        isRelativeToImageAnchor = true
+                    // Register with connectivity service
+                    if let customService = arViewModel?.customService {
+                        customService.registerEntity(entity, modelType: modelType, ownedByLocalPeer: true)
+                        print("Registered newly loaded model \(modelType.rawValue) (InstanceID: \(instanceID)) with ConnectivityService.")
                     } else {
-                        // Send world transform
-                        transformMatrix = entity.transform.matrix
-                        isRelativeToImageAnchor = false
+                        print("Warning: CustomService not available, cannot register entity \(modelType.rawValue).")
                     }
-                    
-                    let transformArray = transformMatrix.toArray()
-                    
-                    let payload = AddModelPayload(
-                        instanceID: instanceID,
-                        modelType: modelType.rawValue,
-                        transform: transformArray,
-                        isRelativeToImageAnchor: isRelativeToImageAnchor // Send relative flag
-                    )
-                    do {
-                        let data = try JSONEncoder().encode(payload)
-                        arViewModel.multipeerSession?.sendToAllPeers(data, dataType: .addModel)
-                        print("Broadcasted addModel: \(modelType.rawValue) (ID: \(instanceID)), Relative: \(isRelativeToImageAnchor)")
-                    } catch {
-                        print("Error encoding AddModelPayload: \(error)")
+
+                    // Broadcast the addition of this model instance
+                    if let arViewModel = arViewModel, let multipeerSession = arViewModel.multipeerSession {
+                        // Determine the transform based on sync mode and parentage
+                        let transformToSend: simd_float4x4
+                        let isRelativeToImageAnchor: Bool
+
+                        if arViewModel.currentSyncMode == .imageTarget {
+                            // Assume it should be parented under sharedAnchorEntity
+                            // If not parented yet, calculate hypothetical relative transform
+                            if entity.parent == arViewModel.sharedAnchorEntity {
+                                transformToSend = entity.transform.matrix // Already relative
+                            } else {
+                                // Calculate transform relative to where sharedAnchorEntity *is* or *should be*
+                                // This might be tricky if sharedAnchorEntity isn't placed yet.
+                                // Sending world transform might be safer initially if parent isn't set.
+                                // Let's assume for loadModel, it's placed at the origin of its intended parent.
+                                transformToSend = entity.transform.matrix // Send local transform relative to intended parent origin
+                                print("Warning: Broadcasting addModel for \(modelType.rawValue) in ImageTarget mode, but entity may not be parented yet. Sending local transform.")
+                            }
+                             isRelativeToImageAnchor = true
+                        } else {
+                            // World mode: Assume it's placed relative to a world anchor (e.g., modelAnchor on visionOS, or a new AnchorEntity on iOS)
+                            // Send the world transform.
+                            transformToSend = entity.transformMatrix(relativeTo: nil)
+                            isRelativeToImageAnchor = false
+                        }
+
+                        let payload = AddModelPayload(
+                            instanceID: instanceID,
+                            modelType: modelType.rawValue,
+                            transform: transformToSend.toArray(),
+                            isRelativeToImageAnchor: isRelativeToImageAnchor
+                        )
+                        do {
+                            let data = try JSONEncoder().encode(payload)
+                            multipeerSession.sendToAllPeers(data, dataType: .addModel)
+                            print("Broadcasted addModel: \(modelType.rawValue) (ID: \(instanceID)), Relative: \(isRelativeToImageAnchor)")
+                        } catch {
+                            print("Error encoding AddModelPayload: \(error)")
+                        }
+                    } else {
+                         print("Warning: ARViewModel or MultipeerSession not available, cannot broadcast addModel for \(modelType.rawValue).")
                     }
-                }
+                } // End of MainActor.run
                 
                 print("\(modelType.rawValue) chosen – model loaded and selected")
             } else {

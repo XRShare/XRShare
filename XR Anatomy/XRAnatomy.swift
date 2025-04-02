@@ -19,8 +19,7 @@ struct XRAnatomyApp: App {
                     // Assign ModelManager to ARViewModel
                     arViewModel.modelManager = modelManager
                     
-                    // Initialize the model loading process but defer multipeer
-                    arViewModel.deferMultipeerServicesUntilModelsLoad()
+                    // Initialize the model loading process. Multipeer is started via menu selection.
                     // Use Task for async loading
                     Task {
                         await arViewModel.loadModels()
