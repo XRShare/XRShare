@@ -229,6 +229,29 @@ struct DebugControlsView: View {
                                 .foregroundColor(appState.isImageTracked ? .primary : .secondary)
                         }
                         .padding(.top, 4)
+
+                        // Sync Status and Re-Sync Button
+                        if arViewModel.isSyncedToImage {
+                            HStack {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                                Text("Synced via Image")
+                                    .font(.caption)
+                                Spacer()
+                                Button("Re-Sync") {
+                                    arViewModel.triggerImageSync()
+                                    lastAction = "Triggered Image Re-Sync"
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            }
+                            .padding(.top, 4)
+                        } else {
+                             Text("Awaiting Image Sync...")
+                                 .font(.caption)
+                                 .foregroundColor(.orange)
+                                 .padding(.top, 4)
+                        }
                     }
                 }
                 .padding(.vertical, 8)

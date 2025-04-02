@@ -1,778 +1,220 @@
 <Plan>
-1.  **Fix Session Naming:** Modify `MultipeerSession` init to accept and use `discoveryInfo` for advertising `sessionID` and `sessionName`. Update `ARViewModel` to provide this info when starting the session.
-2.  **Fix iOS Early Multipeer Start:**
-    *   Remove the logic within `ARViewModel.loadModels()` that automatically starts multipeer services.
-    *   Remove the `shouldStartMultipeerAfterModelsLoad` property and `deferMultipeerServicesUntilModelsLoad()` method from `ARViewModel`.
-    *   Remove the call to `deferMultipeerServicesUntilModelsLoad()` in `XRAnatomyApp.swift`.
-    *   Remove the check for `shouldStartMultipeerAfterModelsLoad` in `ARViewModel.setupARView`.
-3.  **Refactor iOS Model Placement (`handleTap`):**
-    *   Change `handleTap` in `ARViewModel` (iOS) to place models directly relative to the correct anchor (`sharedAnchorEntity` or world) instead of creating intermediate `ARAnchor`s.
-    *   Perform raycast, get selected `ModelEntity`, determine parent anchor based on `syncMode`, add entity to parent, set transform.
-    *   Trigger `AddModelPayload` broadcast via `ModelManager` or dedicated function, ensuring correct transform and `isRelativeToImageAnchor` flag.
-    *   Remove the `placeModel(for:)` logic related to user taps from `ARSessionDelegateHandler`.
-    *   Update the `ActionSheet` button action in `XRAnatomyView.swift` to set `modelManager.selectedModelID`.
-4.  **Improve iOS Gesture Handling (`handlePan`):**
-    *   Implement a more robust 3D translation calculation in `handlePan` (iOS) using raycasting onto `.estimatedPlane`.
-    *   Increase sensitivity multiplier for the fallback translation method.
-5.  **Fix Deletion Synchronization:**
-    *   Add logging *before* sending `RemoveModelPayload` in `ModelManager.removeModel`.
-    *   Add detailed logging in `MyCustomConnectivityService.handleRemoveModel` to verify entity lookup and removal execution.
-6.  **Fix `ARSessionDelegateHandler` Issues:**
-    *   Remove `@MainActor` from delegate methods.
-    *   Wrap UI updates inside delegate methods with `DispatchQueue.main.async { [weak self] in ... }`.
-    *   Use `self?.arViewModel?` for safe access within async blocks.
-7.  **Implement Sync on Connect:**
-    *   Expose `locallyOwnedEntities` and `entityLookup` in `MyCustomConnectivityService`.
-    *   Modify `ARViewModel.session(_:peer:didChange:)` in the `.connected` case to call a new helper function `syncLocalModels(to: newPeerID)`.
-    *   Implement `ARViewModel.syncLocalModels(to:)` to iterate through locally owned models (using `customService.locallyOwnedEntities` and `modelManager.placedModels`), construct `AddModelPayload` for each, and send *only* to the newly connected peer using `sendToPeer`.
+1.  **Add State for Sync Status:** Introduce a new boolean state variable `isSyncedToImage` in `ARViewModel` to track whether the initial image-based synchronization has occurred for the current session.
+2.  **Add Re-Sync Function:** Create a method `triggerImageSync()` in `ARViewModel` to reset `isSyncedToImage` to `false`, allowing the sync process to happen again.
+3.  **Modify Image Anchor Handling (visionOS):** In `XRAnatomy_visionOSApp.swift`, update the `startImageMonitoring` function. When an image anchor is detected (`.added` or `.updated` and `isTracked`), check `arViewModel.isSyncedToImage`. If `false`, update the `sharedAnchorEntity` transform and set `isSyncedToImage` to `true`. If `true`, *do not* update the `sharedAnchorEntity` transform from the image anchor anymore, even if the image remains tracked. Update the `appState.isImageTracked` flag based on detection status only.
+4.  **Modify Image Anchor Handling (iOS):** In `ARSessionDelegateHandler.swift`, apply the same logic as visionOS within the `session(_:didAdd:)` and `session(_:didUpdate:)` methods for `ARImageAnchor`. Use the `arViewModel.isSyncedToImage` flag to control when `sharedAnchorEntity` is updated.
+5.  **Add UI Button (visionOS):** In `DebugControlsView.swift`, add a button labeled "Re-Sync Image" that calls `arViewModel.triggerImageSync()` when pressed and when `currentSyncMode` is `.imageTarget`.
+6.  **Add UI Button (iOS):** In `BottomSheet.swift` (specifically `SettingsView`), add a similar "Re-Sync Image" button that calls `arViewModel.triggerImageSync()` when `currentSyncMode` is `.imageTarget`.
+7.  **Update Status Indicators:** Modify UI elements (like in `DebugControlsView` or `ConnectionStatusView`) to reflect the "Synced via Image" or "Awaiting Image Sync" status when in `.imageTarget` mode based on the `isSyncedToImage` flag.
 </Plan>
 
-<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/Shared/MultipeerSession.swift" action="modify">
+<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/Shared/ARViewModel.swift" action="modify">
   <change>
-    <description>Modify MultipeerSession init to accept and use discoveryInfo</description>
+    <description>Add isSyncedToImage state variable</description>
     <search>
 ===
-    private let browser: MCNearbyServiceBrowser
-    private let metadata: [String: String]
-    
-    weak var delegate: MultipeerSessionDelegate?
-    
-    // MARK: - Initialization
-    
-    init(serviceName: String = "xr-anatomy", displayName: String) {
-        self.metadata = [:]
-        
-        #if os(iOS)
-        self.myPeerID = MCPeerID(displayName: displayName)
+    // Shared anchor for image target mode (used by both platforms)
+    let sharedAnchorEntity = AnchorEntity(.world(transform: matrix_identity_float4x4))
+    @Published var isImageTracked: Bool = false // Track if the target image is currently tracked
+
+    // RealityKit Scene (available on both iOS and visionOS)
 ===
     </search>
     <content>
 ===
-    private let browser: MCNearbyServiceBrowser
-    private var discoveryInfo: [String: String]? // Store discovery info
-    
-    weak var delegate: MultipeerSessionDelegate?
-    
-    // MARK: - Initialization
-    
-    // Accept discoveryInfo in the initializer
-    init(serviceName: String = "xr-anatomy", displayName: String, discoveryInfo: [String: String]? = nil) {
-        self.discoveryInfo = discoveryInfo // Store it
-        
-        #if os(iOS)
-        self.myPeerID = MCPeerID(displayName: displayName)
+    // Shared anchor for image target mode (used by both platforms)
+    let sharedAnchorEntity = AnchorEntity(.world(transform: matrix_identity_float4x4))
+    @Published var isImageTracked: Bool = false // Track if the target image is *currently* detected/tracked
+    @Published var isSyncedToImage: Bool = false // Track if the initial sync alignment via image has occurred
+
+    // RealityKit Scene (available on both iOS and visionOS)
 ===
     </content>
   </change>
   <change>
-    <description>Use discoveryInfo when creating MCNearbyServiceAdvertiser</description>
+    <description>Add triggerImageSync function</description>
     <search>
 ===
-        // Create advertiser
-        self.advertiser = MCNearbyServiceAdvertiser(
-            peer: myPeerID,
-            discoveryInfo: nil,
-            serviceType: serviceType
-        )
-        
-        // Create browser
+        }
+    }
+
+    // MARK: - Multipeer Connectivity
 ===
     </search>
     <content>
 ===
-        // Create advertiser using the provided discoveryInfo
-        self.advertiser = MCNearbyServiceAdvertiser(
-            peer: myPeerID,
-            discoveryInfo: self.discoveryInfo, // Use stored discovery info
-            serviceType: serviceType
-        )
-        
-        // Create browser
+        }
+    }
+
+    // MARK: - Image Sync Control
+
+    /// Resets the image sync state, allowing detection to re-align the shared anchor.
+    @MainActor func triggerImageSync() {
+        if currentSyncMode == .imageTarget {
+            isSyncedToImage = false
+            isImageTracked = false // Reset detection status as well
+            print("Image sync triggered. Awaiting image target detection for re-alignment.")
+            // Optionally, provide user feedback (e.g., alert)
+            alertItem = AlertItem(title: "Image Sync", message: "Point your device towards the designated image target to re-align the session.")
+        } else {
+            print("Cannot trigger image sync when not in Image Target mode.")
+        }
+    }
+
+    // MARK: - Multipeer Connectivity
 ===
     </content>
   </change>
   <change>
-    <description>Extract sessionID and sessionName correctly in browser delegate</description>
+    <description>Reset isSyncedToImage when stopping multipeer services</description>
     <search>
 ===
-// MARK: - MCNearbyServiceBrowserDelegate
-extension MultipeerSession: MCNearbyServiceBrowserDelegate {
-    func browser(_ browser: MCNearbyServiceBrowser, foundPeer peerID: MCPeerID, withDiscoveryInfo info: [String: String]?) {
-        // Extract sessionID and sessionName from discovery info
-        let sessionID = info?["sessionID"] ?? "unknown-session"
-        let sessionName = info?["sessionName"] ?? "Unnamed Session"
-        
-        DispatchQueue.main.async {
-            self.delegate?.foundPeer(peerID: peerID, sessionID: sessionID, sessionName: sessionName)
+        self.connectedPeers.removeAll()
+        self.availableSessions.removeAll()
+        self.selectedSession = nil
+        print("Stopped and cleaned up multipeer services.")
+    }
 ===
     </search>
     <content>
 ===
-// MARK: - MCNearbyServiceBrowserDelegate
-extension MultipeerSession: MCNearbyServiceBrowserDelegate {
-    func browser(_ browser: MCNearbyServiceBrowser, foundPeer peerID: MCPeerID, withDiscoveryInfo info: [String: String]?) {
-        // Extract sessionID and sessionName from discovery info, provide defaults if missing
-        let sessionID = info?["sessionID"] ?? UUID().uuidString // Generate a fallback ID if needed
-        let sessionName = info?["sessionName"] ?? peerID.displayName // Use peer display name as fallback
-        
-        print("Found peer \(peerID.displayName) with discovery info: \(info ?? [:]) -> SessionName: \(sessionName), SessionID: \(sessionID)")
-        
-        DispatchQueue.main.async {
-            self.delegate?.foundPeer(peerID: peerID, sessionID: sessionID, sessionName: sessionName)
+        self.connectedPeers.removeAll()
+        self.availableSessions.removeAll()
+        self.selectedSession = nil
+        self.isSyncedToImage = false // Reset sync status on disconnect
+        self.isImageTracked = false
+        print("Stopped and cleaned up multipeer services.")
+    }
+===
+    </content>
+  </change>
+  <change>
+    <description>Reset isSyncedToImage in resetARSession (iOS)</description>
+    <search>
+===
+        self.placedAnchors.removeAll()
+        self.processedAnchorIDs.removeAll()
+        self.modelManager?.reset() // Also reset models managed by ModelManager
+        self.isSyncedToImage = false // Reset sync status
+        self.isImageTracked = false
+===
+    </search>
+    <content>
+===
+        self.placedAnchors.removeAll()
+        self.processedAnchorIDs.removeAll()
+        self.modelManager?.reset() // Also reset models managed by ModelManager
+        self.isSyncedToImage = false // Reset sync status
+        self.isImageTracked = false
 ===
     </content>
   </change>
 </file>
 
-<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/Shared/ARViewModel.swift" action="modify">
+<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/XR Anatomy Vision/XRAnatomy_visionOSApp.swift" action="modify">
   <change>
-    <description>Remove shouldStartMultipeerAfterModelsLoad property</description>
+    <description>Modify image anchor monitoring logic to use isSyncedToImage flag</description>
     <search>
 ===
-    private var subscriptions = Set<AnyCancellable>()
-
-    // Multipeer state flags
-    private var shouldStartMultipeerAfterModelsLoad: Bool = false
-
-    // Reference to ModelManager (Now shared)
-    // Use weak var if ModelManager might hold a strong ref back, otherwise strong is fine.
-===
-    </search>
-    <content>
-===
-    private var subscriptions = Set<AnyCancellable>()
-
-    // Reference to ModelManager (Now shared)
-    // Use weak var if ModelManager might hold a strong ref back, otherwise strong is fine.
-===
-    </content>
-  </change>
-  <change>
-    <description>Remove automatic multipeer start from loadModels()</description>
-    <search>
-===
-                    message: "\(mt.rawValue.capitalized): \(error.localizedDescription)"
-                )
-            default:
-                break
-            }
-
-            // REMOVE THIS BLOCK - Multipeer should only start on user action from menu
-            // if (loadedModels + failedModels) >= totalModels && self.shouldStartMultipeerAfterModelsLoad {
-            //     self.startMultipeerServices()
-            //     self.shouldStartMultipeerAfterModelsLoad = false
-            // }
-        }
-    }
-
-    private func updateLoadingProgress(loaded: Int, failed: Int, total: Int) {
-===
-    </search>
-    <content>
-===
-                    message: "\(mt.rawValue.capitalized): \(error.localizedDescription)"
-                )
-            default:
-                break
-            }
-
-            // Removed automatic start of multipeer services after model loading.
-            // This should now only happen explicitly via StartupMenuView or MainMenu.
-
-        } // End of loop
-        
-        // Ensure progress hits 1.0 if it hasn't already
-        if loadingProgress < 1.0 {
-             updateLoadingProgress(loaded: loadedModels, failed: failedModels, total: totalModels)
-        }
-    }
-
-    private func updateLoadingProgress(loaded: Int, failed: Int, total: Int) {
-===
-    </content>
-  </change>
-  <change>
-    <description>Provide discoveryInfo when creating MultipeerSession</description>
-    <search>
-===
-            self.sessionName = displayName
-        }
-        self.multipeerSession = MultipeerSession(serviceName: "xr-anatomy", displayName: displayName)
-        self.multipeerSession?.delegate = self
-        print("Created multipeer session with name: \(displayName), advertising name: \(self.sessionName)")
-===
-    </search>
-    <content>
-===
-            self.sessionName = displayName
-        }
-        // Prepare discovery info
-        let discoveryInfo = ["sessionID": self.sessionID, "sessionName": self.sessionName]
-        
-        self.multipeerSession = MultipeerSession(
-            serviceName: "xr-anatomy",
-            displayName: displayName,
-            discoveryInfo: discoveryInfo // Pass discovery info here
-        )
-        self.multipeerSession?.delegate = self
-        print("Created multipeer session with name: \(displayName), advertising name: \(self.sessionName), discoveryInfo: \(discoveryInfo)")
-===
-    </content>
-  </change>
-  <change>
-    <description>Remove deferMultipeerServicesUntilModelsLoad method</description>
-    <search>
-===
-        self.selectedSession = session
-    }
-
-    /// Defers multipeer service start until models are loaded
-    func deferMultipeerServicesUntilModelsLoad() {
-        print("Deferring multipeer services until models load")
-        self.shouldStartMultipeerAfterModelsLoad = true
-    }
-
-    // MARK: - Test Messaging
-===
-    </search>
-    <content>
-===
-        self.selectedSession = session
-    }
-
-    // Removed deferMultipeerServicesUntilModelsLoad() - No longer needed.
-
-    // MARK: - Test Messaging
-===
-    </content>
-  </change>
-  <change>
-    <description>Remove check for shouldStartMultipeerAfterModelsLoad in setupARView</description>
-    <search>
-===
-        // For now, let's assume default behavior is acceptable.
-
-        // Only start multipeer here if it wasn't deferred
-        if !self.shouldStartMultipeerAfterModelsLoad && self.multipeerSession == nil {
-            self.startMultipeerServices()
-        }
-    }
-
-    /// Handle tap gestures for model placement OR selection/interaction (iOS)
-===
-    </search>
-    <content>
-===
-        // For now, let's assume default behavior is acceptable.
-
-        // Removed automatic start of multipeer services from setupARView.
-        // Multipeer is now started only via StartupMenuView actions.
-    }
-
-    /// Handle tap gestures for model placement OR selection/interaction (iOS)
-===
-    </content>
-  </change>
-  <change>
-    <description>Refactor iOS handleTap for direct model placement and broadcasting</description>
-    <search>
-===
-    /// Handle tap gestures for model placement OR selection/interaction (iOS)
-    @MainActor @objc func handleTap(_ sender: UITapGestureRecognizer) {
-        guard let arView = self.arView, let modelManager = self.modelManager, let customService = self.customService else {
-            print("ARView, ModelManager, or CustomService not available for tap handling.")
-            return
-        }
-        let tapLocation = sender.location(in: arView)
-
-        // 1. Try to hit test existing entities first
-        if let hitEntity = arView.entity(at: tapLocation), modelManager.modelDict[hitEntity] != nil {
-            print("Tap hit existing model: \(hitEntity.name)")
-            modelManager.handleTap(entity: hitEntity)
-            // Ensure the tapped model is selected
-            if let model = modelManager.modelDict[hitEntity] {
-                modelManager.selectedModelID = model.modelType
-            }
-            return // Don't proceed to placement if we hit an existing model
-        }
-
-        // 2. If no entity hit, proceed with placement logic (if a model is selected in ModelManager)
-        guard let selectedModelType = modelManager.selectedModelID,
-              let modelToPlace = self.models.first(where: { $0.modelType == selectedModelType }) else {
-            print("Tap missed entities and no model selected in ModelManager for placement.")
-            // Optionally show an alert to select a model first
-            // self.alertItem = AlertItem(title: "Select Model", message: "Please select a model from the menu before placing.")
-            return
-        }
-
-        // Ensure user has permission to add models
-        guard self.userRole != .viewer || self.isHostPermissionGranted else {
-            self.alertItem = AlertItem(
-                title: "Permission Denied",
-                message: "You don't have permission to add models. Ask the host for permission."
-            )
-            return
-        }
-
-        // Raycast to find placement position on a plane
-        let results = arView.raycast(from: tapLocation, allowing: .estimatedPlane, alignment: .any)
-        guard let firstResult = results.first else {
-            self.alertItem = AlertItem(
-                title: "Placement Failed",
-                message: "Couldn't find a surface. Try pointing at a flat surface."
-            )
-            return
-        }
-
-        // --- Direct Placement Logic ---
-        Task {
-            // Ensure the model is loaded
-            if !modelToPlace.isLoaded() {
-                await modelToPlace.loadModelEntity()
-            }
-
-            guard let modelEntity = modelToPlace.modelEntity?.clone(recursive: true) else {
-                print("Failed to get or clone model entity for placement: \(modelToPlace.modelType.rawValue)")
-                self.alertItem = AlertItem(title: "Placement Error", message: "Could not load the selected model.")
-                return
-            }
-
-            // Assign a unique instance ID if it doesn't have one
-            if modelEntity.components[InstanceIDComponent.self] == nil {
-                modelEntity.components.set(InstanceIDComponent())
-            }
-            let instanceID = modelEntity.components[InstanceIDComponent.self]!.id
-
-            // Determine the target parent and transform based on sync mode
-            let targetParent: Entity
-            let transformMatrix: simd_float4x4
-            let isRelativeToImageAnchor: Bool
-
-            if self.currentSyncMode == .imageTarget {
-                // Place relative to the shared image anchor
-                targetParent = self.sharedAnchorEntity
-                // Ensure shared anchor is in the scene
-                if targetParent.scene == nil {
-                    arView.scene.addAnchor(targetParent as! AnchorEntity) // Cast is safe here
-                    print("Added sharedAnchorEntity to scene during placement.")
-                }
-                // Calculate transform relative to the shared anchor
-                transformMatrix = firstResult.worldTransform * targetParent.transformMatrix(relativeTo: nil).inverse
-                isRelativeToImageAnchor = true
-                print("Placing \(modelToPlace.modelType.rawValue) relative to Image Target Anchor.")
-            } else {
-                // Place relative to the world (add to scene root or a world anchor)
-                // For simplicity on iOS, let's add directly to the scene using an AnchorEntity
-                // The transformMatrix will be the world transform from the raycast
-                let worldAnchor = AnchorEntity(world: firstResult.worldTransform)
-                arView.scene.addAnchor(worldAnchor)
-                targetParent = worldAnchor // Parent is the new world anchor
-                transformMatrix = matrix_identity_float4x4 // Model's local transform relative to its anchor is identity
-                isRelativeToImageAnchor = false
-                print("Placing \(modelToPlace.modelType.rawValue) relative to World Anchor at \(firstResult.worldTransform.position).")
-            }
-
-            // Add the cloned entity to the target parent
-            targetParent.addChild(modelEntity)
-            // Set the calculated transform
-            modelEntity.transform.matrix = transformMatrix
-
-            // Create a new Model instance for ModelManager tracking
-            // Use the existing loaded model data but create a new instance for tracking this placement
-            let placedModelInstance = Model(modelType: modelToPlace.modelType, arViewModel: self)
-            placedModelInstance.modelEntity = modelEntity // Assign the placed entity
-            placedModelInstance.loadingState = .loaded // Mark as loaded
-
-            // Register with ModelManager and ConnectivityService
-            modelManager.modelDict[modelEntity] = placedModelInstance
-            modelManager.placedModels.append(placedModelInstance)
-            customService.registerEntity(modelEntity, modelType: modelToPlace.modelType, ownedByLocalPeer: true)
-            print("Registered placed model \(modelToPlace.modelType.rawValue) (InstanceID: \(instanceID)) with ModelManager and ConnectivityService.")
-
-            // Broadcast the addition
-            let broadcastTransform = isRelativeToImageAnchor ? transformMatrix : firstResult.worldTransform // Send world transform if not relative
-            let payload = AddModelPayload(
-                instanceID: instanceID,
-                modelType: modelToPlace.modelType.rawValue,
-                transform: broadcastTransform.toArray(), // Send the appropriate transform
-                isRelativeToImageAnchor: isRelativeToImageAnchor
-            )
-            do {
-                let data = try JSONEncoder().encode(payload)
-                self.multipeerSession?.sendToAllPeers(data, dataType: .addModel)
-                print("Broadcasted addModel: \(modelToPlace.modelType.rawValue) (ID: \(instanceID)), Relative: \(isRelativeToImageAnchor)")
-            } catch {
-                print("Error encoding AddModelPayload for placement: \(error)")
-            }
-
-            // Optional: Deselect model after placing
-            // modelManager.selectedModelID = nil
-            self.alertItem = AlertItem(title: "Model Placed", message: "\(modelToPlace.modelType.rawValue) placed successfully.")
-        }
-    }
-
-    /// Reset the AR session
-    @MainActor func resetARSession() {
-===
-    </search>
-    <content>
-===
-    /// Handle tap gestures for model placement OR selection/interaction (iOS)
-    @MainActor @objc func handleTap(_ sender: UITapGestureRecognizer) {
-        guard let arView = self.arView, let modelManager = self.modelManager, let customService = self.customService else {
-            print("ARView, ModelManager, or CustomService not available for tap handling.")
-            return
-        }
-        let tapLocation = sender.location(in: arView)
-
-        // 1. Try to hit test existing entities first
-        if let hitEntity = arView.entity(at: tapLocation), modelManager.modelDict[hitEntity] != nil {
-            print("Tap hit existing model: \(hitEntity.name)")
-            modelManager.handleTap(entity: hitEntity)
-            // Ensure the tapped model is selected
-            if let model = modelManager.modelDict[hitEntity] {
-                modelManager.selectedModelID = model.modelType
-            }
-            return // Don't proceed to placement if we hit an existing model
-        }
-
-        // 2. If no entity hit, proceed with placement logic (if a model is selected in ModelManager)
-        guard let selectedModelType = modelManager.selectedModelID,
-              let modelToPlace = self.models.first(where: { $0.modelType == selectedModelType }) else {
-            print("Tap missed entities and no model selected in ModelManager for placement.")
-            // Optionally show an alert to select a model first
-            // self.alertItem = AlertItem(title: "Select Model", message: "Please select a model from the menu before placing.")
-            return
-        }
-
-        // Ensure user has permission to add models
-        guard self.userRole != .viewer || self.isHostPermissionGranted else {
-            self.alertItem = AlertItem(
-                title: "Permission Denied",
-                message: "You don't have permission to add models. Ask the host for permission."
-            )
-            return
-        }
-
-        // Raycast to find placement position on a plane
-        let results = arView.raycast(from: tapLocation, allowing: .estimatedPlane, alignment: .any)
-        guard let firstResult = results.first else {
-            self.alertItem = AlertItem(
-                title: "Placement Failed",
-                message: "Couldn't find a surface. Try pointing at a flat surface."
-            )
-            return
-        }
-
-        // --- Direct Placement Logic ---
-        Task { @MainActor in // Ensure this runs on main actor
-            // Ensure the model is loaded
-            if !modelToPlace.isLoaded() {
-                await modelToPlace.loadModelEntity()
-            }
-
-            guard let modelEntity = modelToPlace.modelEntity?.clone(recursive: true) else {
-                print("Failed to get or clone model entity for placement: \(modelToPlace.modelType.rawValue)")
-                self.alertItem = AlertItem(title: "Placement Error", message: "Could not load the selected model.")
-                return
-            }
-
-            // Assign a unique instance ID if it doesn't have one
-            if modelEntity.components[InstanceIDComponent.self] == nil {
-                modelEntity.components.set(InstanceIDComponent())
-            }
-            let instanceID = modelEntity.components[InstanceIDComponent.self]!.id
-
-            // Determine the target parent and transform based on sync mode
-            let targetParent: Entity
-            let transformMatrix: simd_float4x4
-            let isRelativeToImageAnchor: Bool
-
-            if self.currentSyncMode == .imageTarget {
-                // Place relative to the shared image anchor
-                targetParent = self.sharedAnchorEntity
-                // Ensure shared anchor is in the scene
-                if targetParent.scene == nil {
-                    // Check if arView is available before adding
-                    if let currentARView = self.arView {
-                         currentARView.scene.addAnchor(targetParent as! AnchorEntity) // Cast is safe here
-                         print("Added sharedAnchorEntity to scene during placement.")
-                    } else {
-                         print("Error: ARView not available, cannot add sharedAnchorEntity to scene.")
-                         return // Cannot proceed without adding the anchor
+                    // Using the AppState object directly within the MainActor context
+                    switch event {
+                    case .added, .updated:
+                        if imageAnchor.isTracked {
+                            let newWorldTransform = imageAnchor.originFromAnchorTransform
+                            arViewModel.sharedAnchorEntity.setTransformMatrix(newWorldTransform, relativeTo: nil)
+                            
+                            if !appState.isImageTracked {
+                                print("✅ Image Target '\(imageName)' detected and tracked. Updated sharedAnchorEntity.")
+                            }
+                            appState.isImageTracked = true
+                        } else {
+                            if appState.isImageTracked {
+                                print("⚠️ Image Target '\(imageName)' lost tracking.")
+                                appState.isImageTracked = false
+                            }
+                        }
+                    case .removed:
+                        if appState.isImageTracked {
+                            print("❌ Image Target '\(imageName)' anchor removed.")
+                            appState.isImageTracked = false
+                        }
+                    @unknown default:
+                        print("Unhandled image anchor event: \(event)")
                     }
-                }
-                // Calculate transform relative to the shared anchor
-                // Ensure targetParent's world transform is up-to-date before calculating inverse
-                let parentWorldTransform = targetParent.transformMatrix(relativeTo: nil)
-                transformMatrix = firstResult.worldTransform * parentWorldTransform.inverse
-                isRelativeToImageAnchor = true
-                print("Placing \(modelToPlace.modelType.rawValue) relative to Image Target Anchor.")
-            } else {
-                // Place relative to the world (add to scene root or a world anchor)
-                // For simplicity on iOS, let's add directly to the scene using an AnchorEntity
-                // The transformMatrix will be the world transform from the raycast
-                let worldAnchor = AnchorEntity(world: firstResult.worldTransform)
-                 // Check if arView is available before adding
-                if let currentARView = self.arView {
-                    currentARView.scene.addAnchor(worldAnchor)
-                } else {
-                    print("Error: ARView not available, cannot add world anchor to scene.")
-                    return // Cannot proceed without adding the anchor
-                }
-                targetParent = worldAnchor // Parent is the new world anchor
-                transformMatrix = matrix_identity_float4x4 // Model's local transform relative to its anchor is identity
-                isRelativeToImageAnchor = false
-                print("Placing \(modelToPlace.modelType.rawValue) relative to World Anchor at \(firstResult.worldTransform.position).")
-            }
-
-            // Add the cloned entity to the target parent
-            targetParent.addChild(modelEntity)
-            // Set the calculated transform
-            modelEntity.transform.matrix = transformMatrix
-
-            // Create a new Model instance for ModelManager tracking
-            // Use the existing loaded model data but create a new instance for tracking this placement
-            let placedModelInstance = Model(modelType: modelToPlace.modelType, arViewModel: self)
-            placedModelInstance.modelEntity = modelEntity // Assign the placed entity
-            placedModelInstance.loadingState = .loaded // Mark as loaded
-
-            // Register with ModelManager and ConnectivityService
-            modelManager.modelDict[modelEntity] = placedModelInstance
-            modelManager.placedModels.append(placedModelInstance)
-            customService.registerEntity(modelEntity, modelType: modelToPlace.modelType, ownedByLocalPeer: true)
-            print("Registered placed model \(modelToPlace.modelType.rawValue) (InstanceID: \(instanceID)) with ModelManager and ConnectivityService.")
-
-            // Broadcast the addition
-            let broadcastTransform = isRelativeToImageAnchor ? transformMatrix : firstResult.worldTransform // Send world transform if not relative
-            let payload = AddModelPayload(
-                instanceID: instanceID,
-                modelType: modelToPlace.modelType.rawValue,
-                transform: broadcastTransform.toArray(), // Send the appropriate transform
-                isRelativeToImageAnchor: isRelativeToImageAnchor
-            )
-            do {
-                let data = try JSONEncoder().encode(payload)
-                self.multipeerSession?.sendToAllPeers(data, dataType: .addModel)
-                print("Broadcasted addModel: \(modelToPlace.modelType.rawValue) (ID: \(instanceID)), Relative: \(isRelativeToImageAnchor)")
+                } // End loop (anchorUpdates)
             } catch {
-                print("Error encoding AddModelPayload for placement: \(error)")
-            }
-
-            // Optional: Deselect model after placing
-            // modelManager.selectedModelID = nil
-            self.alertItem = AlertItem(title: "Model Placed", message: "\(modelToPlace.modelType.rawValue) placed successfully.")
-        }
-    }
-
-    /// Reset the AR session
-    @MainActor func resetARSession() {
-===
-    </content>
-  </change>
-  <change>
-    <description>Improve iOS handlePan gesture raycast and increase fallback sensitivity</description>
-    <search>
-===
-            // 2. Perform a raycast from the current touch location.
-            //    We aim for the horizontal plane the entity is on, or a plane at the entity's depth.
-            //    Using existing planes is often more stable.
-            let results = arView.raycast(from: currentTapLocation, allowing: .existingPlaneGeometry, alignment: .any)
-            
-            if let firstResult = results.first {
-                // 3. Calculate the desired world position based on the raycast hit.
 ===
     </search>
     <content>
 ===
-            // 2. Perform a raycast from the current touch location.
-            //    Try hitting estimated planes first, as existing geometry might not always be available.
-            let results = arView.raycast(from: currentTapLocation, allowing: .estimatedPlane, alignment: .any) // Changed to .estimatedPlane
-            
-            if let firstResult = results.first {
-                // 3. Calculate the desired world position based on the raycast hit.
-===
-    </content>
-  </change>
-  <change>
-    <description>Increase sensitivity multiplier for fallback pan translation</description>
-    <search>
-===
-                // Fallback: If raycast fails (e.g., pointing off into space), maybe use the old approximate method or do nothing.
-                print("Pan raycast failed, using approximate translation.")
-                let translation = sender.translation(in: arView)
-                let cameraTransform = arView.cameraTransform
-                var worldTranslation = SIMD3<Float>(Float(translation.x), -Float(translation.y), 0) * 0.001 // Adjust sensitivity
-                worldTranslation = cameraTransform.rotation.act(worldTranslation) // Rotate translation to world space
-                modelManager.handleDragChange(entity: entity, translation: worldTranslation, arViewModel: self)
-                sender.setTranslation(.zero, in: arView) // Reset translation only for fallback
-===
-    </search>
-    <content>
-===
-                // Fallback: If raycast fails (e.g., pointing off into space), maybe use the old approximate method or do nothing.
-                print("Pan raycast failed, using approximate translation.")
-                let translation = sender.translation(in: arView)
-                let cameraTransform = arView.cameraTransform
-                // Increased sensitivity multiplier from 0.001 to 0.005
-                var worldTranslation = SIMD3<Float>(Float(translation.x), -Float(translation.y), 0) * 0.005 
-                worldTranslation = cameraTransform.rotation.act(worldTranslation) // Rotate translation to world space
-                modelManager.handleDragChange(entity: entity, translation: worldTranslation, arViewModel: self)
-                sender.setTranslation(.zero, in: arView) // Reset translation only for fallback
-===
-    </content>
-  </change>
-  <change>
-    <description>Remove placeModel(for:) method as placement is now direct</description>
-    <search>
-===
-        print("All models cleared")
-    }
-
-    // Removed placeModel(for:) as placement is now handled directly in handleTap
-
-    /// Broadcasts model transform using the unified sendTransform method.
-    func broadcastModelTransform(entity: Entity, modelType: ModelType) {
-===
-    </search>
-    <content>
-===
-        print("All models cleared")
-    }
-
-    // Removed placeModel(for:) as placement is now handled directly in handleTap
-
-    /// Broadcasts model transform using the unified sendTransform method.
-    func broadcastModelTransform(entity: Entity, modelType: ModelType) {
-===
-    </content>
-  </change>
-  <change>
-    <description>Implement synchronization logic when a new peer connects</description>
-    <search>
-===
-        DispatchQueue.main.async {
-            switch state {
-            case .connected:
-                if !self.connectedPeers.contains(peerID) {
-                    self.connectedPeers.append(peerID)
-                }
-                print("Peer connected: \(peerID.displayName)")
-            case .connecting:
-                print("Peer connecting: \(peerID.displayName)")
-            case .notConnected:
-===
-    </search>
-    <content>
-===
-        DispatchQueue.main.async { [weak self] in // Add weak self capture
-            guard let self = self else { return } // Safely unwrap self
-            
-            switch state {
-            case .connected:
-                let isNewConnection = !self.connectedPeers.contains(peerID)
-                if isNewConnection {
-                    self.connectedPeers.append(peerID)
-                    print("Peer connected: \(peerID.displayName). Initiating state sync.")
-                    // --- Sync existing locally owned models to the new peer ---
-                    self.syncLocalModels(to: peerID)
-                    // ---------------------------------------------------------
-                } else {
-                     print("Peer re-connected or state updated: \(peerID.displayName)")
-                }
-            case .connecting:
-                print("Peer connecting: \(peerID.displayName)")
-            case .notConnected:
-===
-    </content>
-  </change>
-  <change>
-    <description>Add syncLocalModels helper function to ARViewModel</description>
-    <search>
-===
-        }
-    }
-} // End of ARViewModel class
-
-// MARK: - ARSession Delegate
-// ARSession delegate implementation moved to ARSessionDelegateHandler class
-===
-    </search>
-    <content>
-===
-        }
-    }
-
-    /// Sends the current state of locally owned models to a specific peer.
-    private func syncLocalModels(to targetPeerID: MCPeerID) {
-        guard let modelManager = self.modelManager,
-              let customService = self.customService,
-              let multipeerSession = self.multipeerSession else {
-            print("Cannot sync local models: ModelManager, CustomService, or MultipeerSession not available.")
-            return
-        }
-
-        print("Syncing \(customService.locallyOwnedEntities.count) locally owned models to peer \(targetPeerID.displayName)...")
-
-        for entityID in customService.locallyOwnedEntities {
-            // Find the corresponding Entity and Model object
-            guard let entity = customService.entityLookup[entityID], // Use customService's lookup
-                  let model = modelManager.modelDict[entity] else {
-                print("Warning: Could not find entity or model for locally owned ID \(entityID) during sync.")
-                continue
-            }
-
-            // Get necessary components
-            guard let instanceID = entity.components[InstanceIDComponent.self]?.id else {
-                print("Warning: Locally owned entity \(entity.name) missing InstanceIDComponent during sync.")
-                continue
-            }
-            let modelType = model.modelType // Already have the model object
-
-            // Determine transform and relativity based on current sync mode
-            let transformMatrix: simd_float4x4
-            let isRelativeToImageAnchor = (self.currentSyncMode == .imageTarget)
-
-            if isRelativeToImageAnchor {
-                // Ensure shared anchor is valid before getting relative transform
-                if self.sharedAnchorEntity.scene != nil {
-                     // Calculate transform relative to the shared anchor's current world transform
-                     let parentWorldTransform = self.sharedAnchorEntity.transformMatrix(relativeTo: nil)
-                     transformMatrix = entity.transformMatrix(relativeTo: nil) * parentWorldTransform.inverse
-                } else {
-                     print("Warning: Cannot get relative transform for sync - sharedAnchorEntity not in scene. Sending world transform instead.")
-                     transformMatrix = entity.transformMatrix(relativeTo: nil)
-                     // Note: Receiver needs robust handling if isRelativeToImageAnchor is true but transform is world.
-                     // Consider sending isRelativeToImageAnchor = false in this edge case? For now, send true but log warning.
-                }
-            } else {
-                transformMatrix = entity.transformMatrix(relativeTo: nil) // World transform
-            }
-
-            // Construct payload
-            let payload = AddModelPayload(
-                instanceID: instanceID,
-                modelType: modelType.rawValue,
-                transform: transformMatrix.toArray(),
-                isRelativeToImageAnchor: isRelativeToImageAnchor
-            )
-
-            // Encode and send specifically to the new peer
-            do {
-                let data = try JSONEncoder().encode(payload)
-                multipeerSession.sendToPeer(data, peerID: targetPeerID, dataType: .addModel)
-                print("--> Sent sync addModel for \(modelType.rawValue) (ID: \(instanceID)) to \(targetPeerID.displayName). Relative: \(isRelativeToImageAnchor)")
+                    // Using the AppState and ARViewModel objects directly within the MainActor context
+                    switch event {
+                    case .added, .updated:
+                        let imageName = imageAnchor.referenceImage.name ?? "Unknown"
+                        if imageAnchor.isTracked {
+                            // Image is currently tracked
+                            if !arViewModel.isSyncedToImage {
+                                // Perform the one-time sync alignment
+                                let newWorldTransform = imageAnchor.originFromAnchorTransform
+                                arViewModel.sharedAnchorEntity.setTransformMatrix(newWorldTransform, relativeTo: nil)
+                                arViewModel.isSyncedToImage = true // Mark as synced
+                                appState.isImageTracked = true // Mark as detected
+                                print("✅ Image Target '\(imageName)' detected. Synced sharedAnchorEntity transform.")
+                            } else {
+                                // Already synced, just update detection status if it wasn't already tracked
+                                if !appState.isImageTracked {
+                                     appState.isImageTracked = true
+                                     print("👀 Image Target '\(imageName)' re-detected (already synced).")
+                                }
+                            }
+                        } else {
+                            // Image is lost
+                            if appState.isImageTracked {
+                                print("⚠️ Image Target '\(imageName)' lost tracking.")
+                                appState.isImageTracked = false
+                                // DO NOT reset isSyncedToImage here - alignment persists
+                            }
+                        }
+                    case .removed:
+                        let imageName = imageAnchor.referenceImage.name ?? "Unknown"
+                        if appState.isImageTracked {
+                            print("❌ Image Target '\(imageName)' anchor removed.")
+                            appState.isImageTracked = false
+                            // DO NOT reset isSyncedToImage here
+                        }
+                    @unknown default:
+                        print("Unhandled image anchor event: \(event)")
+                    }
+                } // End loop (anchorUpdates)
             } catch {
-                print("Error encoding AddModelPayload during sync for \(modelType.rawValue) (ID: \(instanceID)): \(error)")
+===
+    </content>
+  </change>
+  <change>
+    <description>Ensure isImageTracked is reset correctly when monitoring stops</description>
+    <search>
+===
+            // Ensure tracking state is false if task finishes
+            if appState.isImageTracked {
+                print("Image monitoring finished, resetting tracking state.")
+                appState.isImageTracked = false
             }
         }
-         print("Finished syncing local models to peer \(targetPeerID.displayName).")
     }
-
-} // End of ARViewModel class
-
-// MARK: - ARSession Delegate
-// ARSession delegate implementation moved to ARSessionDelegateHandler class
+}
+===
+    </search>
+    <content>
+===
+            // Ensure detection state is false if task finishes or exits loop
+            // isSyncedToImage persists until explicitly reset
+            if appState.isImageTracked {
+                print("Image monitoring loop finished/exited, resetting detection state.")
+                appState.isImageTracked = false
+            }
+        }
+    }
+}
 ===
     </content>
   </change>
@@ -780,57 +222,9 @@ extension MultipeerSession: MCNearbyServiceBrowserDelegate {
 
 <file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/Shared/ARSessionDelegateHandler.swift" action="modify">
   <change>
-    <description>Remove @MainActor from session(_:didAdd:) and dispatch UI updates to main thread</description>
+    <description>Modify iOS image anchor handling for one-off sync</description>
     <search>
 ===
-        super.init()
-    }
-    
-    @MainActor func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
-        guard let arViewModel = arViewModel else { return }
-        for anchor in anchors {
-            // Handle plane anchors, image anchors, etc. if needed
-            if anchor is ARPlaneAnchor {
-                // print("Plane anchor added/updated: \(anchor.identifier)")
-            } else if let imageAnchor = anchor as? ARImageAnchor {
-                print("Image anchor detected: \(imageAnchor.referenceImage.name ?? "unknown")")
-                // Update shared anchor transform based on image anchor
-                DispatchQueue.main.async {
-                    arViewModel.sharedAnchorEntity.setTransformMatrix(imageAnchor.transform, relativeTo: nil)
-                    arViewModel.isImageTracked = imageAnchor.isTracked // Update tracking status
-                    
-                    // If sync mode is image target, notify that the anchor is found
-                    if arViewModel.currentSyncMode == .imageTarget {
-                        // Potentially trigger synchronization of models relative to this anchor
-                    }
-                }
-            // Removed handling for user-placed anchors (arViewModel.placedAnchors)
-            // Placement is now handled directly in ARViewModel.handleTap
-            } else {
-                 // Log other unknown anchor types if necessary
-                 // print("Ignoring unknown anchor type added: \(anchor.identifier), Type: \(type(of: anchor))")
-            }
-        }
-    }
-    
-    func session(_ session: ARSession, didUpdate anchors: [ARAnchor]) {
-===
-    </search>
-    <content>
-===
-        super.init()
-    }
-    
-    // Removed @MainActor - Delegate methods are not called on main thread
-    func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
-        // Use weak self to avoid retain cycles in async blocks
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self, let arViewModel = self.arViewModel else { return }
-            
-            for anchor in anchors {
-                // Handle plane anchors, image anchors, etc. if needed
-                if anchor is ARPlaneAnchor {
-                    // print("Plane anchor added/updated: \(anchor.identifier)")
                 } else if let imageAnchor = anchor as? ARImageAnchor {
                     print("Image anchor detected: \(imageAnchor.referenceImage.name ?? "unknown")")
                     // Update shared anchor transform based on image anchor
@@ -854,106 +248,24 @@ extension MultipeerSession: MCNearbyServiceBrowserDelegate {
     }
     
     func session(_ session: ARSession, didUpdate anchors: [ARAnchor]) {
-===
-    </content>
-  </change>
-  <change>
-    <description>Dispatch didUpdate logic to main thread using weak self</description>
-    <search>
-===
-    }
-    
-    func session(_ session: ARSession, didUpdate anchors: [ARAnchor]) {
-         guard let arViewModel = arViewModel else { return }
-         for anchor in anchors {
-             if let imageAnchor = anchor as? ARImageAnchor {
-                 // Update shared anchor transform and tracking status
-                 DispatchQueue.main.async {
-                     if imageAnchor.isTracked {
-                         arViewModel.sharedAnchorEntity.setTransformMatrix(imageAnchor.transform, relativeTo: nil)
-                     }
-                     // Only update state if it changed
-                     if arViewModel.isImageTracked != imageAnchor.isTracked {
-                         arViewModel.isImageTracked = imageAnchor.isTracked
-                         print("Image anchor tracking status changed: \(arViewModel.isImageTracked)")
-                     }
-                 }
-             }
-         }
-    }
-    
-    func session(_ session: ARSession, didRemove anchors: [ARAnchor]) {
-===
-    </search>
-    <content>
-===
-    }
-    
-    func session(_ session: ARSession, didUpdate anchors: [ARAnchor]) {
-         // Use weak self to avoid retain cycles in async blocks
-         DispatchQueue.main.async { [weak self] in
-             guard let self = self, let arViewModel = self.arViewModel else { return }
-             
-             for anchor in anchors {
-                 if let imageAnchor = anchor as? ARImageAnchor {
-                     // Update shared anchor transform and tracking status
-                     if imageAnchor.isTracked {
-                         arViewModel.sharedAnchorEntity.setTransformMatrix(imageAnchor.transform, relativeTo: nil)
-                     }
-                     // Only update state if it changed
-                     if arViewModel.isImageTracked != imageAnchor.isTracked {
-                         arViewModel.isImageTracked = imageAnchor.isTracked
-                         print("Image anchor tracking status changed: \(arViewModel.isImageTracked)")
-                     }
-                 }
-             }
-         }
-    }
-    
-    func session(_ session: ARSession, didRemove anchors: [ARAnchor]) {
-===
-    </content>
-  </change>
-  <change>
-    <description>Dispatch didRemove logic to main thread using weak self</description>
-    <search>
-===
-    }
-    
-    func session(_ session: ARSession, didRemove anchors: [ARAnchor]) {
-        guard let arViewModel = arViewModel else { return }
-        for anchor in anchors {
-            if let imageAnchor = anchor as? ARImageAnchor {
-                print("Image anchor removed: \(imageAnchor.referenceImage.name ?? "unknown")")
-                DispatchQueue.main.async {
-                    if arViewModel.isImageTracked {
-                        arViewModel.isImageTracked = false // Mark as not tracked
+        // Use weak self to avoid retain cycles in async blocks
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, let arViewModel = self.arViewModel else { return }
+            
+            for anchor in anchors {
+                if let imageAnchor = anchor as? ARImageAnchor {
+                    // Update shared anchor transform and tracking status
+                    if imageAnchor.isTracked {
+                        arViewModel.sharedAnchorEntity.setTransformMatrix(imageAnchor.transform, relativeTo: nil)
                     }
-                }
-            }
-            // Clean up associated content if needed
-            DispatchQueue.main.async {
-                arViewModel.processedAnchorIDs.remove(anchor.identifier)
-                if let index = arViewModel.placedAnchors.firstIndex(where: { $0.identifier == anchor.identifier }) {
-                    arViewModel.placedAnchors.remove(at: index)
-                }
-                // Find RealityKit AnchorEntity associated with this ARAnchor and remove it
-                // Filter anchors manually as removeAll(where:) might have signature issues
-                if let scene = arViewModel.arView?.scene {
-                    let anchorsToRemove = scene.anchors.filter { $0.anchorIdentifier == anchor.identifier }
-                    for anchorToRemove in anchorsToRemove {
-                        scene.removeAnchor(anchorToRemove)
+                    // Only update state if it changed
+                    if arViewModel.isImageTracked != imageAnchor.isTracked {
+                        arViewModel.isImageTracked = imageAnchor.isTracked
+                        print("Image anchor tracking status changed: \(arViewModel.isImageTracked)")
                     }
                 }
             }
         }
-    }
-
-    func session(_ session: ARSession, didOutputCollaborationData data: ARSession.CollaborationData) {
-===
-    </search>
-    <content>
-===
     }
     
     func session(_ session: ARSession, didRemove anchors: [ARAnchor]) {
@@ -970,394 +282,226 @@ extension MultipeerSession: MCNearbyServiceBrowserDelegate {
                 }
                 // Clean up associated content if needed
                 arViewModel.processedAnchorIDs.remove(anchor.identifier)
-                if let index = arViewModel.placedAnchors.firstIndex(where: { $0.identifier == anchor.identifier }) {
-                    arViewModel.placedAnchors.remove(at: index)
-                }
-                // Find RealityKit AnchorEntity associated with this ARAnchor and remove it
-                // Filter anchors manually as removeAll(where:) might have signature issues
-                if let scene = arViewModel.arView?.scene {
-                    let anchorsToRemove = scene.anchors.filter { $0.anchorIdentifier == anchor.identifier }
-                    for anchorToRemove in anchorsToRemove {
-                        scene.removeAnchor(anchorToRemove)
-                        print("Removed RealityKit anchor associated with ARAnchor: \(anchor.identifier)")
+===
+    </search>
+    <content>
+===
+                } else if let imageAnchor = anchor as? ARImageAnchor {
+                    let imageName = imageAnchor.referenceImage.name ?? "unknown"
+                    // Handle only when in image target mode
+                    guard arViewModel.currentSyncMode == .imageTarget else { continue }
+
+                    if imageAnchor.isTracked {
+                        if !arViewModel.isSyncedToImage {
+                            // Perform one-time sync
+                            arViewModel.sharedAnchorEntity.setTransformMatrix(imageAnchor.transform, relativeTo: nil)
+                            arViewModel.isSyncedToImage = true
+                            arViewModel.isImageTracked = true
+                            print("✅ [iOS] Image Target '\(imageName)' detected. Synced sharedAnchorEntity.")
+                        } else {
+                            // Already synced, just update detection status
+                            if !arViewModel.isImageTracked {
+                                arViewModel.isImageTracked = true
+                                print("👀 [iOS] Image Target '\(imageName)' re-detected (already synced).")
+                            }
+                        }
+                    } else {
+                        // Image lost tracking (but might still exist as an anchor)
+                        if arViewModel.isImageTracked {
+                            arViewModel.isImageTracked = false
+                            print("⚠️ [iOS] Image Target '\(imageName)' lost tracking.")
+                            // Do not reset isSyncedToImage
+                        }
                     }
+                } else {
+                     // Log other unknown anchor types if necessary
+                     // print("Ignoring unknown anchor type added: \(anchor.identifier), Type: \(type(of: anchor))")
                 }
             }
         }
     }
 
-    func session(_ session: ARSession, didOutputCollaborationData data: ARSession.CollaborationData) {
-===
-    </content>
-  </change>
-  <change>
-    <description>Handle collaboration data sending without @MainActor, access arViewModel safely</description>
-    <search>
-===
-    }
-
-    func session(_ session: ARSession, didOutputCollaborationData data: ARSession.CollaborationData) {
-        guard let arViewModel = arViewModel,
-              let mpSession = arViewModel.multipeerSession,
-              !mpSession.session.connectedPeers.isEmpty else { return }
-        
-        // Only send if it's critical or few peers
-        guard data.priority == .critical || mpSession.session.connectedPeers.count < 3 else { return }
-        
-        do {
-            let archivedData = try NSKeyedArchiver.archivedData(withRootObject: data, requiringSecureCoding: true)
-            // Verify mpSession type (for debugging, won't fix compile error directly)
-            // print("Type of mpSession: \(type(of: mpSession))") // Should print Optional<MultipeerSession> or MultipeerSession
-            
-            // Use the helper method with correct parameter order (no need for line breaks)
-            mpSession.sendToAllPeers(archivedData, dataType: .collaborationData, reliable: true)
-        } catch {
-            print("Error archiving/sending collaboration data: \(error)")
-        }
-    }
-    
-    func session(_ session: ARSession, didFailWithError error: Error) {
-===
-    </search>
-    <content>
-===
-    }
-
-    // No @MainActor needed here, but access arViewModel safely if needed later
-    func session(_ session: ARSession, didOutputCollaborationData data: ARSession.CollaborationData) {
-        // Access arViewModel and multipeerSession safely
-        guard let viewModel = self.arViewModel, // Use self.arViewModel
-              let mpSession = viewModel.multipeerSession,
-              !mpSession.session.connectedPeers.isEmpty else {
-            // print("Collaboration data received but no session or peers to send to.")
-            return
-        }
-        
-        // Only send if it's critical or few peers
-        guard data.priority == .critical || mpSession.session.connectedPeers.count < 3 else { return }
-        
-        do {
-            let archivedData = try NSKeyedArchiver.archivedData(withRootObject: data, requiringSecureCoding: true)
-            // Use the helper method with correct parameter order (no need for line breaks)
-            // Ensure mpSession is accessed correctly
-            mpSession.sendToAllPeers(archivedData, dataType: .collaborationData, reliable: true)
-        } catch {
-            print("Error archiving/sending collaboration data: \(error)")
-        }
-    }
-    
-    func session(_ session: ARSession, didFailWithError error: Error) {
-===
-    </content>
-  </change>
-  <change>
-    <description>Dispatch didFailWithError alert update to main thread using weak self</description>
-    <search>
-===
-    
-    func session(_ session: ARSession, didFailWithError error: Error) {
-        print("ARSession failed: \(error.localizedDescription)")
-        DispatchQueue.main.async {
-            self.arViewModel?.alertItem = AlertItem(title: "AR Error", message: error.localizedDescription)
-        }
-    }
-}
-#endif
-===
-    </search>
-    <content>
-===
-    
-    func session(_ session: ARSession, didFailWithError error: Error) {
-        print("ARSession failed: \(error.localizedDescription)")
+    func session(_ session: ARSession, didUpdate anchors: [ARAnchor]) {
         // Use weak self to avoid retain cycles in async blocks
         DispatchQueue.main.async { [weak self] in
-            // Access arViewModel safely using self?
-            self?.arViewModel?.alertItem = AlertItem(title: "AR Error", message: error.localizedDescription)
+            guard let self = self, let arViewModel = self.arViewModel else { return }
+
+            for anchor in anchors {
+                if let imageAnchor = anchor as? ARImageAnchor {
+                    let imageName = imageAnchor.referenceImage.name ?? "unknown"
+                    // Handle only when in image target mode
+                    guard arViewModel.currentSyncMode == .imageTarget else { continue }
+
+                    if imageAnchor.isTracked {
+                        if !arViewModel.isSyncedToImage {
+                            // Perform one-time sync if detected during update
+                            arViewModel.sharedAnchorEntity.setTransformMatrix(imageAnchor.transform, relativeTo: nil)
+                            arViewModel.isSyncedToImage = true
+                            arViewModel.isImageTracked = true
+                            print("✅ [iOS] Image Target '\(imageName)' detected via update. Synced sharedAnchorEntity.")
+                        } else {
+                            // Already synced, just update detection status
+                             if !arViewModel.isImageTracked {
+                                 arViewModel.isImageTracked = true
+                                 print("👀 [iOS] Image Target '\(imageName)' re-detected via update (already synced).")
+                             }
+                        }
+                    } else {
+                        // Image lost tracking
+                        if arViewModel.isImageTracked {
+                            arViewModel.isImageTracked = false
+                            print("⚠️ [iOS] Image Target '\(imageName)' lost tracking via update.")
+                            // Do not reset isSyncedToImage
+                        }
+                    }
+                }
+            }
         }
     }
-}
-#endif
-===
-    </content>
-  </change>
-  <change>
-    <description>Remove logic for handling user-placed anchors in didAdd, as placement is now direct.</description>
-    <search>
-===
+
+    func session(_ session: ARSession, didRemove anchors: [ARAnchor]) {
+        // Use weak self to avoid retain cycles in async blocks
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, let arViewModel = self.arViewModel else { return }
+
+            for anchor in anchors {
+                if let imageAnchor = anchor as? ARImageAnchor {
+                     let imageName = imageAnchor.referenceImage.name ?? "unknown"
+                     // Handle only when in image target mode
+                     guard arViewModel.currentSyncMode == .imageTarget else { continue }
+
+                    print("❌ [iOS] Image Target '\(imageName)' anchor removed.")
+                    if arViewModel.isImageTracked {
+                        arViewModel.isImageTracked = false // Mark as not detected
+                        // Do not reset isSyncedToImage
                     }
                 }
-            // Removed handling for user-placed anchors (arViewModel.placedAnchors)
-            // Placement is now handled directly in ARViewModel.handleTap
-            } else {
-                 // Log other unknown anchor types if necessary
-                 // print("Ignoring unknown anchor type added: \(anchor.identifier), Type: \(type(of: anchor))")
-===
-    </search>
-    <content>
-===
-                    }
-                }
-            // Removed handling for user-placed anchors (arViewModel.placedAnchors)
-            // Placement is now handled directly in ARViewModel.handleTap
-            } else {
-                 // Log other unknown anchor types if necessary
-                 // print("Ignoring unknown anchor type added: \(anchor.identifier), Type: \(type(of: anchor))")
+                // Clean up associated content if needed
+                arViewModel.processedAnchorIDs.remove(anchor.identifier)
 ===
     </content>
   </change>
 </file>
 
-<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/Shared/ModelManager.swift" action="modify">
+<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/XR Anatomy Vision/Scenes/DebugControlsView.swift" action="modify">
   <change>
-    <description>Add logging before broadcasting model removal</description>
+    <description>Add Re-Sync Image button and status indicator</description>
     <search>
-===
-        let modelTypeName = model.modelType.rawValue // Get name before potential removal
-        
-        // Broadcast removal *before* removing locally
-        if broadcast, let arViewModel = model.arViewModel, let _ = arViewModel.customService {
-            let payload = RemoveModelPayload(instanceID: instanceID)
-            do {
-                let data = try JSONEncoder().encode(payload)
-                arViewModel.multipeerSession?.sendToAllPeers(data, dataType: .removeModel)
-                print("Broadcasted removeModel: \(modelTypeName) (ID: \(instanceID))")
-            } catch {
-                print("Error encoding RemoveModelPayload: \(error)")
-            }
-        }
-        
-        // Clean up entity properly
-===
-    </search>
-    <content>
-===
-        let modelTypeName = model.modelType.rawValue // Get name before potential removal
-        
-        // Broadcast removal *before* removing locally
-        if broadcast, let arViewModel = model.arViewModel, let multipeerSession = arViewModel.multipeerSession {
-            let payload = RemoveModelPayload(instanceID: instanceID)
-            print("Attempting to broadcast removeModel for \(modelTypeName) with InstanceID: \(instanceID)") // Added log
-            do {
-                let data = try JSONEncoder().encode(payload)
-                multipeerSession.sendToAllPeers(data, dataType: .removeModel)
-                print("Successfully broadcasted removeModel: \(modelTypeName) (ID: \(instanceID))")
-            } catch {
-                print("Error encoding RemoveModelPayload for \(modelTypeName) (ID: \(instanceID)): \(error)")
-            }
-        } else if broadcast {
-            print("Could not broadcast removeModel for \(modelTypeName): Missing ARViewModel or MultipeerSession.")
-        }
-        
-        // Clean up entity properly
-===
-    </content>
-  </change>
-</file>
-
-<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/Shared/MyCustomConnectivityService.swift" action="modify">
-  <change>
-    <description>Expose locallyOwnedEntities and entityLookup for ARViewModel access</description>
-    <search>
-===
-    var modelManager: ModelManager // Change to strong reference
-    
-    // Entity tracking
-    private var entityLookup: [Entity.ID: Entity] = [:]
-    private var locallyOwnedEntities: Set<Entity.ID> = []
-    
-    // Queue for handling received data
-    private let receivingQueue = DispatchQueue(label: "com.xranatomy.receivingQueue")
-===
-    </search>
-    <content>
-===
-    var modelManager: ModelManager // Change to strong reference
-    
-    // Entity tracking (make accessible for sync logic)
-    var entityLookup: [Entity.ID: Entity] = [:]
-    var locallyOwnedEntities: Set<Entity.ID> = []
-    
-    // Queue for handling received data
-    private let receivingQueue = DispatchQueue(label: "com.xranatomy.receivingQueue")
-===
-    </content>
-  </change>
-  <change>
-    <description>Add detailed logging in handleRemoveModel</description>
-    <search>
-===
-            let instanceID = payload.instanceID
-
-            // Find the entity with this instance ID
-            guard let entityToRemove = entityLookup.values.first(where: { $0.components[InstanceIDComponent.self]?.id == instanceID }) else {
-                print("Could not find model with instance ID \(instanceID) to remove.")
-                return
-            }
-
-            // Remove using ModelManager on the main thread
-            DispatchQueue.main.async(execute: DispatchWorkItem(block: {
-                let model = self.modelManager.modelDict[entityToRemove]
-                if let model = model {
-                    print("Removing model \(model.modelType.rawValue) (ID: \(instanceID)) via ModelManager.")
-                    // Call removeModel with broadcast: false to prevent loop
-                    // Use Task with MainActor to safely call the isolated method
-                    Task { @MainActor in
-                        self.modelManager.removeModel(model, broadcast: false)
+                        }
+                        .padding(.top, 4)
                     }
-                    
-                    // Also unregister from connectivity service
-                    self.unregisterEntity(entityToRemove)
-                    
-                } else {
-                    // Fallback if not found in ModelManager (shouldn't happen ideally)
-                    print("Warning: Model \(instanceID) not found in ModelManager, removing entity directly.")
-                    entityToRemove.removeFromParent()
-                    self.unregisterEntity(entityToRemove) // Ensure unregistration
                 }
-            }))
-        } catch {
-            print("Error decoding RemoveModelPayload: \(error)")
-        }
-    }
-    
-    // MARK: - Test Message Handler
-===
-    </search>
-    <content>
-===
-            let instanceID = payload.instanceID
-            print("Received removeModel request for InstanceID: \(instanceID) from \(peerID.displayName)")
-
-            // Find the entity with this instance ID in the lookup
-            guard let entityToRemove = entityLookup.values.first(where: { $0.components[InstanceIDComponent.self]?.id == instanceID }) else {
-                print("handleRemoveModel: Could not find entity with instance ID \(instanceID) in local entityLookup.")
-                // Log current lookup for debugging
-                let currentIDs = entityLookup.values.compactMap { $0.components[InstanceIDComponent.self]?.id }
-                print("handleRemoveModel: Current known instance IDs: \(currentIDs)")
-                return
-            }
-            print("handleRemoveModel: Found entity \(entityToRemove.name) (ID: \(entityToRemove.id)) matching InstanceID \(instanceID).")
-
-            // Remove using ModelManager on the main thread
-            DispatchQueue.main.async(execute: DispatchWorkItem(block: { [weak self] in // Use weak self
-                guard let self = self else { return }
+                .padding(.vertical, 8)
+                .background(Color.secondary.opacity(0.1))
+                .cornerRadius(8)
                 
-                // Double-check if the entity still exists before removal attempt
-                guard let currentEntity = self.entityLookup[entityToRemove.id] else {
-                    print("handleRemoveModel: Entity \(entityToRemove.name) (InstanceID: \(instanceID)) disappeared before removal could be executed on main thread.")
-                    return
-                }
+                // Test Message Button
+                Button("Send Test Message") {
+===
+    </search>
+    <content>
+===
+                        }
+                        .padding(.top, 4)
 
-                let model = self.modelManager.modelDict[currentEntity]
-                if let model = model {
-                    print("handleRemoveModel: Found model \(model.modelType.rawValue) in ModelManager for InstanceID \(instanceID). Calling removeModel(broadcast: false).")
-                    // Call removeModel with broadcast: false to prevent loop
-                    // Use Task with MainActor to safely call the isolated method
-                    Task { @MainActor in
-                        // Pass the specific model instance found
-                        self.modelManager.removeModel(model, broadcast: false)
-                        print("handleRemoveModel: Successfully called modelManager.removeModel for \(model.modelType.rawValue) (InstanceID: \(instanceID))")
+                        // Sync Status and Re-Sync Button
+                        if arViewModel.isSyncedToImage {
+                            HStack {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                                Text("Synced via Image")
+                                    .font(.caption)
+                                Spacer()
+                                Button("Re-Sync") {
+                                    arViewModel.triggerImageSync()
+                                    lastAction = "Triggered Image Re-Sync"
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            }
+                            .padding(.top, 4)
+                        } else {
+                             Text("Awaiting Image Sync...")
+                                 .font(.caption)
+                                 .foregroundColor(.orange)
+                                 .padding(.top, 4)
+                        }
                     }
-                    
-                    // Also unregister from connectivity service *after* confirming removal starts
-                    // Note: modelManager.removeModel should ideally handle unregistration now.
-                    // self.unregisterEntity(currentEntity) // Let removeModel handle unregistration
-                    
-                } else {
-                    // Fallback if not found in ModelManager (shouldn't happen ideally)
-                    print("handleRemoveModel Warning: Model for InstanceID \(instanceID) not found in ModelManager dictionary. Removing entity \(currentEntity.name) directly from parent and unregistering.")
-                    currentEntity.removeFromParent()
-                    self.unregisterEntity(currentEntity) // Ensure unregistration in fallback
                 }
-            }))
-        } catch {
-            print("Error decoding RemoveModelPayload: \(error)")
-        }
-    }
-    
-    // MARK: - Test Message Handler
+                .padding(.vertical, 8)
+                .background(Color.secondary.opacity(0.1))
+                .cornerRadius(8)
+
+                // Test Message Button
+                Button("Send Test Message") {
 ===
     </content>
   </change>
 </file>
 
-<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/XR Anatomy/XRAnatomyView.swift" action="modify">
+<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/XR Anatomy/BottomSheet.swift" action="modify">
   <change>
-    <description>Update ActionSheet button action to set modelManager.selectedModelID</description>
+    <description>Add Re-Sync Image button to iOS SettingsView</description>
     <search>
-===
-                                    buttons: modelManager.modelTypes.map { modelType in
-                                        .default(Text(modelType.rawValue.capitalized)) {
-                                            // Find the corresponding Model object if needed
-                                            if let model = arViewModel.models.first(where: { $0.modelType == modelType }) {
-                                                arViewModel.selectedModel = model
-                                                print("Selected model for placement: \(modelType.rawValue)")
-                                                // Show placement instructions
-                                                arViewModel.alertItem = AlertItem(title: "Model Selected", message: "Tap on a surface to place the \(modelType.rawValue).")
-                                            } else {
-                                                print("Error: Could not find Model object for type \(modelType.rawValue)")
-                                            }
-                                        }
-                                    } + [.cancel()]
-                                )
-                            }
-                            
-                            // Trash / reset
+                      .foregroundColor(.secondary)
+             }
+             #endif
+ 
+             Spacer()
+             Button("Close") {
 ===
     </search>
     <content>
 ===
-                                    buttons: modelManager.modelTypes.map { modelType in
-                                        .default(Text(modelType.rawValue.capitalized)) {
-                                            // Set the selected model ID in ModelManager for handleTap
-                                            modelManager.selectedModelID = modelType
-                                            
-                                            // Keep setting arViewModel.selectedModel if other UI relies on it (optional)
-                                            if let model = arViewModel.models.first(where: { $0.modelType == modelType }) {
-                                                 arViewModel.selectedModel = model
-                                            } else {
-                                                 // If the model isn't in arViewModel.models yet, maybe load it?
-                                                 // Or rely solely on modelManager.selectedModelID
-                                                 print("Note: Model object for \(modelType.rawValue) not found in arViewModel.models list.")
-                                            }
-                                            
-                                            print("Selected model type for placement: \(modelType.rawValue)")
-                                            // Show placement instructions
-                                            arViewModel.alertItem = AlertItem(title: "Model Selected", message: "Tap on a surface to place the \(modelType.rawValue).")
-                                        }
-                                    } + [.cancel()]
-                                )
-                            }
-                            
-                            // Trash / reset
-===
-    </content>
-  </change>
-</file>
+                      .foregroundColor(.secondary)
+             }
 
-<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/XR Anatomy/XRAnatomy.swift" action="modify">
-  <change>
-    <description>Remove call to deferMultipeerServicesUntilModelsLoad in onAppear</description>
-    <search>
-===
-                    arViewModel.modelManager = modelManager
-                    
-                    // Initialize the model loading process but defer multipeer
-                    arViewModel.deferMultipeerServicesUntilModelsLoad()
-                    // Use Task for async loading
-                    Task {
-                        await arViewModel.loadModels()
-===
-    </search>
-    <content>
-===
-                    arViewModel.modelManager = modelManager
-                    
-                    // Initialize the model loading process. Multipeer is started via menu selection.
-                    // Use Task for async loading
-                    Task {
-                        await arViewModel.loadModels()
+             // Sync Mode Picker (Example - Adapt as needed for iOS UI)
+             Picker("Sync Mode", selection: $arViewModel.currentSyncMode) {
+                 ForEach(SyncMode.allCases, id: \.self) { mode in
+                     Text(mode.rawValue).tag(mode)
+                 }
+             }
+             .pickerStyle(.segmented)
+             .onChange(of: arViewModel.currentSyncMode) { _, newMode in
+                 print("iOS Sync Mode changed to: \(newMode.rawValue)")
+                 // Add logic to reconfigure session if needed, e.g., add/remove image tracking
+                 // This might involve pausing and re-running the ARSession with a new configuration.
+                 // For now, just log the change.
+                 // Consider posting a notification like in visionOS if session reconfiguration is complex.
+                 arViewModel.isSyncedToImage = false // Reset sync status when mode changes
+                 arViewModel.isImageTracked = false
+             }
+
+             // Image Sync Status and Button
+             if arViewModel.currentSyncMode == .imageTarget {
+                 HStack {
+                     Circle()
+                         .fill(arViewModel.isImageTracked ? Color.green : (arViewModel.isSyncedToImage ? Color.blue : Color.red))
+                         .frame(width: 10, height: 10)
+
+                     if arViewModel.isSyncedToImage {
+                         Text(arViewModel.isImageTracked ? "Image Detected (Synced)" : "Synced via Image (Not Detected)")
+                             .font(.caption)
+                     } else {
+                         Text(arViewModel.isImageTracked ? "Image Detected (Syncing...)" : "Awaiting Image Sync...")
+                             .font(.caption)
+                             .foregroundColor(.orange)
+                     }
+                 }
+                 Button("Re-Sync Image") {
+                     arViewModel.triggerImageSync()
+                 }
+                 .buttonStyle(.bordered)
+                 .disabled(arViewModel.currentSyncMode != .imageTarget)
+                 .padding(.top, 5)
+             }
+
+
+             #endif
+
+             Spacer()
+             Button("Close") {
 ===
     </content>
   </change>

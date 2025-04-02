@@ -23,19 +23,32 @@ class ARSessionDelegateHandler: NSObject, ARSessionDelegate {
                 if anchor is ARPlaneAnchor {
                     // print("Plane anchor added/updated: \(anchor.identifier)")
                 } else if let imageAnchor = anchor as? ARImageAnchor {
-                    print("Image anchor detected: \(imageAnchor.referenceImage.name ?? "unknown")")
-                    // Update shared anchor transform based on image anchor
-                    // Access arViewModel properties safely within the main queue block
-                    arViewModel.sharedAnchorEntity.setTransformMatrix(imageAnchor.transform, relativeTo: nil)
-                    arViewModel.isImageTracked = imageAnchor.isTracked // Update tracking status
-                    
-                    // If sync mode is image target, notify that the anchor is found
-                    if arViewModel.currentSyncMode == .imageTarget {
-                        // Potentially trigger synchronization of models relative to this anchor
-                        print("Image anchor added/updated in Image Target mode.")
+                    let imageName = imageAnchor.referenceImage.name ?? "unknown"
+                    // Handle only when in image target mode
+                    guard arViewModel.currentSyncMode == .imageTarget else { continue }
+
+                    if imageAnchor.isTracked {
+                        if !arViewModel.isSyncedToImage {
+                            // Perform one-time sync
+                            arViewModel.sharedAnchorEntity.setTransformMatrix(imageAnchor.transform, relativeTo: nil)
+                            arViewModel.isSyncedToImage = true
+                            arViewModel.isImageTracked = true
+                            print("✅ [iOS] Image Target '\(imageName)' detected. Synced sharedAnchorEntity.")
+                        } else {
+                            // Already synced, just update detection status
+                            if !arViewModel.isImageTracked {
+                                arViewModel.isImageTracked = true
+                                print("👀 [iOS] Image Target '\(imageName)' re-detected (already synced).")
+                            }
+                        }
+                    } else {
+                        // Image lost tracking (but might still exist as an anchor)
+                        if arViewModel.isImageTracked {
+                            arViewModel.isImageTracked = false
+                            print("⚠️ [iOS] Image Target '\(imageName)' lost tracking.")
+                            // Do not reset isSyncedToImage
+                        }
                     }
-                // Removed handling for user-placed anchors (arViewModel.placedAnchors)
-                // Placement is now handled directly in ARViewModel.handleTap
                 } else {
                      // Log other unknown anchor types if necessary
                      // print("Ignoring unknown anchor type added: \(anchor.identifier), Type: \(type(of: anchor))")
@@ -48,17 +61,34 @@ class ARSessionDelegateHandler: NSObject, ARSessionDelegate {
         // Use weak self to avoid retain cycles in async blocks
         DispatchQueue.main.async { [weak self] in
             guard let self = self, let arViewModel = self.arViewModel else { return }
-            
+
             for anchor in anchors {
                 if let imageAnchor = anchor as? ARImageAnchor {
-                    // Update shared anchor transform and tracking status
+                    let imageName = imageAnchor.referenceImage.name ?? "unknown"
+                    // Handle only when in image target mode
+                    guard arViewModel.currentSyncMode == .imageTarget else { continue }
+
                     if imageAnchor.isTracked {
-                        arViewModel.sharedAnchorEntity.setTransformMatrix(imageAnchor.transform, relativeTo: nil)
-                    }
-                    // Only update state if it changed
-                    if arViewModel.isImageTracked != imageAnchor.isTracked {
-                        arViewModel.isImageTracked = imageAnchor.isTracked
-                        print("Image anchor tracking status changed: \(arViewModel.isImageTracked)")
+                        if !arViewModel.isSyncedToImage {
+                            // Perform one-time sync if detected during update
+                            arViewModel.sharedAnchorEntity.setTransformMatrix(imageAnchor.transform, relativeTo: nil)
+                            arViewModel.isSyncedToImage = true
+                            arViewModel.isImageTracked = true
+                            print("✅ [iOS] Image Target '\(imageName)' detected via update. Synced sharedAnchorEntity.")
+                        } else {
+                            // Already synced, just update detection status
+                             if !arViewModel.isImageTracked {
+                                 arViewModel.isImageTracked = true
+                                 print("👀 [iOS] Image Target '\(imageName)' re-detected via update (already synced).")
+                             }
+                        }
+                    } else {
+                        // Image lost tracking
+                        if arViewModel.isImageTracked {
+                            arViewModel.isImageTracked = false
+                            print("⚠️ [iOS] Image Target '\(imageName)' lost tracking via update.")
+                            // Do not reset isSyncedToImage
+                        }
                     }
                 }
             }
@@ -72,9 +102,14 @@ class ARSessionDelegateHandler: NSObject, ARSessionDelegate {
             
             for anchor in anchors {
                 if let imageAnchor = anchor as? ARImageAnchor {
-                    print("Image anchor removed: \(imageAnchor.referenceImage.name ?? "unknown")")
+                     let imageName = imageAnchor.referenceImage.name ?? "unknown"
+                     // Handle only when in image target mode
+                     guard arViewModel.currentSyncMode == .imageTarget else { continue }
+
+                    print("❌ [iOS] Image Target '\(imageName)' anchor removed.")
                     if arViewModel.isImageTracked {
-                        arViewModel.isImageTracked = false // Mark as not tracked
+                        arViewModel.isImageTracked = false // Mark as not detected
+                        // Do not reset isSyncedToImage
                     }
                 }
                 // Clean up associated content if needed

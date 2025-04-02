@@ -249,27 +249,40 @@ struct XRAnatomy_visionOSApp: App {
                     // Use any of the reference images
                     let imageName = imageAnchor.referenceImage.name ?? "Unknown"
                     
-                    // Using the AppState object directly within the MainActor context
+                    // Using the AppState and ARViewModel objects directly within the MainActor context
                     switch event {
                     case .added, .updated:
+                        let imageName = imageAnchor.referenceImage.name ?? "Unknown"
                         if imageAnchor.isTracked {
-                            let newWorldTransform = imageAnchor.originFromAnchorTransform
-                            arViewModel.sharedAnchorEntity.setTransformMatrix(newWorldTransform, relativeTo: nil)
-                            
-                            if !appState.isImageTracked {
-                                print("✅ Image Target '\(imageName)' detected and tracked. Updated sharedAnchorEntity.")
+                            // Image is currently tracked
+                            if !arViewModel.isSyncedToImage {
+                                // Perform the one-time sync alignment
+                                let newWorldTransform = imageAnchor.originFromAnchorTransform
+                                arViewModel.sharedAnchorEntity.setTransformMatrix(newWorldTransform, relativeTo: nil)
+                                arViewModel.isSyncedToImage = true // Mark as synced
+                                appState.isImageTracked = true // Mark as detected
+                                print("✅ Image Target '\(imageName)' detected. Synced sharedAnchorEntity transform.")
+                            } else {
+                                // Already synced, just update detection status if it wasn't already tracked
+                                if !appState.isImageTracked {
+                                     appState.isImageTracked = true
+                                     print("👀 Image Target '\(imageName)' re-detected (already synced).")
+                                }
                             }
-                            appState.isImageTracked = true
                         } else {
+                            // Image is lost
                             if appState.isImageTracked {
                                 print("⚠️ Image Target '\(imageName)' lost tracking.")
                                 appState.isImageTracked = false
+                                // DO NOT reset isSyncedToImage here - alignment persists
                             }
                         }
                     case .removed:
+                        let imageName = imageAnchor.referenceImage.name ?? "Unknown"
                         if appState.isImageTracked {
                             print("❌ Image Target '\(imageName)' anchor removed.")
                             appState.isImageTracked = false
+                            // DO NOT reset isSyncedToImage here
                         }
                     @unknown default:
                         print("Unhandled image anchor event: \(event)")
@@ -280,9 +293,10 @@ struct XRAnatomy_visionOSApp: App {
                 print("Error occurred during image anchor monitoring: \(error)")
             }
             
-            // Ensure tracking state is false if task finishes
+            // Ensure detection state is false if task finishes or exits loop
+            // isSyncedToImage persists until explicitly reset
             if appState.isImageTracked {
-                print("Image monitoring finished, resetting tracking state.")
+                print("Image monitoring loop finished/exited, resetting detection state.")
                 appState.isImageTracked = false
             }
         }

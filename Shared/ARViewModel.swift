@@ -62,7 +62,8 @@ class ARViewModel: NSObject, ObservableObject {
     #endif
     // Shared anchor for image target mode (used by both platforms)
     let sharedAnchorEntity = AnchorEntity(.world(transform: matrix_identity_float4x4))
-    @Published var isImageTracked: Bool = false // Track if the target image is currently tracked
+    @Published var isImageTracked: Bool = false // Track if the target image is *currently* detected/tracked
+    @Published var isSyncedToImage: Bool = false // Track if the initial sync alignment via image has occurred
 
     // RealityKit Scene (available on both iOS and visionOS)
     @Published var currentScene: RealityKit.Scene?
@@ -194,6 +195,21 @@ class ARViewModel: NSObject, ObservableObject {
         }
     }
 
+    // MARK: - Image Sync Control
+
+    /// Resets the image sync state, allowing detection to re-align the shared anchor.
+    @MainActor func triggerImageSync() {
+        if currentSyncMode == .imageTarget {
+            isSyncedToImage = false
+            isImageTracked = false // Reset detection status as well
+            print("Image sync triggered. Awaiting image target detection for re-alignment.")
+            // Optionally, provide user feedback (e.g., alert)
+            alertItem = AlertItem(title: "Image Sync", message: "Point your device towards the designated image target to re-align the session.")
+        } else {
+            print("Cannot trigger image sync when not in Image Target mode.")
+        }
+    }
+
     // MARK: - Multipeer Connectivity
 
     /// Set the current scene for synchronization
@@ -274,6 +290,8 @@ class ARViewModel: NSObject, ObservableObject {
         self.connectedPeers.removeAll()
         self.availableSessions.removeAll()
         self.selectedSession = nil
+        self.isSyncedToImage = false // Reset sync status on disconnect
+        self.isImageTracked = false
         print("Stopped and cleaned up multipeer services.")
     }
 
@@ -501,6 +519,8 @@ class ARViewModel: NSObject, ObservableObject {
         self.placedAnchors.removeAll()
         self.processedAnchorIDs.removeAll()
         self.modelManager?.reset() // Also reset models managed by ModelManager
+        self.isSyncedToImage = false // Reset sync status
+        self.isImageTracked = false
 
         // Create new configuration
         let config = ARWorldTrackingConfiguration()

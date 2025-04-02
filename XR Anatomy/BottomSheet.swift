@@ -85,6 +85,47 @@ struct SettingsView: View {
                  .foregroundColor(.secondary)
             #endif
 
+            // Sync Mode Picker (Example - Adapt as needed for iOS UI)
+            Picker("Sync Mode", selection: $arViewModel.currentSyncMode) {
+                ForEach(SyncMode.allCases, id: \.self) { mode in
+                    Text(mode.rawValue).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: arViewModel.currentSyncMode) { _, newMode in
+                print("iOS Sync Mode changed to: \(newMode.rawValue)")
+                // Add logic to reconfigure session if needed, e.g., add/remove image tracking
+                // This might involve pausing and re-running the ARSession with a new configuration.
+                // For now, just log the change.
+                // Consider posting a notification like in visionOS if session reconfiguration is complex.
+                arViewModel.isSyncedToImage = false // Reset sync status when mode changes
+                arViewModel.isImageTracked = false
+            }
+
+            // Image Sync Status and Button
+            if arViewModel.currentSyncMode == .imageTarget {
+                HStack {
+                    Circle()
+                        .fill(arViewModel.isImageTracked ? Color.green : (arViewModel.isSyncedToImage ? Color.blue : Color.red))
+                        .frame(width: 10, height: 10)
+
+                    if arViewModel.isSyncedToImage {
+                        Text(arViewModel.isImageTracked ? "Image Detected (Synced)" : "Synced via Image (Not Detected)")
+                            .font(.caption)
+                    } else {
+                        Text(arViewModel.isImageTracked ? "Image Detected (Syncing...)" : "Awaiting Image Sync...")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
+                }
+                Button("Re-Sync Image") {
+                    arViewModel.triggerImageSync()
+                }
+                .buttonStyle(.bordered)
+                .disabled(arViewModel.currentSyncMode != .imageTarget)
+                .padding(.top, 5)
+            }
+
             Spacer()
             Button("Close") {
                 isVisible = false
