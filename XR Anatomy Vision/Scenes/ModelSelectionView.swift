@@ -10,11 +10,14 @@ struct ModelSelectionScreen: View {
 
     @Environment(\.openImmersiveSpace) private var openImmersiveSpace
     @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
+    
+    @State private var showingPopover = false
+    @State var modelList: [String] = ["Anatomy Models", "Car Models", "Airplane Models", "Bird Models", "Food Models"]
 
     var body: some View {
         VStack(spacing: 20) {
             
-            HStack{
+            HStack(alignment: .top){
                 Button("Back to Main") {
                     
                     dismissWindow(id: "AddModelWindow")
@@ -35,19 +38,56 @@ struct ModelSelectionScreen: View {
                 
                 Spacer()
                 
-                Text("Session Name:")
+                Text("XRShare")
                     .font(.largeTitle)
                 
                 Spacer()
                 
+                VStack(alignment: .trailing, spacing: 0){
+                
                 Button("Add a model"){
                     print("add a model selected")
-                    openWindow(id: "AddModelWindow")
+                    dismissWindow(id: "AddModelWindow")
+                    showingPopover = true
                 }
                 .background(RoundedRectangle(cornerRadius:30).fill(Color.white.opacity(0.6)))
-                
-                
+                .sheet(isPresented: $showingPopover){
+                    VStack{
+                        Text("Select Type of Model:")
+                            .padding()
+                            .padding(.top, 10)
+                            .font(.headline)
+                            .bold()
+                        
+                        ForEach(modelList, id: \.self){ item in
+                            Button(action:{
+                                switch item{
+                                case "Anatomy Models":
+                                    appModel.selectedCategory = .anatomy
+                                    openWindow(id: "AddModelWindow")
+                                case "Food Models":
+                                    appModel.selectedCategory = .food
+                                    openWindow(id: "AddModelWindow")
+                                default:
+                                    break
+                                }
+                                
+                                showingPopover = false
+                                
+                            }){
+                                Text(item)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            
+                            
+                        }
+                        .padding()
+                        
+                    }
+                }
             }
+                
+        }
             .padding(35)
         
 
@@ -62,8 +102,15 @@ struct ModelSelectionScreen: View {
                             modelManager.removeModel(mod)
                         }
                     }
+                    .padding(.horizontal)
+                    .frame(height:50)
+                    .background(Color.white.opacity(0.3))
+                    .listRowInsets(EdgeInsets())
+                    .cornerRadius(13)
+                    .listRowBackground(Color.clear)
                 }
             }
+            .listStyle(.plain)
             
             HStack {
                 

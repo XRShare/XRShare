@@ -14,6 +14,7 @@ enum ImmersiveSpaceState {
 final class AppModel: ObservableObject {
     @Published var currentPage: SessionPage = .mainMenu
     @Published var immersiveSpaceState: ImmersiveSpaceState = .open
+    @Published var selectedCategory: ModelCategory? = nil
     
     // Debug mode toggle
     @Published var debugModeEnabled: Bool = false

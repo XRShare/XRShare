@@ -20,6 +20,10 @@ final class ModelManager: ObservableObject {
         self.modelTypes = ModelType.allCases()
         print("Loaded model types: \(modelTypes.map { $0.rawValue })")
     }
+    
+    func models(for category: ModelCategory) -> [ModelType]{
+        modelTypes.filter { $0.category == category }
+    }
 
     // MARK: - Loading a ModelEntity
     func loadModel(for modelType: ModelType, arViewModel: ARViewModel?) {
