@@ -11,8 +11,7 @@ import RealityKit
 
 enum ModelCategory: String, CaseIterable, Identifiable {
     var id: String {self.rawValue}
-    
-    
+        
     case anatomy
     case food
     case car

@@ -17,7 +17,7 @@ struct ModelSelectionScreen: View {
     var body: some View {
         VStack(spacing: 20) {
             
-            HStack(alignment: .top){
+            HStack{
                 Button("Back to Main") {
                     
                     dismissWindow(id: "AddModelWindow")
@@ -92,25 +92,59 @@ struct ModelSelectionScreen: View {
         
 
             Text("Loaded Models: \(modelManager.placedModels.count)")
-
-            List {
-                ForEach(modelManager.placedModels, id: \.id) { mod in
-                    HStack {
-                        Text(mod.modelType.rawValue)
-                        Spacer()
-                        Button("Delete") {
-                            modelManager.removeModel(mod)
+                    
+                    ForEach(modelManager.placedModels, id: \.id) { mod in
+                        HStack(spacing: 12) {
+                            
+                            Text(mod.modelType.rawValue)
+                                .padding(.horizontal, 16)
+                                .frame(height: 44)
+                                .foregroundColor(.white)
+                            
+                            Spacer()
+                        
+                            
+                            HStack(spacing: 12){
+                                Button(action: {
+                                    print("Info Selected")
+                                }) {
+                                    Image(systemName: "list.bullet")
+                                        .foregroundColor(.white)
+                                }
+                                .buttonStyle(.plain)
+                                
+                                
+                                
+                                Button(action: {
+                                    print("more info Selected")
+                                }) {
+                                    openWindow(id: )
+                                    Image(systemName: "cube.box.fill")
+                                        .foregroundColor(.white)
+                                }
+                                .buttonStyle(.plain)
+                                
+                                
+                                Button(action: {
+                                    print("trash Selected")
+                                    modelManager.removeModel(mod)
+                                }) {
+                                    Image(systemName: "trash")
+                                        .foregroundColor(.white)
+                                }
+                                .buttonStyle(.plain)
+                                
+                            }
+                            .padding(.horizontal, 20)
+                            .frame(height:44)
+                            
                         }
+                        .frame(height:50)
+                        .background(RoundedRectangle(cornerRadius: 13).fill(Color.white.opacity(0.3)))
+                        .padding(.horizontal)
+                        
                     }
-                    .padding(.horizontal)
-                    .frame(height:50)
-                    .background(Color.white.opacity(0.3))
-                    .listRowInsets(EdgeInsets())
-                    .cornerRadius(13)
-                    .listRowBackground(Color.clear)
-                }
-            }
-            .listStyle(.plain)
+            
             
             HStack {
                 
@@ -159,12 +193,4 @@ struct ModelSelectionScreen: View {
         }
     }
 }
-
-struct ModelSelectionView : PreviewProvider {
-    static var previews: some View {
-        ModelSelectionScreen(modelManager : ModelManager())
-            .environmentObject(AppModel())
-            .environmentObject(ARViewModel())
-    }
-    
-}
+        

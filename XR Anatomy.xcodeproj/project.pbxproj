@@ -43,6 +43,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
+				Scenes/ModelInfoView.swift,
 			);
 			target = 87B974472D09106D00168B98 /* XR Anatomy Vision */;
 		};
