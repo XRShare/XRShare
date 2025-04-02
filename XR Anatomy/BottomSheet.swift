@@ -94,11 +94,12 @@ struct SettingsView: View {
             .pickerStyle(.segmented)
             .onChange(of: arViewModel.currentSyncMode) { _, newMode in
                 print("iOS Sync Mode changed to: \(newMode.rawValue)")
-                // Add logic to reconfigure session if needed, e.g., add/remove image tracking
-                // This might involve pausing and re-running the ARSession with a new configuration.
-                // For now, just log the change.
-                // Consider posting a notification like in visionOS if session reconfiguration is complex.
-                arViewModel.isSyncedToImage = false // Reset sync status when mode changes
+                // Trigger session reconfiguration when the mode changes
+                Task { @MainActor in
+                    arViewModel.reconfigureARSession()
+                }
+                // Reset sync state immediately (reconfigureARSession also does this, but good for immediate UI feedback)
+                arViewModel.isSyncedToImage = false
                 arViewModel.isImageTracked = false
             }
 

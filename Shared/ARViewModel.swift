@@ -335,12 +335,12 @@ class ARViewModel: NSObject, ObservableObject {
     // MARK: - iOS-specific AR functionality
     #if os(iOS)
     /// Setup the ARView with necessary configuration
-    func setupARView(_ arView: ARView) {
+    @MainActor func setupARView(_ arView: ARView) {
         self.arView = arView
         self.setCurrentScene(arView.scene) // Set the scene
 
-        // Configure the AR session using the shared manager
-        self.arSessionManager.configureSession(for: arView)
+        // Initial session configuration based on the current sync mode
+        reconfigureARSession() // Call reconfigure to handle initial setup
 
         // Assign the custom delegate handler
         if let delegateHandler = self.arSessionDelegateHandler {
@@ -550,6 +550,46 @@ class ARViewModel: NSObject, ObservableObject {
         self.placedAnchors.removeAll()
 
         print("All models cleared")
+    }
+
+    /// Reconfigures the ARKit session based on the current `currentSyncMode`. (iOS specific)
+    @MainActor func reconfigureARSession() {
+        guard let arView = self.arView else {
+            print("[iOS] Cannot reconfigure ARSession: ARView not available.")
+            return
+        }
+        print("[iOS] Reconfiguring ARSession for mode: \(currentSyncMode.rawValue)")
+
+        var referenceImages = Set<ARReferenceImage>()
+        if currentSyncMode == .imageTarget {
+            // Load reference images from the asset catalog
+            // Ensure the group name matches your Assets.xcassets
+            guard let loadedImages = ARReferenceImage.referenceImages(inGroupNamed: "SharedAnchors", bundle: nil) else {
+                print("[iOS] Error: Failed to load reference images from group 'SharedAnchors'. Switching to World Sync.")
+                self.alertItem = AlertItem(title: "Error", message: "Could not load Image Target resources. Switching to World Sync.")
+                // Fallback to world mode
+                currentSyncMode = .world
+                // Call reconfigure again with the updated mode
+                reconfigureARSession()
+                return
+            }
+            referenceImages = loadedImages
+            print("[iOS] Loaded \(referenceImages.count) reference images for Image Target mode.")
+            // Reset sync state when switching TO image target mode
+            self.isSyncedToImage = false
+            self.isImageTracked = false
+        } else {
+             // Reset sync state when switching FROM image target mode
+             self.isSyncedToImage = false
+             self.isImageTracked = false
+        }
+
+        // Configure the session using the manager
+        self.arSessionManager.configureSession(
+            for: arView,
+            syncMode: currentSyncMode,
+            referenceImages: referenceImages
+        )
     }
 
     // Removed placeModel(for:) as placement is now handled directly in handleTap
