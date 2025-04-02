@@ -40,9 +40,9 @@ class MyCustomConnectivityService: NSObject {
     weak var arViewModel: ARViewModel? // Keep weak ref to avoid retain cycles if ARViewModel owns this service
     var modelManager: ModelManager // Change to strong reference
     
-    // Entity tracking
-    private var entityLookup: [Entity.ID: Entity] = [:]
-    private var locallyOwnedEntities: Set<Entity.ID> = []
+    // Entity tracking (make accessible for sync logic)
+    var entityLookup: [Entity.ID: Entity] = [:]
+    var locallyOwnedEntities: Set<Entity.ID> = []
     
     // Queue for handling received data
     private let receivingQueue = DispatchQueue(label: "com.xranatomy.receivingQueue")
@@ -374,35 +374,49 @@ class MyCustomConnectivityService: NSObject {
     private func handleRemoveModel(_ data: Data, from peerID: MCPeerID) {
         do {
             let payload = try JSONDecoder().decode(RemoveModelPayload.self, from: data)
-            print("Received removeModel: ID \(payload.instanceID) from \(peerID.displayName)")
-            
             let instanceID = payload.instanceID
+            print("Received removeModel request for InstanceID: \(instanceID) from \(peerID.displayName)")
 
-            // Find the entity with this instance ID
+            // Find the entity with this instance ID in the lookup
             guard let entityToRemove = entityLookup.values.first(where: { $0.components[InstanceIDComponent.self]?.id == instanceID }) else {
-                print("Could not find model with instance ID \(instanceID) to remove.")
+                print("handleRemoveModel: Could not find entity with instance ID \(instanceID) in local entityLookup.")
+                // Log current lookup for debugging
+                let currentIDs = entityLookup.values.compactMap { $0.components[InstanceIDComponent.self]?.id }
+                print("handleRemoveModel: Current known instance IDs: \(currentIDs)")
                 return
             }
+            print("handleRemoveModel: Found entity \(entityToRemove.name) (ID: \(entityToRemove.id)) matching InstanceID \(instanceID).")
 
             // Remove using ModelManager on the main thread
-            DispatchQueue.main.async(execute: DispatchWorkItem(block: {
-                let model = self.modelManager.modelDict[entityToRemove]
+            DispatchQueue.main.async(execute: DispatchWorkItem(block: { [weak self] in // Use weak self
+                guard let self = self else { return }
+                
+                // Double-check if the entity still exists before removal attempt
+                guard let currentEntity = self.entityLookup[entityToRemove.id] else {
+                    print("handleRemoveModel: Entity \(entityToRemove.name) (InstanceID: \(instanceID)) disappeared before removal could be executed on main thread.")
+                    return
+                }
+
+                let model = self.modelManager.modelDict[currentEntity]
                 if let model = model {
-                    print("Removing model \(model.modelType.rawValue) (ID: \(instanceID)) via ModelManager.")
+                    print("handleRemoveModel: Found model \(model.modelType.rawValue) in ModelManager for InstanceID \(instanceID). Calling removeModel(broadcast: false).")
                     // Call removeModel with broadcast: false to prevent loop
                     // Use Task with MainActor to safely call the isolated method
                     Task { @MainActor in
+                        // Pass the specific model instance found
                         self.modelManager.removeModel(model, broadcast: false)
+                        print("handleRemoveModel: Successfully called modelManager.removeModel for \(model.modelType.rawValue) (InstanceID: \(instanceID))")
                     }
                     
-                    // Also unregister from connectivity service
-                    self.unregisterEntity(entityToRemove)
+                    // Also unregister from connectivity service *after* confirming removal starts
+                    // Note: modelManager.removeModel should ideally handle unregistration now.
+                    // self.unregisterEntity(currentEntity) // Let removeModel handle unregistration
                     
                 } else {
                     // Fallback if not found in ModelManager (shouldn't happen ideally)
-                    print("Warning: Model \(instanceID) not found in ModelManager, removing entity directly.")
-                    entityToRemove.removeFromParent()
-                    self.unregisterEntity(entityToRemove) // Ensure unregistration
+                    print("handleRemoveModel Warning: Model for InstanceID \(instanceID) not found in ModelManager dictionary. Removing entity \(currentEntity.name) directly from parent and unregistering.")
+                    currentEntity.removeFromParent()
+                    self.unregisterEntity(currentEntity) // Ensure unregistration in fallback
                 }
             }))
         } catch {

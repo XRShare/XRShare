@@ -656,7 +656,7 @@ class ARViewModel: NSObject, ObservableObject {
              }
              sender.rotation = 0 // Reset rotation
          case .changed:
-             guard let entity = activeGestureEntity, let initialRotation = self.initialRotation else { return }
+             guard let entity = activeGestureEntity, let _ = self.initialRotation else { return }
              let angle = Float(sender.rotation) // Rotation angle in radians
              // Create rotation quaternion around the Y-axis (typical for 2D rotation gesture)
              let deltaRotation = simd_quatf(angle: -angle, axis: SIMD3<Float>(0, 1, 0)) // Negative angle might feel more natural
@@ -705,6 +705,73 @@ class ARViewModel: NSObject, ObservableObject {
             relativeToImageAnchor: isRelativeToImageAnchor
         )
     }
+    
+    // MARK: - Synchronization on Connect
+    
+    /// Synchronizes locally owned models to a newly connected peer
+    /// Called when a new peer connects to the session
+    private func syncLocalModels(to targetPeerID: MCPeerID) {
+        print("Synchronizing locally owned models to newly connected peer: \(targetPeerID.displayName)")
+        
+        guard let multipeerSession = self.multipeerSession,
+              let customService = self.customService,
+              let modelManager = self.modelManager else {
+            print("Cannot sync models: Required services not initialized")
+            return
+        }
+        
+        // Get locally owned entities from the connectivity service
+        let locallyOwnedEntities = customService.locallyOwnedEntities
+        
+        // If we don't have any models to sync, just log and return
+        if locallyOwnedEntities.isEmpty {
+            print("No locally owned models to sync with new peer")
+            return
+        }
+        
+        print("Found \(locallyOwnedEntities.count) locally owned models to sync")
+        
+        // For each locally owned entity, create and send an AddModelPayload
+        for entityID in locallyOwnedEntities {
+            // Look up the entity using the entityLookup dictionary
+            guard let entity = customService.entityLookup[entityID],
+                  let model = modelManager.modelDict[entity],
+                  let instanceID = entity.components[InstanceIDComponent.self]?.id else {
+                print("Failed to get entity or model data for entity ID: \(entityID)")
+                continue
+            }
+            
+            // Determine if we should use relative or world transform based on sync mode
+            let isRelativeToImageAnchor = (self.currentSyncMode == .imageTarget)
+            
+            // Get the appropriate transform
+            let transform: simd_float4x4
+            if isRelativeToImageAnchor {
+                // Use transform relative to image anchor
+                transform = entity.transformMatrix(relativeTo: self.sharedAnchorEntity)
+            } else {
+                // Use world transform
+                transform = entity.transformMatrix(relativeTo: nil)
+            }
+            
+            // Create AddModelPayload
+            let payload = AddModelPayload(
+                instanceID: instanceID,
+                modelType: model.modelType.rawValue,
+                transform: transform.toArray(),
+                isRelativeToImageAnchor: isRelativeToImageAnchor
+            )
+            
+            do {
+                let data = try JSONEncoder().encode(payload)
+                // Send only to the specific new peer, not to all peers
+                multipeerSession.sendToPeer(data, peerID: targetPeerID, dataType: .addModel)
+                print("Sent model sync: \(model.modelType.rawValue) (ID: \(instanceID)) to \(targetPeerID.displayName)")
+            } catch {
+                print("Error encoding AddModelPayload for sync: \(error)")
+            }
+        }
+    }
 } // End of ARViewModel class
 
 // MARK: - ARSession Delegate
@@ -725,6 +792,9 @@ extension ARViewModel: MultipeerSessionDelegate {
                     self.connectedPeers.append(peerID)
                 }
                 print("Peer connected: \(peerID.displayName)")
+                
+                // Sync local models to the newly connected peer
+                self.syncLocalModels(to: peerID)
             case .connecting:
                 print("Peer connecting: \(peerID.displayName)")
             case .notConnected:

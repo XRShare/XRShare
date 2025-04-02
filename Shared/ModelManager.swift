@@ -109,15 +109,18 @@ final class ModelManager: ObservableObject {
         let modelTypeName = model.modelType.rawValue // Get name before potential removal
         
         // Broadcast removal *before* removing locally
-        if broadcast, let arViewModel = model.arViewModel, let _ = arViewModel.customService {
+        if broadcast, let arViewModel = model.arViewModel, let multipeerSession = arViewModel.multipeerSession {
             let payload = RemoveModelPayload(instanceID: instanceID)
+            print("Attempting to broadcast removeModel for \(modelTypeName) with InstanceID: \(instanceID)") // Added log
             do {
                 let data = try JSONEncoder().encode(payload)
-                arViewModel.multipeerSession?.sendToAllPeers(data, dataType: .removeModel)
-                print("Broadcasted removeModel: \(modelTypeName) (ID: \(instanceID))")
+                multipeerSession.sendToAllPeers(data, dataType: .removeModel)
+                print("Successfully broadcasted removeModel: \(modelTypeName) (ID: \(instanceID))")
             } catch {
-                print("Error encoding RemoveModelPayload: \(error)")
+                print("Error encoding RemoveModelPayload for \(modelTypeName) (ID: \(instanceID)): \(error)")
             }
+        } else if broadcast {
+            print("Could not broadcast removeModel for \(modelTypeName): Missing ARViewModel or MultipeerSession.")
         }
         
         // Clean up entity properly
@@ -308,7 +311,7 @@ final class ModelManager: ObservableObject {
         let _ = entity.name.isEmpty ? "unnamed entity" : entity.name // Mark as unused
         
         // Apply dampened and clamped delta
-        let delta = translation * 0.001 // Adjust sensitivity as needed
+        let delta = translation * 0.02 // Adjust sensitivity as needed
         let smoothedDelta = SIMD3<Float>(
             min(max(delta.x, -0.01), 0.01),
             min(max(delta.y, -0.01), 0.01),
