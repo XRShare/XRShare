@@ -30,9 +30,14 @@ class ARSessionDelegateHandler: NSObject, ARSessionDelegate {
                         // Potentially trigger synchronization of models relative to this anchor
                     }
                 }
-            } else if anchor.name != nil {
-                // Handle named anchors placed by the app (if still used)
+            } else if arViewModel.placedAnchors.contains(where: { $0.identifier == anchor.identifier }) {
+                // Handle anchors specifically placed by our tap gesture (handleTap)
+                // These might be unnamed initially.
+                print("Detected anchor added via tap gesture: \(anchor.identifier)")
                 arViewModel.placeModel(for: anchor)
+            } else {
+                 // Log other unknown anchor types if necessary
+                 print("Ignoring unknown anchor type added: \(anchor.identifier), Type: \(type(of: anchor))")
             }
         }
     }

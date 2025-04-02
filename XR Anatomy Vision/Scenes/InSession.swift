@@ -112,13 +112,65 @@ struct InSession: View {
                 
                 print("Scene initialized with reference objects and anchors")
         } update: { content in
-            // Update model transforms and check for changes
-            modelManager.updatePlacedModels(
-                content: content,
-                modelAnchor: modelAnchor,
-                connectivity: sessionConnectivity,
-                arViewModel: arViewModel
-            )
+                // Ensure models are correctly parented based on sync mode
+                for model in modelManager.placedModels {
+                    guard let entity = model.modelEntity else { continue }
+
+                    let targetParent: Entity?
+                    if arViewModel.currentSyncMode == .imageTarget {
+                        targetParent = arViewModel.sharedAnchorEntity
+                        // Ensure shared anchor is in the scene if needed
+                        if arViewModel.sharedAnchorEntity.scene == nil {
+                            content.add(arViewModel.sharedAnchorEntity)
+                            print("Added sharedAnchorEntity to content in update.")
+                        }
+                    } else {
+                        targetParent = modelAnchor
+                        // Ensure model anchor is in the scene
+                        if modelAnchor.scene == nil {
+                             content.add(modelAnchor)
+                             print("Added modelAnchor to content in update.")
+                        }
+                    }
+
+                    // If the entity has no parent or the wrong parent, add it to the correct one
+                    if entity.parent != targetParent {
+                        if let currentParent = entity.parent {
+                             print("Removing \(entity.name) from incorrect parent \(currentParent.name)")
+                             entity.removeFromParent()
+                        }
+                        
+                        if let targetParent = targetParent {
+                             targetParent.addChild(entity)
+                             print("Added \(entity.name) to correct parent \(targetParent.name). SyncMode: \(arViewModel.currentSyncMode.rawValue)")
+                             
+                             // Set initial transform relative to the new parent if just added
+                             if entity.transform == Transform() { // Check if transform is identity (likely just added)
+                                 entity.setPosition([0, 0, 0], relativeTo: targetParent) // Position at parent's origin
+                                 // Apply model-specific scaling
+                                 if model.modelType.rawValue.lowercased() == "pancakes" {
+                                     entity.scale = SIMD3<Float>(repeating: 0.08)
+                                 } else if model.modelType.rawValue.lowercased() == "heart" ||
+                                           model.modelType.rawValue.lowercased() == "arterieshead" {
+                                     entity.scale = SIMD3<Float>(repeating: 0.2)
+                                 } else {
+                                     entity.scale = SIMD3<Float>(repeating: 0.15)
+                                 }
+                                 model.position = entity.position(relativeTo: targetParent)
+                                 model.scale = entity.scale
+                                 print("Set initial transform for \(entity.name) relative to \(targetParent.name)")
+                             }
+                        } else {
+                             print("Warning: Target parent is nil for \(entity.name). Cannot add to scene.")
+                        }
+                    }
+                }
+
+                // Update model selection highlights and broadcast transforms
+                // This function now assumes entities are correctly parented by the logic above.
+                modelManager.updatePlacedModels(
+                    arViewModel: arViewModel
+                )
             }
             // Add tap gesture first for selection, then the manipulation gestures
             .gesture(modelManager.tapGesture)

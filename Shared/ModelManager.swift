@@ -26,7 +26,7 @@ final class ModelManager: ObservableObject {
         Task {
             print("Attempting to load model: \(modelType.rawValue).usdz")
             let model = await Model.load(modelType: modelType, arViewModel: arViewModel)
-            let modelEntity = await MainActor.run { model.modelEntity }
+            let modelEntity = await model.modelEntity // Directly access after await
             if let entity = modelEntity {
                 await MainActor.run {
                     self.modelDict[entity] = model
@@ -36,9 +36,9 @@ final class ModelManager: ObservableObject {
                     self.selectedModelID = modelType
                 }
                 // Add await here to fix visionOS build error
-                let customService = await MainActor.run { arViewModel?.customService }
+                let customService = arViewModel?.customService // Directly access after await
                 if let customService = customService {
-                    customService.registerEntity(entity, modelType: modelType)
+                    customService.registerEntity(entity, modelType: modelType) // No await needed unless method is async
                 }
                 
                 // Broadcast the addition of this model instance
@@ -175,105 +175,80 @@ final class ModelManager: ObservableObject {
         // connectivity: SessionConnectivity, // Removed - handled by ARViewModel/platform
         arViewModel: ARViewModel
     ) {
-        // Choose which anchor to use based on the current sync mode
-        let anchorToUse: Entity = arViewModel.currentSyncMode == .imageTarget ?
-                           arViewModel.sharedAnchorEntity : Entity() // Use simple Entity() as placeholder for world-space
-
         // Ensure the shared anchor is in the scene if using image target mode
         if arViewModel.currentSyncMode == .imageTarget && arViewModel.sharedAnchorEntity.scene == nil {
+            #if os(iOS)
              arViewModel.currentScene?.addAnchor(arViewModel.sharedAnchorEntity)
              print("Added missing sharedAnchorEntity to scene for image target mode.")
+            #endif
         }
 
         // Check all models
         for model in placedModels {
             guard let entity = model.modelEntity else { continue }
-            
-            // Make sure entity is visible
+
+            // Make sure entity is visible and interactive
             entity.isEnabled = true
-            
-            // If entity has no parent, add it to the appropriate anchor/scene
-            if entity.parent == nil {
-                if arViewModel.currentSyncMode == .imageTarget {
-                    // Add to shared image anchor
-                    if arViewModel.sharedAnchorEntity.scene != nil {
-                        arViewModel.sharedAnchorEntity.addChild(entity)
-                        print("Added \(entity.name) to sharedAnchorEntity.")
-                    } else {
-                        print("Warning: Cannot add \(entity.name) to sharedAnchorEntity, it's not in the scene.")
-                        // Optionally add to scene root as fallback?
-                        // arViewModel.currentScene?.addAnchor(AnchorEntity(world: entity.transform.matrix)) // Example fallback
-                    }
-                } else {
-                    // Add to world space (using an AnchorEntity on iOS, or directly if possible on visionOS - handled by RealityView)
-                    #if os(iOS)
-                    if let scene = arViewModel.currentScene {
-                        let worldAnchor = AnchorEntity(world: entity.transform.matrix)
-                        worldAnchor.addChild(entity)
-                        scene.addAnchor(worldAnchor) // Add anchor to the ARView scene
-                        print("Added \(entity.name) to world anchor in iOS scene.")
-                    }
-                    #elseif os(visionOS)
-                    // On visionOS, RealityView manages adding entities. We assume it's handled.
-                    // If we need a specific anchor, it should be added in the RealityView setup.
-                    // For now, just log. If it needs explicit adding, it depends on the RealityView structure.
-                    print("Assuming \(entity.name) is added to the scene by RealityView in visionOS world mode.")
-                    // Example: If a specific 'modelAnchor' exists in RealityView:
-                    // if let modelAnchor = arViewModel.currentScene?.findEntity(named: "modelAnchor") {
-                    //     modelAnchor.addChild(entity)
-                    // }
-                    #endif
-                }
-                
-                // Set initial position/scale if just added
-                entity.setPosition([0, 0.1, -0.5], relativeTo: nil) // Position relative to world origin initially
-                model.position = entity.position
-                
-                // Apply model-specific scaling
-                if model.modelType.rawValue.lowercased() == "pancakes" {
-                    entity.scale = SIMD3<Float>(repeating: 0.08)
-                } else if model.modelType.rawValue.lowercased() == "heart" ||
-                          model.modelType.rawValue.lowercased() == "arterieshead" {
-                    entity.scale = SIMD3<Float>(repeating: 0.2)
-                } else {
-                    entity.scale = SIMD3<Float>(repeating: 0.15)
-                }
-                model.scale = entity.scale
-                print("Positioned \(entity.name) at \(entity.position) with scale \(entity.scale)")
+            if entity.components[InputTargetComponent.self] == nil {
+                 entity.components.set(InputTargetComponent())
             }
-            
+            if entity.components[HoverEffectComponent.self] == nil {
+                 entity.components.set(HoverEffectComponent())
+            }
+            if entity.collision == nil {
+                 entity.generateCollisionShapes(recursive: true)
+            }
+
             // Visual highlight for selected model (logic remains the same)
-            if model.modelType == selectedModelID {
-                if entity.components[SelectionComponent.self] == nil {
-                    entity.components.set(SelectionComponent())
-                    if entity.findEntity(named: "selectionHighlight") == nil {
-                        let bounds = entity.visualBounds(relativeTo: nil)
-                        let highlightSize = bounds.extents * 1.05
-                        let boxMaterial = SimpleMaterial(color: UIColor.blue.withAlphaComponent(0.2), roughness: 0.5, isMetallic: false)
-                        let boxMesh = MeshResource.generateBox(size: highlightSize, cornerRadius: 0.01)
-                        let highlightEntity = ModelEntity(mesh: boxMesh, materials: [boxMaterial])
-                        highlightEntity.name = "selectionHighlight"
-                        highlightEntity.position = SIMD3<Float>(0, 0, 0)
-                        entity.addChild(highlightEntity)
+            // Ensure the entity is actually in a scene before trying to add highlights
+            if entity.scene != nil {
+                 if model.modelType == selectedModelID {
+                    if entity.components[SelectionComponent.self] == nil {
+                        entity.components.set(SelectionComponent())
+                        if entity.findEntity(named: "selectionHighlight") == nil {
+                            let bounds = entity.visualBounds(relativeTo: nil)
+                            // Ensure bounds are valid before creating highlight
+                            if bounds.extents.x > 0 && bounds.extents.y > 0 && bounds.extents.z > 0 {
+                                let highlightSize = bounds.extents * 1.05
+                                let boxMaterial = SimpleMaterial(color: UIColor.blue.withAlphaComponent(0.2), roughness: 0.5, isMetallic: false)
+                                let boxMesh = MeshResource.generateBox(size: highlightSize, cornerRadius: 0.01)
+                                let highlightEntity = ModelEntity(mesh: boxMesh, materials: [boxMaterial])
+                                highlightEntity.name = "selectionHighlight"
+                                // Position highlight relative to the entity's center
+                                highlightEntity.position = bounds.center
+                                entity.addChild(highlightEntity)
+                                print("Added selection highlight to \(model.modelType.rawValue)")
+                            } else {
+                                print("Warning: Invalid bounds for \(model.modelType.rawValue), cannot add highlight.")
+                            }
+                        }
                     }
-                    print("Added selection highlight to \(model.modelType.rawValue)")
+                } else {
+                    if entity.components[SelectionComponent.self] != nil {
+                        entity.components.remove(SelectionComponent.self)
+                        if let highlightEntity = entity.findEntity(named: "selectionHighlight") {
+                            highlightEntity.removeFromParent()
+                            print("Removed selection highlight from \(model.modelType.rawValue)")
+                        }
+                    }
                 }
             } else {
-                if entity.components[SelectionComponent.self] != nil {
-                    entity.components.remove(SelectionComponent.self)
-                    if let highlightEntity = entity.findEntity(named: "selectionHighlight") {
-                        highlightEntity.removeFromParent()
-                        print("Removed selection highlight from \(model.modelType.rawValue)")
-                    }
-                }
+                 // If entity is not in scene, ensure highlight is removed if it exists
+                 if let highlightEntity = entity.findEntity(named: "selectionHighlight") {
+                     highlightEntity.removeFromParent()
+                 }
+                 if entity.components[SelectionComponent.self] != nil {
+                     entity.components.remove(SelectionComponent.self)
+                 }
             }
             
             // Check for transform changes; broadcast if changed
             // Determine the relevant transform based on sync mode
             let currentMatrix: simd_float4x4
-            if arViewModel.currentSyncMode == .imageTarget && arViewModel.sharedAnchorEntity.scene != nil {
-                 // Get transform relative to the image anchor
-                 currentMatrix = entity.transformMatrix(relativeTo: arViewModel.sharedAnchorEntity)
+            if arViewModel.currentSyncMode == .imageTarget,
+               let sharedAnchor = arViewModel.sharedAnchorEntity.scene != nil ? arViewModel.sharedAnchorEntity : nil {
+                 // Get transform relative to the image anchor only if it's in the scene
+                 currentMatrix = entity.transformMatrix(relativeTo: sharedAnchor)
             } else {
                  // Get world transform
                  currentMatrix = entity.transform.matrix
@@ -313,7 +288,7 @@ final class ModelManager: ObservableObject {
     }
 
     @MainActor func handleDragChange(entity: Entity, translation: SIMD3<Float>, arViewModel: ARViewModel) {
-        let name = entity.name.isEmpty ? "unnamed entity" : entity.name
+        let _ = entity.name.isEmpty ? "unnamed entity" : entity.name // Mark as unused
         
         // Apply dampened and clamped delta
         let delta = translation * 0.001 // Adjust sensitivity as needed
@@ -347,7 +322,7 @@ final class ModelManager: ObservableObject {
     }
 
     @MainActor func handleScaleChange(entity: Entity, scaleFactor: Float, arViewModel: ARViewModel) {
-        let name = entity.name.isEmpty ? "unnamed entity" : entity.name
+        let _ = entity.name.isEmpty ? "unnamed entity" : entity.name // Mark as unused
         
         // Apply dampened scale factor
         let dampedScaleFactor = 1.0 + (scaleFactor - 1.0) * 0.1 // Adjust sensitivity
@@ -380,7 +355,7 @@ final class ModelManager: ObservableObject {
     }
 
     @MainActor func handleRotationChange(entity: Entity, rotation: simd_quatf, arViewModel: ARViewModel) {
-        let name = entity.name.isEmpty ? "unnamed entity" : entity.name
+        let _ = entity.name.isEmpty ? "unnamed entity" : entity.name // Mark as unused
 
         // Apply dampened rotation directly (relative to current orientation)
         // Decompose the input rotation to get angle and axis

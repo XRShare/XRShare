@@ -1,60 +1,33 @@
 <Plan>
-1.  **Fix `toggleHostPermissions` error:** Modify the button action in `XRAnatomyView` to directly toggle the `isHostPermissionGranted` property of the `arViewModel`.
-2.  **Fix `async` call error:** Wrap the call to `handleInitialLaunch()` within a `Task` block inside the `.onAppear` modifier in `XRAnatomyView`.
+Modify `ARSessionDelegateHandler.session(_:didAdd:)` on iOS to correctly identify anchors created by the tap gesture (`handleTap` in `ARViewModel`) by checking against the `arViewModel.placedAnchors` list. This will ensure that `arViewModel.placeModel(for:)` is called for these anchors, allowing the corresponding model entities to be added to the `ARView`'s scene.
 </Plan>
 
-<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/XR Anatomy/UIView.swift" action="modify">
+<file path="/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/Shared/ARSessionDelegateHandler.swift" action="modify">
   <change>
-    <description>Correct the action for the host permission toggle button to directly toggle the 'isHostPermissionGranted' property.</description>
+    <description>Modify session(_:didAdd:) to handle unnamed anchors created by handleTap</description>
     <search>
 ===
-                            // Host permission toggle
-                            if arViewModel.userRole == .host {
-                                Button(action: {
-                                    $arViewModel.toggleHostPermissions
-                                }) {
-                                    Image(systemName: arViewModel.isHostPermissionGranted ? "lock.open" : "lock")
-                                        .font(.system(size: 24))
+            } else if anchor.name != nil {
+                // Handle named anchors placed by the app (if still used)
+                arViewModel.placeModel(for: anchor)
+            }
+        }
+    }
 ===
     </search>
     <content>
 ===
-                            // Host permission toggle
-                            if arViewModel.userRole == .host {
-                                Button(action: {
-                                    arViewModel.isHostPermissionGranted.toggle() // Directly toggle the boolean property
-                                }) {
-                                    Image(systemName: arViewModel.isHostPermissionGranted ? "lock.open" : "lock")
-                                        .font(.system(size: 24))
-===
-    </content>
-  </change>
-  <change>
-    <description>Wrap the call to the async function 'handleInitialLaunch' in a Task within the .onAppear modifier.</description>
-    <search>
-===
-                }
+            } else if arViewModel.placedAnchors.contains(where: { $0.identifier == anchor.identifier }) {
+                // Handle anchors specifically placed by our tap gesture (handleTap)
+                // These might be unnamed initially.
+                print("Detected anchor added via tap gesture: \(anchor.identifier)")
+                arViewModel.placeModel(for: anchor)
+            } else {
+                 // Log other unknown anchor types if necessary
+                 print("Ignoring unknown anchor type added: \(anchor.identifier), Type: \(type(of: anchor))")
             }
         }
-        .onAppear { handleInitialLaunch() }
-        .onReceive(arViewModel.$loadingProgress) { progress in
-            // Update local state
-            loadingProgress = progress
-===
-    </search>
-    <content>
-===
-                }
-            }
-        }
-        .onAppear {
-            Task {
-                await handleInitialLaunch()
-            }
-        }
-        .onReceive(arViewModel.$loadingProgress) { progress in
-            // Update local state
-            loadingProgress = progress
+    }
 ===
     </content>
   </change>

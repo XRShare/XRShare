@@ -4,8 +4,8 @@
 <dict>
 	<key>NSBonjourServices</key>
 	<array>
-		<string>_ar-collab._tcp</string>
-		<string></string>
+		<string>_xr-anatomy._tcp</string>
+		<string>_xr-anatomy._udp</string>
 	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>

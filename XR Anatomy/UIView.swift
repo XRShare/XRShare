@@ -211,6 +211,7 @@ struct XRAnatomyView: View {
     /// Called when user hits the back button in the AR view
     private func handleBackButtonTap() {
         // Stop the session so we can pick host/join again
+        // Call methods directly on the arViewModel instance
         arViewModel.stopMultipeerServices()
         arViewModel.resetARSession()
         hasSelectedMode = false // Return to main menu
