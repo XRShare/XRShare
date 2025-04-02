@@ -19,7 +19,7 @@ struct MainMenu: View {
         ZStack {
             
             VStack(spacing: 20) {
-                Image("logo_white")
+                Image("AppIcon")
                     .resizable()
                     .scaledToFit()
                     .frame(height: 360)

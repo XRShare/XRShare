@@ -118,8 +118,8 @@ struct ModelSelectionScreen: View {
                                 
                                 Button(action: {
                                     print("more info Selected")
+                                    openWindow(id: "ModelInfoWindow" )
                                 }) {
-                                    openWindow(id: )
                                     Image(systemName: "cube.box.fill")
                                         .foregroundColor(.white)
                                 }
@@ -181,6 +181,7 @@ struct ModelSelectionScreen: View {
                 }
             }
             .padding()
+            Spacer()
         }
         .cornerRadius(30)
         .onAppear {
