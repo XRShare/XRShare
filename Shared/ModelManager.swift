@@ -9,6 +9,9 @@ final class ModelManager: ObservableObject {
     @Published var entityInitialRotations: [Entity: simd_quatf] = [:]
     @Published var modelTypes: [ModelType] = []
     @Published var selectedModelID: ModelType? = nil
+    @Published var selectedModelInfo: String? = nil 
+    @Published var selectedPartInfo: String? = nil
+    @Published var isInfoModeActive = false 
 
     var transformCache = TransformCache()
     
@@ -24,6 +27,35 @@ final class ModelManager: ObservableObject {
     func models(for category: ModelCategory) -> [ModelType]{
         modelTypes.filter { $0.category == category }
     }
+    
+    func pancakeInfo(for name: String) -> String {
+        switch name {
+        case "pancakes_msh":
+            return "Fluffy stack of pancakes — the main dish."
+
+        case "plate_msh":
+            return "Classic white plate holding the pancakes."
+
+        case "fork_msh":
+            return "Silver fork — ready to dig in!"
+
+        case "walnut_plate_msh":
+            return "Walnut pieces scattered on the plate."
+
+        case "walnut_pancakes_msh":
+            return "Walnuts resting directly on the pancakes."
+
+        case "walnut_broken_msh":
+            return "Cracked walnut for extra crunch."
+
+        case let name where name.starts(with: "blueberry_msh_"):
+            return "A delicious blueberry topping."
+
+        default:
+            return "A delicious blueberry topping. Blueberries are small, round berries that are typically deep blue to purple in color. They grow on shrubs belonging to the genus Vaccinium and are native to North America, though they are now cultivated worldwide."
+        }
+    }
+    
 
     // MARK: - Loading a ModelEntity
     func loadModel(for modelType: ModelType, arViewModel: ARViewModel?) {

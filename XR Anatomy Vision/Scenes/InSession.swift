@@ -16,6 +16,7 @@ struct InSession: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.dismissWindow) private var dismissWindow
     
     @ObservedObject var modelManager: ModelManager
     @StateObject private var sessionConnectivity = SessionConnectivity()
@@ -196,16 +197,28 @@ struct InSession: View {
                 )
             }
             // --- visionOS Gestures ---
-            .gesture(SpatialTapGesture()
-                .targetedToAnyEntity()
-                .onEnded { value in
-                    print("Spatial Tap detected on entity: \(value.entity.name)")
-                    // Call handleTap on the main actor
-                    Task { @MainActor in
-                        modelManager.handleTap(entity: value.entity)
-                    }
-                }
-            )
+                .gesture(SpatialTapGesture()
+                      .targetedToAnyEntity()
+                      .onEnded { value in
+
+                          print("Spatial Tap detected on entity: \(value.entity.name)")
+                          // Call handleTap on the main actor
+                          
+                          Task{ @MainActor in
+                              if modelManager.isInfoModeActive {
+                                  print("Tapped part: \(value.entity.name)")
+                                 
+                                  
+                                  modelManager.selectedPartInfo = modelManager.pancakeInfo(for: value.entity.name)
+                                  dismissWindow(id: "SelectedPartInfoWindow")
+                                  openWindow(id: "SelectedPartInfoWindow")
+                              } else{
+                                  modelManager.handleTap(entity: value.entity)
+                              }
+                              
+                          }
+                      }
+                  )
             .simultaneousGesture(DragGesture()
                  .targetedToAnyEntity()
                  .onChanged { value in

@@ -108,6 +108,7 @@ struct ModelSelectionScreen: View {
                             HStack(spacing: 12){
                                 Button(action: {
                                     print("Info Selected")
+                                    modelManager.isInfoModeActive.toggle()
                                 }) {
                                     Image(systemName: "list.bullet")
                                         .foregroundColor(.white)
@@ -118,6 +119,8 @@ struct ModelSelectionScreen: View {
                                 
                                 Button(action: {
                                     print("more info Selected")
+                                    dismissWindow(id: "ModelInfoWindow")
+                                    modelManager.selectedModelInfo = mod.modelType.rawValue
                                     openWindow(id: "ModelInfoWindow" )
                                 }) {
                                     Image(systemName: "cube.box.fill")

@@ -74,13 +74,20 @@ final class Model: ObservableObject, @preconcurrency Identifiable {
         
         let filename = "\(modelType.rawValue).usdz"
         do {
+            
             // First try to load from models directory
             if let modelURL = Bundle.main.url(forResource: modelType.rawValue, withExtension: "usdz", subdirectory: "models") {
                 self.modelEntity = try await ModelEntity(contentsOf: modelURL)
+              
+                
             } else {
                 // Fallback to main bundle
                 self.modelEntity = try await ModelEntity(named: filename, in: Bundle.main)
+               
             }
+            
+            
+            applyInteractivityRecursively()
             
             // Apply the correct rotation based on model type
             if let entity = self.modelEntity {
@@ -142,6 +149,31 @@ final class Model: ObservableObject, @preconcurrency Identifiable {
             }
         }
     }
+    
+    func applyInteractivityRecursively() {
+        guard let entity = modelEntity else { return }
+        Self.applyComponents(to: entity)
+    }
+
+    private static func applyComponents(to entity: Entity) {
+        entity.components.set(InputTargetComponent(allowedInputTypes: .all))
+        entity.components.set(HoverEffectComponent())
+
+        if let modelEntity = entity as? ModelEntity {
+            modelEntity.generateCollisionShapes(recursive: false)
+        }
+
+        for child in entity.children {
+            applyComponents(to: child)
+        }
+    }
+    
+    func printHierarchy(of entity: Entity, indent: String = "") {
+            print("\(indent)- \(entity.name)")
+            for child in entity.children {
+                printHierarchy(of: child, indent: indent + "  ")
+            }
+        }
     
     // MARK: - Transform Updates
     

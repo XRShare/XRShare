@@ -150,6 +150,17 @@ struct XRAnatomy_visionOSApp: App {
                 .defaultSize(width: 400, height: 400)
                 .windowResizability(.automatic)
         
+        WindowGroup(id: "SelectedPartInfoWindow"){
+            SelectedPartInfoScreen(modelManager: modelManager)
+                .environmentObject(arViewModel)
+                .environmentObject(appModel)
+                .environmentObject(appState)
+        }
+            .windowStyle(.automatic)
+            .defaultSize(width: 325, height: 325)
+            .windowResizability(.automatic)
+        
+        
 
 
         ImmersiveSpace(id: appModel.immersiveSpaceID) {
