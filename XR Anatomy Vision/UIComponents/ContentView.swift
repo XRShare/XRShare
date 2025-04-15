@@ -60,36 +60,46 @@ extension View {
 struct WindowOpenerModifier: ViewModifier {
     @Environment(\.openWindow) private var openWindow
     @State private var observer: NSObjectProtocol? = nil
-    
+    // Store last opened window ID and timestamp
+    @State private var lastOpenedWindowId: String? = nil
+    @State private var lastOpenedTimestamp: Double = 0.0
+    // Debounce interval (e.g., 1 second)
+    private let debounceInterval: Double = 1.0
+
     func body(content: Content) -> some View {
         content
             .onAppear {
-                // Only add observer once
                 if observer == nil {
                     observer = NotificationCenter.default.addObserver(
                         forName: Notification.Name("openWindow"),
                         object: nil,
                         queue: .main) { notification in
-                            if let id = notification.userInfo?["id"] as? String {
-                                // Track opened windows with a timestamp to prevent duplicates
-                                let timestamp = notification.userInfo?["timestamp"] as? Double ?? 0
-                                
-                                // Only process if not a duplicate notification
-                                if timestamp > 0 {
-                                    print("Opening window: \(id) at \(timestamp)")
-                                    openWindow(id: id)
-                                } else {
-                                    openWindow(id: id)
-                                }
+                            guard let id = notification.userInfo?["id"] as? String,
+                                  let timestamp = notification.userInfo?["timestamp"] as? Double else {
+                                return
                             }
+
+                            // Check if this is a duplicate request within the debounce interval
+                            if id == lastOpenedWindowId && (timestamp - lastOpenedTimestamp) < debounceInterval {
+                                print("Debounced duplicate request to open window: \(id)")
+                                return // Ignore duplicate
+                            }
+
+                            // Update last opened info and open the window
+                            print("Opening window: \(id) at \(timestamp)")
+                            lastOpenedWindowId = id
+                            lastOpenedTimestamp = timestamp
+                            openWindow(id: id)
                         }
                 }
             }
             .onDisappear {
-                // Properly remove observer when view disappears
                 if let observer = observer {
                     NotificationCenter.default.removeObserver(observer)
                     self.observer = nil
+                    // Reset state on disappear
+                    lastOpenedWindowId = nil
+                    lastOpenedTimestamp = 0.0
                 }
             }
     }
@@ -103,17 +113,28 @@ extension View {
 }
 
 struct ContentView: View {
+    @Environment(\.openWindow) private var openWindow
     @EnvironmentObject var appModel: AppModel
     @EnvironmentObject var arViewModel: ARViewModel
     @ObservedObject var modelManager: ModelManager
     
     var body: some View {
-        switch appModel.currentPage {
+        
+        ZStack{
+        
+        switch appModel.currentPage{
         case .mainMenu:
             MainMenu()
             
         case .modelSelection:
-            ModelSelectionScreen(modelManager: modelManager)
+            EmptyView()
+        }
+    }
+        .onChange(of: appModel.currentPage){_, newPage in
+            if newPage == .modelSelection{
+                openWindow(id: "InSessionView")
+            }
+            
         }
     }
 }

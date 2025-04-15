@@ -11,12 +11,12 @@
 		0D64C6A12CE0076A00D34085 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0D64C6A02CE0076A00D34085 /* SwiftUI.framework */; };
 		0D64C6A32CE0077200D34085 /* RealityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0D64C6A22CE0077200D34085 /* RealityKit.framework */; };
 		0D64C6A52CE0077B00D34085 /* MultipeerConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0D64C6A42CE0077B00D34085 /* MultipeerConnectivity.framework */; };
-		117D585D2D80D006009DA059 /* RealityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6679B7932D6CE2AC006EB279 /* RealityKit.framework */; };
-		117D585E2D80D07C009DA059 /* RealityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6679B7932D6CE2AC006EB279 /* RealityKit.framework */; };
+		1153A0D82D9D2A880000E142 /* RealityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6679B7932D6CE2AC006EB279 /* RealityKit.framework */; };
 		117D59522D80D160009DA059 /* RealityKitContent in Frameworks */ = {isa = PBXBuildFile; productRef = 117D59512D80D160009DA059 /* RealityKitContent */; };
+		11D1E6BD2D9523A1007434F5 /* RealityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6679B7932D6CE2AC006EB279 /* RealityKit.framework */; };
 		6679B79D2D6CFFAA006EB279 /* MultipeerConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6679B79C2D6CFFAA006EB279 /* MultipeerConnectivity.framework */; };
-		6E0B06EF2D80942E00632152 /* RealityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6679B7932D6CE2AC006EB279 /* RealityKit.framework */; };
 		6E0B07E62D80944500632152 /* RealityKitContent in Frameworks */ = {isa = PBXBuildFile; productRef = 6E0B07E52D80944500632152 /* RealityKitContent */; };
+		6EF6C5DB2D9DDBDE007D438F /* RealityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6EF6C5DA2D9DDBDE007D438F /* RealityKit.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,6 +28,7 @@
 		6679B7932D6CE2AC006EB279 /* RealityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RealityKit.framework; path = Platforms/XROS.platform/Developer/SDKs/XROS2.2.sdk/System/Library/Frameworks/RealityKit.framework; sourceTree = DEVELOPER_DIR; };
 		6679B7942D6CE2AC006EB279 /* RealityFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RealityFoundation.framework; path = Platforms/XROS.platform/Developer/SDKs/XROS2.2.sdk/System/Library/Frameworks/RealityFoundation.framework; sourceTree = DEVELOPER_DIR; };
 		6679B79C2D6CFFAA006EB279 /* MultipeerConnectivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MultipeerConnectivity.framework; path = Platforms/XROS.platform/Developer/SDKs/XROS2.2.sdk/System/Library/Frameworks/MultipeerConnectivity.framework; sourceTree = DEVELOPER_DIR; };
+		6EF6C5DA2D9DDBDE007D438F /* RealityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RealityKit.framework; path = Platforms/XROS.platform/Developer/SDKs/XROS2.4.sdk/System/Library/Frameworks/RealityKit.framework; sourceTree = DEVELOPER_DIR; };
 		87B974482D09106D00168B98 /* XR Anatomy Vision.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "XR Anatomy Vision.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		87B9744B2D09106D00168B98 /* RealityKitContent */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = RealityKitContent; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -40,6 +41,20 @@
 			);
 			target = 0D64C65B2CE003FE00D34085 /* XR Anatomy */;
 		};
+		668276E42D9DBD9900FA5E50 /* Exceptions for "Shared" folder in "XR Anatomy Vision" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"models/model-mobile.referenceobject",
+			);
+			target = 87B974472D09106D00168B98 /* XR Anatomy Vision */;
+		};
+		66FCD95C2D9DBDF300579A97 /* Exceptions for "Shared" folder in "XR Anatomy" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"models/model-mobile.referenceobject",
+			);
+			target = 0D64C65B2CE003FE00D34085 /* XR Anatomy */;
+		};
 		87B9745A2D09106E00168B98 /* Exceptions for "XR Anatomy Vision" folder in "XR Anatomy Vision" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -48,6 +63,23 @@
 			target = 87B974472D09106D00168B98 /* XR Anatomy Vision */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+		668276E62D9DBDA100FA5E50 /* Exceptions for "Shared" folder in "Copy Bundle Resources" phase from "XR Anatomy Vision" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = 87B974462D09106D00168B98 /* Resources */;
+			membershipExceptions = (
+				"models/model-mobile.referenceobject",
+			);
+		};
+		668276E82D9DBDA600FA5E50 /* Exceptions for "Shared" folder in "Copy Bundle Resources" phase from "XR Anatomy" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = 0D64C65A2CE003FE00D34085 /* Resources */;
+			membershipExceptions = (
+				"models/model-mobile.referenceobject",
+			);
+		};
+/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		0D64C65E2CE003FE00D34085 /* XR Anatomy */ = {
@@ -68,6 +100,12 @@
 		};
 		87B9745C2D09107E00168B98 /* Shared */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				66FCD95C2D9DBDF300579A97 /* Exceptions for "Shared" folder in "XR Anatomy" target */,
+				668276E82D9DBDA600FA5E50 /* Exceptions for "Shared" folder in "Copy Bundle Resources" phase from "XR Anatomy" target */,
+				668276E42D9DBD9900FA5E50 /* Exceptions for "Shared" folder in "XR Anatomy Vision" target */,
+				668276E62D9DBDA100FA5E50 /* Exceptions for "Shared" folder in "Copy Bundle Resources" phase from "XR Anatomy Vision" target */,
+			);
 			path = Shared;
 			sourceTree = "<group>";
 		};
@@ -90,11 +128,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				6E0B06EF2D80942E00632152 /* RealityKit.framework in Frameworks */,
+				11D1E6BD2D9523A1007434F5 /* RealityKit.framework in Frameworks */,
 				6E0B07E62D80944500632152 /* RealityKitContent in Frameworks */,
-				117D585D2D80D006009DA059 /* RealityKit.framework in Frameworks */,
+				1153A0D82D9D2A880000E142 /* RealityKit.framework in Frameworks */,
 				6679B79D2D6CFFAA006EB279 /* MultipeerConnectivity.framework in Frameworks */,
-				117D585E2D80D07C009DA059 /* RealityKit.framework in Frameworks */,
+				6EF6C5DB2D9DDBDE007D438F /* RealityKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -125,6 +163,7 @@
 		0D64C69D2CE0075B00D34085 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				6EF6C5DA2D9DDBDE007D438F /* RealityKit.framework */,
 				6679B79C2D6CFFAA006EB279 /* MultipeerConnectivity.framework */,
 				6679B7942D6CE2AC006EB279 /* RealityFoundation.framework */,
 				6679B7932D6CE2AC006EB279 /* RealityKit.framework */,
@@ -203,7 +242,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1610;
-				LastUpgradeCheck = 1600;
+				LastUpgradeCheck = 1620;
 				TargetAttributes = {
 					0D64C65B2CE003FE00D34085 = {
 						CreatedOnToolsVersion = 16.0;
@@ -392,18 +431,19 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = "XR Anatomy/XR AnatomyDebug.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"XR Anatomy/Preview Content\"";
-				DEVELOPMENT_TEAM = VNP9N3NZN6;
+				DEVELOPMENT_ASSET_PATHS = "\"/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/XR Anatomy/Assets.xcassets\" \"XR Anatomy/\"";
+				DEVELOPMENT_TEAM = GB5R6DTC6N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "XR Anatomy/Info.plist";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "This app requests Bluetooth access to connect with nearby devices for collaborative AR experiences";
-				INFOPLIST_KEY_NSCameraUsageDescription = "This app uses your camera for AR functionality";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "This app requests access to the local network to connect with nearby devices for collaborative AR experiences.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "This app uses the camera for Augmented Reality experiences.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "This app uses the local network to discover and connect with other devices for collaboration.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -415,7 +455,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "XR-Anatomy.XR-Anatomy2-Team";
+				PRODUCT_BUNDLE_IDENTIFIER = "XR-Anatomy.XR-Anatomy2-Team3";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -429,17 +469,18 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"XR Anatomy/Preview Content\"";
-				DEVELOPMENT_TEAM = VNP9N3NZN6;
+				DEVELOPMENT_ASSET_PATHS = "\"XR Anatomy/\"";
+				DEVELOPMENT_TEAM = GB5R6DTC6N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "XR Anatomy/Info.plist";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "This app requests Bluetooth access to connect with nearby devices for collaborative AR experiences";
-				INFOPLIST_KEY_NSCameraUsageDescription = "This app uses your camera for AR functionality";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "This app requests access to the local network to connect with nearby devices for collaborative AR experiences.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "This app uses the camera for Augmented Reality experiences.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "This app uses the local network to discover and connect with other devices for collaboration.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -451,7 +492,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = XR.Anatomy.App2;
+				PRODUCT_BUNDLE_IDENTIFIER = XR.Anatomy.App23;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -465,10 +506,11 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"XR Anatomy Vision/Preview Content\"";
-				DEVELOPMENT_TEAM = VNP9N3NZN6;
+				DEVELOPMENT_ASSET_PATHS = "\"XR Anatomy Vision/\"";
+				DEVELOPMENT_TEAM = GB5R6DTC6N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "$(TARGET_NAME)/Info.plist";
@@ -479,7 +521,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "XR-Anatomy.XR-Anatomy-Vision-Team";
+				PRODUCT_BUNDLE_IDENTIFIER = "XR-Anatomy.XR-Anatomy-Vision-Team5";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = xros;
 				SUPPORTED_PLATFORMS = "xros xrsimulator";
@@ -495,10 +537,11 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"XR Anatomy Vision/Preview Content\"";
-				DEVELOPMENT_TEAM = VNP9N3NZN6;
+				DEVELOPMENT_ASSET_PATHS = "\"XR Anatomy Vision/\"";
+				DEVELOPMENT_TEAM = GB5R6DTC6N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "$(TARGET_NAME)/Info.plist";
@@ -509,7 +552,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "XR-Anatomy.XR-Anatomy-Vision-Team";
+				PRODUCT_BUNDLE_IDENTIFIER = "XR-Anatomy.XR-Anatomy-Vision-Team5";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = xros;
 				SUPPORTED_PLATFORMS = "xros xrsimulator";

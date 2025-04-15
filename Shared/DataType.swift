@@ -20,5 +20,12 @@ enum DataType: UInt8, Codable {
     case permissionUpdate = 6
     case textMessage = 7
     
+    // Synchronization for model add/remove
+    case addModel = 8
+    case removeModel = 9
+    
+    // Simple test message
+    case testMessage = 10
+    
     // Add others if needed...
 }

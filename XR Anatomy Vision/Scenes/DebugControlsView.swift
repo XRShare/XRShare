@@ -5,6 +5,7 @@ struct DebugControlsView: View {
     @ObservedObject var modelManager: ModelManager
     @ObservedObject var arViewModel: ARViewModel
     @EnvironmentObject var appModel: AppModel
+    @EnvironmentObject var appState: AppState
     @Environment(\.openWindow) private var openWindow
     
     @State private var lastAction = "Debug panel opened"
@@ -115,6 +116,7 @@ struct DebugControlsView: View {
                             .tint(axis == "X" ? .red : (axis == "Y" ? .green : .blue))
                         }
                     }
+                }
                 
                 Divider()
                 
@@ -198,6 +200,167 @@ struct DebugControlsView: View {
                         }
                     }
                 }
+                
+                // Sync Mode Selector
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Sync Mode:")
+                        .font(.headline)
+                    
+                    Picker("Sync Mode", selection: $arViewModel.currentSyncMode) {
+                        ForEach(SyncMode.allCases, id: \.self) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .onChange(of: arViewModel.currentSyncMode) { _, newMode in
+                        // Post notification for sync mode change
+                        NotificationCenter.default.post(name: Notification.Name("syncModeChanged"), object: nil)
+                        lastAction = "Switched to \(newMode.rawValue)"
+                        // Reset sync state immediately
+                        arViewModel.isSyncedToImage = false
+                        appState.isImageTracked = false
+                        arViewModel.isSyncedToObject = false
+                        appState.isObjectTracked = false
+                    }
+
+                    // --- Sync Status Indicators ---
+                    // Show image tracking status when in image target mode
+                    if arViewModel.currentSyncMode == .imageTarget {
+                        HStack {
+                            Circle()
+                                .fill(appState.isImageTracked ? Color.green : Color.red)
+                                .frame(width: 10, height: 10)
+                            
+                            Text(appState.isImageTracked ? "Image Target Detected" : "Searching for Image Target...")
+                                .font(.caption)
+                                .foregroundColor(appState.isImageTracked ? .primary : .secondary)
+                        }
+                        .padding(.top, 4)
+
+                        // Sync Status and Re-Sync Button
+                        if arViewModel.isSyncedToImage {
+                            HStack {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                                Text("Synced via Image")
+                                    .font(.caption)
+                                Spacer()
+                                Button("Re-Sync") {
+                                    arViewModel.triggerImageSync()
+                                    lastAction = "Triggered Image Re-Sync"
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            }
+                            .padding(.top, 4)
+                        } else {
+                             Text("Awaiting Image Sync...")
+                                 .font(.caption)
+                                 .foregroundColor(.orange)
+                                 .padding(.top, 4)
+                        }
+                    }
+                    // Show object tracking status when in object target mode
+                    else if arViewModel.currentSyncMode == .objectTarget {
+                         HStack {
+                             Circle()
+                                 .fill(appState.isObjectTracked ? Color.green : Color.red)
+                                 .frame(width: 10, height: 10)
+
+                             Text(appState.isObjectTracked ? "Object Target Detected" : "Searching for Object Target...")
+                                 .font(.caption)
+                                 .foregroundColor(appState.isObjectTracked ? .primary : .secondary)
+                         }
+                         .padding(.top, 4)
+
+                         // Sync Status and Re-Sync Button
+                         if arViewModel.isSyncedToObject {
+                             HStack {
+                                 Image(systemName: "checkmark.circle.fill")
+                                     .foregroundColor(.green)
+                                 Text("Synced via Object")
+                                     .font(.caption)
+                                 Spacer()
+                                 Button("Re-Sync") {
+                                     arViewModel.triggerImageSync() // Reusing triggerImageSync
+                                     lastAction = "Triggered Object Re-Sync"
+                                 }
+                                 .buttonStyle(.bordered)
+                                 .controlSize(.small)
+                             }
+                             .padding(.top, 4)
+
+                             // Debug button to load the reference object's model
+                             Button("Load Reference Model") {
+                                 let referenceModelType = ModelType(rawValue: "model-mobile")
+                                 Task { @MainActor in
+                                     guard let modelManager = arViewModel.modelManager, let customService = arViewModel.customService else {
+                                         print("Error: ModelManager or CustomService not available for reference model loading.")
+                                         lastAction = "Error loading ref model"
+                                         return
+                                     }
+                                     // Load the model template
+                                     let modelTemplate = await Model.load(modelType: referenceModelType, arViewModel: arViewModel)
+
+                                     if let entityTemplate = modelTemplate.modelEntity {
+                                         // Clone the entity for placement
+                                         let clonedEntity = entityTemplate.clone(recursive: true)
+                                         clonedEntity.name = "ReferenceObjectModel_Debug" // Give it a specific name
+                                         clonedEntity.transform = Transform() // Align at origin of the shared anchor
+
+                                         // Assign a unique instance ID if needed (should happen automatically in Model init/load)
+                                         if clonedEntity.components[InstanceIDComponent.self] == nil {
+                                             clonedEntity.components.set(InstanceIDComponent())
+                                         }
+                                         let instanceID = clonedEntity.components[InstanceIDComponent.self]!.id
+
+                                         // Add to the shared anchor (which tracks the physical object)
+                                         arViewModel.sharedAnchorEntity.addChild(clonedEntity)
+
+                                         // Create a new Model instance specifically for this placed debug entity
+                                         let placedDebugModel = Model(modelType: referenceModelType, arViewModel: arViewModel)
+                                         placedDebugModel.modelEntity = clonedEntity // Assign the cloned entity
+                                         placedDebugModel.loadingState = .loaded // Mark as loaded
+
+                                         // Register with ModelManager for gesture handling
+                                         modelManager.modelDict[clonedEntity] = placedDebugModel
+                                         modelManager.placedModels.append(placedDebugModel) // Add to placed models list
+
+                                         // Register with ConnectivityService as locally owned, DO NOT BROADCAST ADD
+                                         customService.registerEntity(clonedEntity, modelType: referenceModelType, ownedByLocalPeer: true)
+
+                                         print("Loaded and registered interactive reference model 'model-mobile.usdz' (InstanceID: \(instanceID)) onto tracked object.")
+                                         lastAction = "Loaded interactive ref model"
+
+                                     } else {
+                                         arViewModel.alertItem = AlertItem(title: "Load Failed", message: "Could not load 'model-mobile.usdz'.")
+                                         lastAction = "Failed to load ref model"
+                                     }
+                                 }
+                             }
+                             .buttonStyle(.bordered)
+                             .tint(.purple)
+                             .disabled(!arViewModel.isSyncedToObject) // Only enable after initial sync
+                             .padding(.top, 5)
+
+                         } else {
+                              Text("Awaiting Object Sync...")
+                                  .font(.caption)
+                                  .foregroundColor(.orange)
+                                  .padding(.top, 4)
+                         }
+                    }
+                }
+                .padding(.vertical, 8)
+                .background(Color.secondary.opacity(0.1))
+                .cornerRadius(8)
+
+                // Test Message Button
+                Button("Send Test Message") {
+                    arViewModel.sendTestMessage()
+                    lastAction = "Sent test message"
+                }
+                .padding(.top, 10)
                 
                 Text("Status: \(lastAction)")
                     .font(.caption)
@@ -322,5 +485,4 @@ struct DebugControlsView: View {
         
         lastAction = "Rotated \(model.modelType.rawValue) around \(axis)-axis"
     }
-}
 }

@@ -2,43 +2,27 @@ import SwiftUI
 import RealityKit
 
 struct ModelSelectionScreen: View {
+    @Environment(\.openWindow) private var openWindow
+    @Environment(\.dismissWindow) private var dismissWindow
     @EnvironmentObject var appModel: AppModel
     @EnvironmentObject var arViewModel: ARViewModel
     @ObservedObject var modelManager: ModelManager
 
     @Environment(\.openImmersiveSpace) private var openImmersiveSpace
     @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
+    
+    @State private var showingPopover = false
+    @State var modelList: [String] = ["Anatomy Models", "Car Models", "Airplane Models", "Bird Models", "Food Models"]
 
     var body: some View {
         VStack(spacing: 20) {
-            Text("Select Your Models")
-                .font(.largeTitle)
             
-            ScrollView {
-                ForEach(modelManager.modelTypes, id: \.id) { modelType in
-                    Button(modelType.rawValue) {
-                        modelManager.loadModel(for: modelType, arViewModel: arViewModel)
-                    }
-                }
-            }
-            .frame(height: 200)
-
-            Text("Loaded Models: \(modelManager.placedModels.count)")
-
-            List {
-                ForEach(modelManager.placedModels, id: \.id) { mod in
-                    HStack {
-                        Text(mod.modelType.rawValue)
-                        Spacer()
-                        Button("Delete") {
-                            modelManager.removeModel(mod)
-                        }
-                    }
-                }
-            }
-            
-            HStack {
+            HStack{
                 Button("Back to Main") {
+                    
+                    dismissWindow(id: "AddModelWindow")
+                    dismissWindow(id: "InSessionView")
+                    
                     // Clear models
                     modelManager.reset()
                     // Reset multipeer services
@@ -50,6 +34,125 @@ struct ModelSelectionScreen: View {
                     // Switch the app page back to main
                     appModel.currentPage = .mainMenu
                 }
+                .background(RoundedRectangle(cornerRadius:30).fill(Color.white.opacity(0.3)))
+                
+                Spacer()
+                
+                Text("XRShare")
+                    .font(.largeTitle)
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 0){
+                
+                Button("Add a model"){
+                    print("add a model selected")
+                    dismissWindow(id: "AddModelWindow")
+                    showingPopover = true
+                }
+                .background(RoundedRectangle(cornerRadius:30).fill(Color.white.opacity(0.6)))
+                .sheet(isPresented: $showingPopover){
+                    VStack{
+                        Text("Select Type of Model:")
+                            .padding()
+                            .padding(.top, 10)
+                            .font(.headline)
+                            .bold()
+                        
+                        ForEach(modelList, id: \.self){ item in
+                            Button(action:{
+                                switch item{
+                                case "Anatomy Models":
+                                    appModel.selectedCategory = .anatomy
+                                    openWindow(id: "AddModelWindow")
+                                case "Food Models":
+                                    appModel.selectedCategory = .food
+                                    openWindow(id: "AddModelWindow")
+                                default:
+                                    break
+                                }
+                                
+                                showingPopover = false
+                                
+                            }){
+                                Text(item)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            
+                            
+                        }
+                        .padding()
+                        
+                    }
+                }
+            }
+                
+        }
+            .padding(35)
+        
+
+            Text("Loaded Models: \(modelManager.placedModels.count)")
+                    
+                    // Use the unique instanceUUID for the ForEach identifier
+                ForEach(modelManager.placedModels, id: \.instanceUUID) { mod in
+                        HStack(spacing: 12) {
+                            
+                            Text(mod.modelType.rawValue)
+                                .padding(.horizontal, 16)
+                                .frame(height: 44)
+                                .foregroundColor(.white)
+                            
+                            Spacer()
+                        
+                            
+                            HStack(spacing: 12){
+                                Button(action: {
+                                    print("Info Selected")
+                                    modelManager.isInfoModeActive.toggle()
+                                }) {
+                                    Image(systemName: "list.bullet")
+                                        .foregroundColor(.white)
+                                }
+                                .buttonStyle(.plain)
+                                
+                                
+                                
+                                Button(action: {
+                                    print("more info Selected")
+                                    dismissWindow(id: "ModelInfoWindow")
+                                    modelManager.selectedModelInfo = mod.modelType.rawValue
+                                    openWindow(id: "ModelInfoWindow" )
+                                }) {
+                                    Image(systemName: "cube.box.fill")
+                                        .foregroundColor(.white)
+                                }
+                                .buttonStyle(.plain)
+                                
+                                
+                                Button(action: {
+                                    print("trash Selected")
+                                    modelManager.removeModel(mod)
+                                }) {
+                                    Image(systemName: "trash")
+                                        .foregroundColor(.white)
+                                }
+                                .buttonStyle(.plain)
+                                
+                            }
+                            .padding(.horizontal, 20)
+                            .frame(height:44)
+                            
+                        }
+                        .frame(height:50)
+                        .background(RoundedRectangle(cornerRadius: 13).fill(Color.white.opacity(0.3)))
+                        .padding(.horizontal)
+                        
+                    }
+            
+            // Add tag to help identify the list causing the warning if it persists
+            .id("PlacedModelsList")
+
+            HStack {
                 
                 Spacer()
                 
@@ -81,7 +184,9 @@ struct ModelSelectionScreen: View {
                 }
             }
             .padding()
+            Spacer()
         }
+        .cornerRadius(30)
         .onAppear {
             modelManager.loadModelTypes()
         }
@@ -95,3 +200,4 @@ struct ModelSelectionScreen: View {
         }
     }
 }
+        

@@ -2,6 +2,7 @@ import RealityKit
 import SwiftUI
 import Foundation
 import Combine
+import ARKit
 
 /// Represents a 3D anatomical model with loading and placement capabilities
 @MainActor
@@ -35,7 +36,9 @@ final class Model: ObservableObject, @preconcurrency Identifiable {
     
     var cancellables = Set<AnyCancellable>()
     
+    // Use ModelType for general identification, but need a unique ID per instance
     var id: ModelType { modelType }
+    let instanceUUID = UUID() // Unique identifier for each instance
     
     // MARK: - Initialization
     
@@ -71,13 +74,20 @@ final class Model: ObservableObject, @preconcurrency Identifiable {
         
         let filename = "\(modelType.rawValue).usdz"
         do {
+            
             // First try to load from models directory
             if let modelURL = Bundle.main.url(forResource: modelType.rawValue, withExtension: "usdz", subdirectory: "models") {
                 self.modelEntity = try await ModelEntity(contentsOf: modelURL)
+              
+                
             } else {
                 // Fallback to main bundle
                 self.modelEntity = try await ModelEntity(named: filename, in: Bundle.main)
+               
             }
+            
+            
+            applyInteractivityRecursively()
             
             // Apply the correct rotation based on model type
             if let entity = self.modelEntity {
@@ -98,13 +108,20 @@ final class Model: ObservableObject, @preconcurrency Identifiable {
                     entity.orientation = simd_quatf(angle: .pi/2, axis: SIMD3<Float>(1, 0, 0))
                 }
                 
-                // Apply materials if not already applied
-                if entity.model?.materials.isEmpty == true {
-                    entity.model?.materials = [SimpleMaterial(color: .white, isMetallic: false)]
-                }
+                // REMOVED: Fallback material application. Let the USDZ define its own materials.
+                // if entity.model?.materials.isEmpty == true {
+                //     entity.model?.materials = [SimpleMaterial(color: .white, isMetallic: false)]
+                // }
                 
-                // Set initial scale to something visible but not too large
-                entity.scale = [0.15, 0.15, 0.15]
+                // Set initial scale based on model type
+                if modelType.rawValue.lowercased() == "pancakes" {
+                    entity.scale = [0.04, 0.04, 0.04] // Further reduced scale for pancakes
+                } else if modelType.rawValue.lowercased() == "heart" ||
+                          modelType.rawValue.lowercased() == "arterieshead" {
+                    entity.scale = [0.2, 0.2, 0.2] // Larger scale for anatomy models
+                } else {
+                    entity.scale = [0.15, 0.15, 0.15] // Default scale
+                }
                 
                 // Add components for synchronization
                 entity.components[ModelTypeComponent.self] = ModelTypeComponent(type: modelType)
@@ -113,6 +130,11 @@ final class Model: ObservableObject, @preconcurrency Identifiable {
                 // Add collision component for interaction
                 if entity.collision == nil {
                     entity.collision = CollisionComponent(shapes: [.generateBox(size: entity.visualBounds(relativeTo: nil).extents)])
+                }
+                
+                // Add InstanceID component
+                if entity.components[InstanceIDComponent.self] == nil {
+                    entity.components.set(InstanceIDComponent())
                 }
             }
             
@@ -127,6 +149,31 @@ final class Model: ObservableObject, @preconcurrency Identifiable {
             }
         }
     }
+    
+    func applyInteractivityRecursively() {
+        guard let entity = modelEntity else { return }
+        Self.applyComponents(to: entity)
+    }
+
+    private static func applyComponents(to entity: Entity) {
+        entity.components.set(InputTargetComponent(allowedInputTypes: .all))
+        entity.components.set(HoverEffectComponent())
+
+        if let modelEntity = entity as? ModelEntity {
+            modelEntity.generateCollisionShapes(recursive: false)
+        }
+
+        for child in entity.children {
+            applyComponents(to: child)
+        }
+    }
+    
+    func printHierarchy(of entity: Entity, indent: String = "") {
+            print("\(indent)- \(entity.name)")
+            for child in entity.children {
+                printHierarchy(of: child, indent: indent + "  ")
+            }
+        }
     
     // MARK: - Transform Updates
     

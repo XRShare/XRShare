@@ -9,9 +9,32 @@
 import Foundation
 import RealityKit
 
+enum ModelCategory: String, CaseIterable, Identifiable {
+    var id: String {self.rawValue}
+        
+    case anatomy
+    case food
+    case car
+    case airplane
+    case bird
+}
+
 struct ModelType: Hashable, Identifiable {
     let rawValue: String
-    let id = UUID()
+    
+    // Instead of a random UUID, use the rawValue as the basis for the ID
+    // This ensures models with the same rawValue have the same ID
+    var id: String { rawValue.lowercased() }
+    
+    static let categoryyMap: [String: ModelCategory] = [
+        "heart": .anatomy,
+        "arterieshead": .anatomy,
+        "pancakes": .food
+        ]
+    
+    var category: ModelCategory? {
+        ModelType.categoryyMap[rawValue.lowercased()]
+    }
     
     /// Models that should rotate around the Z‑axis (if needed)
     static let zAxisRotationModels: [String] = ["arteriesHead", "brain", "heart", "heart2K"]

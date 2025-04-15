@@ -14,6 +14,7 @@ enum ImmersiveSpaceState {
 final class AppModel: ObservableObject {
     @Published var currentPage: SessionPage = .mainMenu
     @Published var immersiveSpaceState: ImmersiveSpaceState = .open
+    @Published var selectedCategory: ModelCategory? = nil
     
     // Debug mode toggle
     @Published var debugModeEnabled: Bool = false
@@ -62,39 +63,33 @@ final class AppModel: ObservableObject {
         }
     }
     
-    // Non-async version for UI bindings 
+    // Non-async version for UI bindings
     func toggleDebugModeUI() {
-        let wasEnabled = debugModeEnabled
-        debugModeEnabled.toggle()
+        debugModeEnabled.toggle() // Toggle the state first
         print("Debug mode \(debugModeEnabled ? "enabled" : "disabled")")
-        
-        // Manage control panel visibility
-        if debugModeEnabled && !wasEnabled {
-            // Only open if not already visible and newly enabled
+
+        if debugModeEnabled { // If we are enabling debug mode
+            // Only post notification if the panel isn't already marked as visible
             if !controlPanelVisible {
-                controlPanelVisible = true
-                
-                // Wait a short delay before opening to avoid multiple panels 
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    Task { @MainActor in
-                        // Use unique timestamp to avoid duplicate notifications
-                        NotificationCenter.default.post(
-                            name: Notification.Name("openWindow"), 
-                            object: nil, 
-                            userInfo: [
-                                "id": "controlPanel",
-                                "timestamp": Date().timeIntervalSince1970
-                            ]
-                        )
-                    }
-                }
+                controlPanelVisible = true // Mark as visible *before* posting
+                // Post synchronously on the main thread
+                NotificationCenter.default.post(
+                    name: Notification.Name("openWindow"),
+                    object: nil,
+                    userInfo: ["id": "controlPanel", "timestamp": Date().timeIntervalSince1970] // Add timestamp
+                )
+                print("Posted notification synchronously to open controlPanel")
+            } else {
+                 print("Debug mode enabled, but controlPanelVisible was already true. No notification posted.")
             }
-        } else if !debugModeEnabled && wasEnabled {
-            // When disabling debug mode, mark panel as closed
+        } else { // If we are disabling debug mode
+            // Mark the panel state as closed. User closes the window manually.
             controlPanelVisible = false
+            print("Debug mode disabled, control panel state marked as closed.")
+            // Do NOT post a notification to close the window.
         }
     }
-    
+
     // Close any open panels and clean up
     func closeAllPanels() {
         controlPanelVisible = false

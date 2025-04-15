@@ -1,5 +1,5 @@
 //
-//  InSession.swift
+//  InSession.swift 
 //  XR Anatomy
 //
 //  Created by Ali Kara on 2025-03-11.
@@ -8,18 +8,24 @@
 
 import SwiftUI
 import RealityKit
+import ARKit
 
 struct InSession: View {
-    @EnvironmentObject var appModel: AppModel
+    @EnvironmentObject var appModel: AppModel 
     @EnvironmentObject var arViewModel: ARViewModel
+    @EnvironmentObject var appState: AppState
     @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.dismissWindow) private var dismissWindow
     
     @ObservedObject var modelManager: ModelManager
     @StateObject private var sessionConnectivity = SessionConnectivity()
     
-    // Create anchor entity at a more visible distance
-    let modelAnchor = AnchorEntity(world: [0, 0, -0.5])
+    // Passed Properties
+    var session: ARKitSession // Receive the ARKitSession instance
+    
+    // Create anchor entity at eye level and a comfortable distance
+    let modelAnchor = AnchorEntity(world: [0, 0.15, -0.5])
     
     // Reference objects only shown in debug mode
     let referenceObjects = [
@@ -34,6 +40,14 @@ struct InSession: View {
     @State private var showDebugInfo = true
     @State private var refreshTimer: Timer? = nil
     @State private var timerCounter = 0
+    
+    // State for Drag Gesture
+    @State private var draggedEntity: Entity? = nil
+    // Store initial positions for drag calculation
+    @State private var initialDragEntityPosition: SIMD3<Float>? = nil // Keep for potential alternative logic
+    @State private var gestureStartLocation3D: Point3D? = nil // Keep for potential alternative logic
+    @State private var previousDragLocation3D: Point3D? = nil // For delta calculation
+
 
     var body: some View {
         ZStack {
@@ -85,8 +99,15 @@ struct InSession: View {
                     print("Added interactive main sphere at \(mainSphere.position)")
                 }
                 
-                // Add model anchor
+                // Add both anchors to the scene (guaranteed present)
                 content.add(modelAnchor)
+                content.add(arViewModel.sharedAnchorEntity)
+                
+                // Make sure they're enabled
+                modelAnchor.isEnabled = true
+                arViewModel.sharedAnchorEntity.isEnabled = true
+                
+                print("Added both world and image anchors to scene")
                 
                 // Set up head anchor for spatial awareness
                 let headAnchor = AnchorEntity(.head)
@@ -100,19 +121,216 @@ struct InSession: View {
                 
                 print("Scene initialized with reference objects and anchors")
         } update: { content in
-            // Update model transforms and check for changes
-            modelManager.updatePlacedModels(
-                content: content,
-                modelAnchor: modelAnchor,
-                connectivity: sessionConnectivity,
-                arViewModel: arViewModel
-            )
+                // Ensure models are correctly parented based on sync mode
+                for model in modelManager.placedModels {
+                    guard let entity = model.modelEntity else { continue }
+
+                    // Determine the INTENDED parent based on the current sync mode
+                    let intendedParent: Entity?
+                    let intendedParentName: String
+                    switch arViewModel.currentSyncMode {
+                    case .imageTarget, .objectTarget:
+                        // Ensure shared anchor is in the scene before considering it the intended parent
+                        if arViewModel.sharedAnchorEntity.scene == nil {
+                            // Check if it's in the RealityView content but not yet assigned to the scene graph
+                            if content.entities.contains(arViewModel.sharedAnchorEntity) {
+                                // It exists in content, likely okay to parent to, scene assignment might be pending
+                                intendedParent = arViewModel.sharedAnchorEntity
+                            } else {
+                                // Not in content, add it first
+                                content.add(arViewModel.sharedAnchorEntity)
+                                print("Added sharedAnchorEntity to content in update (was missing).")
+                                intendedParent = arViewModel.sharedAnchorEntity
+                            }
+                        } else {
+                            intendedParent = arViewModel.sharedAnchorEntity
+                        }
+                        intendedParentName = "sharedAnchorEntity (\(arViewModel.currentSyncMode.rawValue))"
+                    case .world:
+                        // Ensure model anchor is in the scene
+                        if modelAnchor.scene == nil {
+                             if content.entities.contains(modelAnchor) {
+                                 intendedParent = modelAnchor
+                             } else {
+                                 content.add(modelAnchor)
+                                 print("Added modelAnchor to content in update (was missing).")
+                                 intendedParent = modelAnchor
+                             }
+                        } else {
+                            intendedParent = modelAnchor
+                        }
+                        intendedParentName = "modelAnchor (World)"
+                    }
+
+                    // Get the current parent
+                    let currentParent = entity.parent
+
+                    // Reparent ONLY if the current parent is different from the intended parent
+                    if currentParent !== intendedParent {
+                        // Log the reparenting action
+                        print("Reparenting \(entity.name): Current parent (\(currentParent?.name ?? "nil")) != Intended parent (\(intendedParentName)). SyncMode: \(arViewModel.currentSyncMode.rawValue)")
+
+                        // Ensure the intended parent is valid before reparenting
+                        if let validIntendedParent = intendedParent {
+                            // Preserve world transform during reparenting to avoid visual jumps
+                            entity.setParent(validIntendedParent, preservingWorldTransform: true)
+                            print("Successfully reparented \(entity.name) to \(intendedParentName).")
+
+                            // After reparenting, update the model's local state if needed (optional)
+                            // model.position = entity.position(relativeTo: validIntendedParent)
+                            // model.rotation = entity.orientation(relativeTo: validIntendedParent)
+                            // model.scale = entity.scale(relativeTo: validIntendedParent)
+
+                        } else {
+                            print("Warning: Cannot reparent \(entity.name) because intended parent (\(intendedParentName)) is nil or not ready.")
+                            // If intended parent is nil, maybe remove the entity? Or leave it detached?
+                            // For now, just log the warning.
+                        }
+                    }
+                    // Else: Entity already has the correct parent, no action needed.
+                }
+
+                // Update model selection highlights and broadcast transforms
+                // This function now assumes entities are correctly parented by the logic above.
+                modelManager.updatePlacedModels(
+                    arViewModel: arViewModel
+                )
             }
-            // Add tap gesture first for selection, then the manipulation gestures
-            .gesture(modelManager.tapGesture)
-            .gesture(modelManager.dragGesture)
-            .gesture(modelManager.scaleGesture)
-            .gesture(modelManager.rotationGesture)
+            // --- visionOS Gestures ---
+                .gesture(SpatialTapGesture()
+                      .targetedToAnyEntity()
+                      .onEnded { value in
+
+                          print("Spatial Tap detected on entity: \(value.entity.name)")
+                          // Call handleTap on the main actor
+                          
+                          Task{ @MainActor in
+                              if modelManager.isInfoModeActive {
+                                  print("Tapped part: \(value.entity.name)")
+                                 
+                                  
+                                  modelManager.selectedPartInfo = modelManager.pancakeInfo(for: value.entity.name)
+                                  dismissWindow(id: "SelectedPartInfoWindow")
+                                  openWindow(id: "SelectedPartInfoWindow")
+                              } else{
+                                  modelManager.handleTap(entity: value.entity)
+                              }
+                              
+                          }
+                      }
+                  )
+            .simultaneousGesture(DragGesture()
+                 .targetedToAnyEntity()
+                 .onChanged { value in
+                     // Ensure the entity is managed
+                     guard modelManager.modelDict[value.entity] != nil else {
+                         // print("Attempted drag on unmanaged entity: \(value.entity.name)")
+                         return
+                     }
+
+                     // Store entity being dragged
+                     if draggedEntity == nil {
+                         draggedEntity = value.entity
+                         print("Drag started on: \(value.entity.name)")
+                     }
+                     // Ensure we are continuing to drag the same entity
+                     guard let currentDraggedEntity = draggedEntity, value.entity == currentDraggedEntity else {
+                         return
+                     }
+
+                     let currentDragLocation = value.location3D
+
+                     // On the first change event for this entity, just store the location
+                     guard let previousLocation = previousDragLocation3D else {
+                         previousDragLocation3D = currentDragLocation
+                         print("Drag first update for \(currentDraggedEntity.name) at \(currentDragLocation)")
+                         return
+                     }
+
+                     // Calculate the delta translation vector in world space
+                     let delta = currentDragLocation - previousLocation
+                     let deltaSIMD = SIMD3<Float>(Float(delta.x), Float(delta.y), Float(delta.z))
+
+                     // Get the entity's current world position
+                     let currentWorldPosition = currentDraggedEntity.position(relativeTo: nil)
+
+                     // Calculate the new target world position
+                     // Pass the raw world-space delta to the ModelManager
+                     Task { @MainActor in
+                         // Check if the entity still exists before handling drag change
+                         if modelManager.modelDict[currentDraggedEntity] != nil {
+                             modelManager.handleDragChange(entity: currentDraggedEntity, translation: deltaSIMD, arViewModel: arViewModel)
+                         }
+                     }
+
+                     // Update the previous location for the next frame
+                     previousDragLocation3D = currentDragLocation
+
+                     lastGestureEvent = "Dragging \(currentDraggedEntity.name)"
+                 }
+                 .onEnded { value in
+                     // Use the stored draggedEntity for ending the gesture
+                     guard let entityToEnd = draggedEntity else {
+                         // print("Drag ended: No entity was being tracked.") // Reduce log noise
+                         // Reset state just in case
+                         previousDragLocation3D = nil
+                         return
+                     }
+
+                     // Final position update happened in onChanged.
+                     // Call handleDragEnd for consistency and final broadcast.
+                     Task { @MainActor in
+                         // Check if the entity still exists before finalizing
+                         if modelManager.modelDict[entityToEnd] != nil {
+                             modelManager.handleDragEnd(entity: entityToEnd, arViewModel: arViewModel)
+                             print("Drag ended successfully for \(entityToEnd.name)")
+                         } else {
+                             print("Drag ended: Entity \(entityToEnd.name) no longer managed.")
+                         }
+                     }
+                     lastGestureEvent = "Drag ended for \(entityToEnd.name)"
+
+                     // Reset drag state reliably
+                     draggedEntity = nil
+                     previousDragLocation3D = nil // Reset previous location
+                     // Reset other potentially stale states if they were used
+                     initialDragEntityPosition = nil
+                     gestureStartLocation3D = nil
+                 }
+            )
+             .simultaneousGesture(MagnifyGesture()
+                 .targetedToAnyEntity()
+                 .onChanged { value in
+                     let scaleFactor = Float(value.magnification)
+                     Task { @MainActor in
+                         modelManager.handleScaleChange(entity: value.entity, scaleFactor: scaleFactor, arViewModel: arViewModel)
+                     }
+                     lastGestureEvent = "Scaling \(value.entity.name) by \(String(format: "%.2f", scaleFactor))"
+                 }
+                 .onEnded { value in
+                      Task { @MainActor in
+                          modelManager.handleScaleEnd(entity: value.entity, arViewModel: arViewModel)
+                      }
+                      lastGestureEvent = "Scale ended for \(value.entity.name)"
+                 }
+             )
+             // Using RotateGesture3D for potentially more intuitive rotation
+             .simultaneousGesture(RotateGesture3D()
+                 .targetedToAnyEntity()
+                 .onChanged { value in
+                     let rotation = simd_quatf(value.rotation) // Convert Euler angles to quaternion
+                     Task { @MainActor in
+                         modelManager.handleRotationChange(entity: value.entity, rotation: rotation, arViewModel: arViewModel)
+                     }
+                     lastGestureEvent = "Rotating \(value.entity.name)"
+                 }
+                 .onEnded { value in
+                     Task { @MainActor in
+                         modelManager.handleRotationEnd(entity: value.entity, arViewModel: arViewModel)
+                     }
+                     lastGestureEvent = "Rotation ended for \(value.entity.name)"
+                 }
+             )
             
             // Status indicator with selection info
             VStack(alignment: .leading, spacing: 4) {
@@ -214,3 +432,4 @@ struct InSession: View {
         }
     }
 }
+

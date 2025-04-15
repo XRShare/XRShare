@@ -44,7 +44,8 @@ class SessionConnectivity: ObservableObject {
             registeredEntities.insert(entity.id)
         }
         
-        // Send transform update
+        // Send transform update with respect to the appropriate anchor
+        // depending on the current sync mode
         arViewModel.sendTransform(for: entity)
     }
     
