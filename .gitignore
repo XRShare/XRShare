@@ -1,4 +1,28 @@
-XrAnatomy2UITests/*
-XrAnatomy2Tests/*
-XrAnatomy.xcodeproj/project.xcworkspace/xcuserdata/alikara.xcuserdatad/UserInterfaceState.xcuserstate
-XrAnatomy/project.pbxproj
+ # Xcode
+ build/
+ DerivedData/
+ xcuserdata/
+ *.xcworkspace
+ !*.xcworkspace/contents.xcworkspacedata
+ *.xccheckout
+ *.moved-aside
+
+ # Swift Package Manager
+ .build/
+ .swiftpm/
+
+ # CocoaPods
+ Pods/
+
+ # Carthage
+ Carthage/Build/
+
+ # fastlane
+ fastlane/report.xml
+ fastlane/Preview.html
+
+ # macOS
+ .DS_Store
+
+ # IDE
+ .vscode/

@@ -1,0 +1,44 @@
+included:
+  - Shared
+  - "XR Anatomy"
+  - "XR Anatomy Vision"
+
+excluded:
+  - DerivedData
+  - Packages
+  - .build
+  - .swiftpm
+
+disabled_rules:
+  - trailing_whitespace
+  - line_length
+
+opt_in_rules:
+  - empty_count
+  - force_unwrapping
+  - force_cast
+  - implicitly_unwrapped_optional
+
+analyzer_rules:
+  - unused_declaration
+  - unused_import
+
+force_cast: warning
+force_unwrapping: warning
+implicitly_unwrapped_optional: warning
+
+identifier_name:
+  min_length: 2
+  excluded:
+    - id
+    - ar
+    - xr
+    - x
+    - y
+    - z
+
+type_name:
+  min_length: 3
+  max_length: 50
+
+reporter: "xcode"
