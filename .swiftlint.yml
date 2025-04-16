@@ -12,12 +12,25 @@ excluded:
 disabled_rules:
   - trailing_whitespace
   - line_length
-
-opt_in_rules:
+  - vertical_whitespace
+  - trailing_newline
+  - opening_brace
+  - control_statement
+  - empty_enum_arguments
+  - operator_whitespace
+  - multiple_closures_with_trailing_closure
   - empty_count
+  - shorthand_operator
+  - unused_optional_binding
+  - redundant_optional_initialization
   - force_unwrapping
   - force_cast
   - implicitly_unwrapped_optional
+  - cyclomatic_complexity
+  - function_body_length
+  - file_length
+  - type_body_length
+
 
 analyzer_rules:
   - unused_declaration
