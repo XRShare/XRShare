@@ -16,7 +16,7 @@ protocol MultipeerSessionDelegate: AnyObject {
 }
 
 class MultipeerSession: NSObject {
-    private let serviceType = "xr-anatomy"
+    private let serviceType: String
     let session: MCSession
     private let myPeerID: MCPeerID
     private let advertiser: MCNearbyServiceAdvertiser
@@ -30,6 +30,7 @@ class MultipeerSession: NSObject {
     // Accept discoveryInfo in the initializer
     init(serviceName: String = "xr-anatomy", displayName: String, discoveryInfo: [String: String]? = nil) {
         self.discoveryInfo = discoveryInfo // Store it
+        self.serviceType = serviceName
         
         #if os(iOS)
         self.myPeerID = MCPeerID(displayName: displayName)
@@ -44,13 +45,13 @@ class MultipeerSession: NSObject {
         self.advertiser = MCNearbyServiceAdvertiser(
             peer: myPeerID,
             discoveryInfo: self.discoveryInfo, // Use stored discovery info
-            serviceType: serviceType
+            serviceType: self.serviceType
         )
         
         // Create browser
         self.browser = MCNearbyServiceBrowser(
             peer: myPeerID,
-            serviceType: serviceType
+            serviceType: self.serviceType
         )
         
         super.init()

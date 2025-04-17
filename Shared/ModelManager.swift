@@ -115,6 +115,17 @@ final class ModelManager: ObservableObject {
                             let data = try JSONEncoder().encode(payload)
                             multipeerSession.sendToAllPeers(data, dataType: .addModel)
                             print("Broadcasted addModel: \(modelType.rawValue) (ID: \(instanceID)), Relative: \(isRelativeToSharedAnchor)")
+
+                            // SharePlay: send addModel payload to all group participants
+                            if let messenger = SharePlaySyncController.shared.messenger {
+                                Task {
+                                    do {
+                                        try await messenger.send(payload, to: .all)
+                                    } catch {
+                                        print("SharePlay: failed to send addModel: \(error)")
+                                    }
+                                }
+                            }
                         } catch {
                             print("Error encoding AddModelPayload: \(error)")
                         }
@@ -145,6 +156,17 @@ final class ModelManager: ObservableObject {
                 let data = try JSONEncoder().encode(payload)
                 multipeerSession.sendToAllPeers(data, dataType: .removeModel)
                 print("Successfully broadcasted removeModel: \(modelTypeName) (ID: \(instanceID))")
+
+                // SharePlay: send removeModel payload to all group participants
+                if let messenger = SharePlaySyncController.shared.messenger {
+                    Task {
+                        do {
+                            try await messenger.send(payload, to: .all)
+                        } catch {
+                            print("SharePlay: failed to send removeModel: \(error)")
+                        }
+                    }
+                }
             } catch {
                 print("Error encoding RemoveModelPayload for \(modelTypeName) (ID: \(instanceID)): \(error)")
             }

@@ -6,6 +6,7 @@ import Combine // Needed for AnyCancellable if used later
 #if os(iOS)
 import ARKit
 #endif
+import GroupActivities
 
 // MARK: - Custom PeerID
 public final class CustomPeerID: SynchronizationPeerID, Hashable {
@@ -36,7 +37,8 @@ struct InstanceIDComponent: Component, Codable {
 /// A custom connectivity service for RealityKit scene synchronization
 class MyCustomConnectivityService: NSObject {
     // MARK: - Properties
-    private var multipeerSession: MultipeerSession
+    /// The underlying multipeer connectivity session
+    var multipeerSession: MultipeerSession
     weak var arViewModel: ARViewModel? // Keep weak ref to avoid retain cycles if ARViewModel owns this service
     var modelManager: ModelManager // Change to strong reference
     
@@ -153,9 +155,16 @@ class MyCustomConnectivityService: NSObject {
         do {
             let data = try JSONEncoder().encode(payload)
             multipeerSession.sendToAllPeers(data, dataType: .modelTransform)
-
-            // Debug messages slowing things down? Comment out or limit frequency.
-            // print("Sent model transform: \(instanceID)")
+            // Also broadcast via SharePlay if available
+            if let messenger = SharePlaySyncController.shared.messenger {
+                Task {
+                    do {
+                        try await messenger.send(payload, to: .all)
+                    } catch {
+                        print("SharePlay: failed to send modelTransform: \(error)")
+                    }
+                }
+            }
         } catch {
             print("Error encoding model transform: \(error)")
         }
@@ -705,7 +714,6 @@ class MyCustomConnectivityService: NSObject {
 
     #if os(iOS) // Wrap the entire function definition
     func handleRemoveAnchors(_ data: Data, from peerID: MCPeerID) {
-        guard let arView = arViewModel?.arView else { return }
         guard let arView = arViewModel?.arView else { return }
 
         do {

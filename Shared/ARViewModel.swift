@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import GroupActivities
 import MultipeerConnectivity
 import RealityKit
 import ARKit
@@ -282,6 +283,49 @@ class ARViewModel: NSObject, ObservableObject {
         // Start broadcasting
         self.multipeerSession?.startBrowsingAndAdvertising()
         print("Started browsing and advertising for peers")
+        
+        // --- SharePlay Integration ---
+        // Start a SharePlay session using the sharedAnchorEntity as common origin anchor
+        let originMatrix = sharedAnchorEntity.transformMatrix(relativeTo: nil).toArray()
+        SharePlaySyncController.shared.startSession(with: originMatrix)
+        // Handle initial origin transform from SharePlay to align shared anchor
+        NotificationCenter.default.addObserver(forName: .sharePlayOriginTransform, object: nil, queue: .main) { [weak self] notif in
+            // The notification object is the raw origin transform array ([Float])
+            guard let originArray = notif.object as? [Float] else { return }
+            // Update the shared anchor to the received origin transform
+            let matrix = simd_float4x4.fromArray(originArray)
+            self?.sharedAnchorEntity.transform.matrix = matrix
+            print("SharePlay: updated sharedAnchorEntity with origin transform")
+        }
+        // Forward incoming SharePlay messages into the existing customService pipeline
+        NotificationCenter.default.addObserver(forName: .sharePlayAddModel, object: nil, queue: .main) { [weak self] notif in
+            guard let payload = notif.object as? AddModelPayload,
+                  let data = try? JSONEncoder().encode(payload),
+                  let svc = self?.customService else { return }
+            var raw = Data([DataType.addModel.rawValue]); raw.append(data)
+            svc.handleReceivedData(raw, from: svc.multipeerSession.session.myPeerID)
+        }
+        NotificationCenter.default.addObserver(forName: .sharePlayRemoveModel, object: nil, queue: .main) { [weak self] notif in
+            guard let payload = notif.object as? RemoveModelPayload,
+                  let data = try? JSONEncoder().encode(payload),
+                  let svc = self?.customService else { return }
+            var raw = Data([DataType.removeModel.rawValue]); raw.append(data)
+            svc.handleReceivedData(raw, from: svc.multipeerSession.session.myPeerID)
+        }
+        NotificationCenter.default.addObserver(forName: .sharePlayModelTransform, object: nil, queue: .main) { [weak self] notif in
+            guard let payload = notif.object as? ModelTransformPayload,
+                  let data = try? JSONEncoder().encode(payload),
+                  let svc = self?.customService else { return }
+            var raw = Data([DataType.modelTransform.rawValue]); raw.append(data)
+            svc.handleReceivedData(raw, from: svc.multipeerSession.session.myPeerID)
+        }
+        NotificationCenter.default.addObserver(forName: .sharePlayAnchorTransform, object: nil, queue: .main) { [weak self] notif in
+            guard let payload = notif.object as? AnchorTransformPayload,
+                  let data = try? JSONEncoder().encode(payload),
+                  let svc = self?.customService else { return }
+            var raw = Data([DataType.anchorWithTransform.rawValue]); raw.append(data)
+            svc.handleReceivedData(raw, from: svc.multipeerSession.session.myPeerID)
+        }
     }
 
     /// Stop multipeer services
@@ -463,7 +507,8 @@ class ARViewModel: NSObject, ObservableObject {
                 // Ensure shared anchor is in the scene
                 if targetParent.scene == nil {
                     // Check if it exists in the scene anchors already but isn't linked (can happen)
-                    if let existingAnchor = arView.scene.anchors.first(where: { $0 == targetParent }) {
+                    if arView.scene.anchors
+                        .first(where: { $0 == targetParent }) != nil {
                          print("SharedAnchorEntity found in scene anchors but scene property was nil. Using existing.")
                     } else {
                          arView.scene.addAnchor(targetParent as! AnchorEntity) // Cast is safe here

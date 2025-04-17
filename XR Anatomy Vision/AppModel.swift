@@ -64,6 +64,7 @@ final class AppModel: ObservableObject {
     }
     
     // Non-async version for UI bindings
+    @MainActor
     func toggleDebugModeUI() {
         debugModeEnabled.toggle() // Toggle the state first
         print("Debug mode \(debugModeEnabled ? "enabled" : "disabled")")
@@ -76,7 +77,7 @@ final class AppModel: ObservableObject {
                 NotificationCenter.default.post(
                     name: Notification.Name("openWindow"),
                     object: nil,
-                    userInfo: ["id": "controlPanel", "timestamp": Date().timeIntervalSince1970] // Add timestamp
+                    userInfo: ["id": "controlPanel", "timestamp": Date().timeIntervalSince1970]
                 )
                 print("Posted notification synchronously to open controlPanel")
             } else {

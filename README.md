@@ -85,13 +85,16 @@ You can ingest an Apple .docset (e.g. Apple API Reference) for retrieval or fine
    ```bash
    pip install -r requirements.txt
    ```
-2. Run the ingestion script (replace paths accordingly):
+2. Configure your docset path:
+   - Copy `docset_config.json.template` to `docset_config.json`
+   - Edit `docset_config.json` and set `docset_path`, `index_path`, and `meta_path`
+3. Generate the FAISS index:
    ```bash
-   make ingest-docset DOCSET=/Users/alikara/Desktop/Apple_API_Reference.docset OUTPUT=data/docset_index.faiss
+   make docset-index
    ```
-   This will produce:
-   - A FAISS index at `data/docset_index.faiss`
-   - Metadata file at `data/docset_index.faiss.meta.json`
+   This will read your `docset_config.json` and produce:
+   - A FAISS index at the configured `index_path` (e.g., `data/docset_index.faiss`)
+   - A metadata file at the configured `meta_path` (e.g., `data/docset_index.faiss.meta.json`)
 
 3. Use the index for retrieval-augmented queries or convert metadata for fine-tuning datasets.
 
@@ -99,6 +102,12 @@ You can ingest an Apple .docset (e.g. Apple API Reference) for retrieval or fine
 
 After ingestion, you can fetch relevant API docs for a query:
 
+### Using config file:
+```bash
+make docset-query QUESTION="How do I create a UIView?"
+```
+
+### Or specifying paths explicitly:
 ```bash
 make query-docset INDEX=data/docset_index.faiss \
                    META=data/docset_index.faiss.meta.json \

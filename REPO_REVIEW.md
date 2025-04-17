@@ -1,13 +1,4 @@
 ## Action Items
-
-[L01] Logic Bug — Ensure ARViewModel.syncLocalModels uses currentSyncMode to send correct transforms (world vs image/object) | Rationale: incorrect relative/world transforms on join break spatial alignment (Shared/ARViewModel.swift) | Priority: 1 | Depends: – | Done when: peers joining see models in correct positions under any sync mode
-
-[L02] Logic Bug — Refine MyCustomConnectivityService.handleModelTransform to locate entities by InstanceIDComponent.id and apply transforms/reparent under correct anchor based on currentSyncMode | Rationale: brittle fallback logic misapplies transforms and parenting (Shared/MyCustomConnectivityService.swift) | Priority: 1 | Depends: L01 | Done when: incoming transforms consistently map to correct entities and anchors
-
-[L03] Logic Bug — Guarantee sharedAnchorEntity (image/object sync) and world anchor are added to the scene graph before parenting models | Rationale: parenting to non‑existent anchors fails silently or yields wrong transforms (XR Anatomy Vision/Scenes/InSession.swift, Shared/MyCustomConnectivityService.swift) | Priority: 1 | Depends: – | Done when: anchors present in scene prior to any model parenting
-
-[L06] Logic Bug — Use InstanceIDComponent.id exclusively for identifying models in all network payloads (AddModelPayload, RemoveModelPayload, ModelTransformPayload) | Rationale: other identifiers can collide or change across devices (Shared/ModelSyncPayloads.swift, Shared/ModelTransformPayload.swift) | Priority: 1 | Depends: – | Done when: payloads reference only InstanceIDComponent.id
-
 [L04] Logic Bug — Prevent race conditions during model removal by broadcasting removal after local state update or using ordered sequence numbers | Rationale: transform updates arriving during removal cause errors (Shared/ModelManager.swift) | Priority: 2 | Depends: – | Done when: removal broadcasts never conflict with transform updates
 
 [L05] Logic Bug — Correct visionOS drag gesture delta calculations to apply smooth world‑space movement in InSession | Rationale: current implementation yields jerky/unpredictable drags (XR Anatomy Vision/Scenes/InSession.swift) | Priority: 2 | Depends: – | Done when: user drag gestures result in smooth, accurate model movement
@@ -20,11 +11,7 @@
 
 [P02] Performance — Review and optimize SceneEvents.Update subscription in SessionConnectivity; batch or throttle transform messages if needed | Rationale: per-frame subscriptions may be expensive (XR Anatomy Vision/Services/SessionConnectivity.swift) | Priority: 3 | Depends: – | Done when: transform broadcasts occur efficiently with acceptable resource usage
 
-[P03] Performance — Wrap debug logging and periodic timers in InSession with conditional debug flags and exclude from release builds | Rationale: reduces overhead and log spam (XR Anatomy Vision/Scenes/InSession.swift) | Priority: 3 | Depends: – | Done when: debug logging/timers disabled outside debug mode
-
 [CS001] Code Style — Refactor all force unwraps (!) and force casts (as!) to safe optional binding across codebase | Rationale: improves safety by avoiding runtime crashes | Priority: 2 | Depends: – | Done when: no unintended forced unwraps/casts remain
-
-[CS002] Code Style — Integrate SwiftLint with standard Swift style rules into pre‑commit and CI | Rationale: enforces consistent formatting and catches violations early | Priority: 3 | Depends: – | Done when: .swiftlint.yml exists and lint passes for modified files
 
 [CS003] Code Style — Rename triggerImageSync() in ARViewModel to reflect its dual purpose or split into separate methods | Rationale: method name is misleading (Shared/ARViewModel.swift) | Priority: 3 | Depends: – | Done when: method(s) renamed and call sites updated
 
@@ -37,10 +24,6 @@
 [UX003] UI/UX — Standardize window management in visionOS using openWindow/dismissWindow instead of custom modifiers | Rationale: leverages SwiftUI APIs and reduces custom code complexity | Priority: 2 | Depends: – | Done when: windows opened/closed via SwiftUI environment actions
 
 [UX004] UI/UX — Clarify or generalize the “Info Mode” feature beyond specific models to ensure consistent user understanding | Rationale: unclear purpose confuses users (XR Anatomy Vision/Scenes/ModelSelectionScreen.swift) | Priority: 3 | Depends: – | Done when: info mode behavior is intuitive or documented
-
-[DS001] DevOps — Add caching for SwiftPM dependencies and Xcode build products in GitHub Actions workflows | Rationale: speeds up CI by reusing downloads and build artifacts | Priority: 3 | Depends: – | Done when: cache steps added and CI build durations reduced
-
-[V01] DevOps — Validate and update GitHub Actions workflows to include build, test, and lint steps | Rationale: ensures CI catches build or style regressions | Priority: 3 | Depends: CS002 | Done when: CI passes build/test/lint on pushes and PRs
 
 [NF001] New Feature — Implement ARWorldMap sharing in Shared/ARSessionManager.swift for session join workflows | Rationale: late‑joining devices lack a shared world map, causing misaligned AR spaces contrary to product goal #2 | Priority: 1 | Depends: L01, L02 | Done when: ARSessionManager serializes current ARWorldMap, sends it to new peers, and peers restore their ARSession with the received map
 
