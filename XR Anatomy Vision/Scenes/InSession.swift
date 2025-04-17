@@ -10,6 +10,12 @@ import SwiftUI
 import RealityKit
 import ARKit
 
+// Component to mark which parent an entity has been synced to, to avoid unnecessary reparenting.
+struct ParentSyncComponent: Component {
+    /// Descriptor of the parent to which the entity has been synced (e.g., "modelAnchor (World)" or "sharedAnchorEntity (Image Target Sync)")
+    var intendedParentName: String
+}
+
 struct InSession: View {
     @EnvironmentObject var appModel: AppModel 
     @EnvironmentObject var arViewModel: ARViewModel
@@ -24,8 +30,8 @@ struct InSession: View {
     // Passed Properties
     var session: ARKitSession // Receive the ARKitSession instance
     
-    // Create anchor entity at eye level and a comfortable distance
-    let modelAnchor = AnchorEntity(world: [0, 0.15, -0.5])
+    // World-anchored anchor for placing models at a fixed world position
+    let modelAnchor: AnchorEntity = AnchorEntity(world: matrix_identity_float4x4)
     
     // Reference objects only shown in debug mode
     let referenceObjects = [
@@ -116,9 +122,7 @@ struct InSession: View {
 
                 print("Ensured both world and shared anchors are in RealityView content.")
 
-                // Set up head anchor for spatial awareness
-                let headAnchor = AnchorEntity(.head)
-                content.add(headAnchor)
+                // (Removed separate headAnchor; models use modelAnchor attached to head)
 
                 // Pass the anchors to the connectivity service if needed (though it might get them from ARViewModel now)
                 // sessionConnectivity.addAnchorsIfNeeded(
@@ -129,18 +133,14 @@ struct InSession: View {
 
                 print("Scene initialized with reference objects and anchors")
         } update: { content in
-            // [L03] Ensure anchors are present in the content during updates as well.
-            // This is crucial because the update block runs frequently and might be
-            // the first place where parenting logic executes after a mode switch.
+
+            // Ensure persistent anchors are present in the scene
             if !content.entities.contains(modelAnchor) {
                 content.add(modelAnchor)
-                print("Added modelAnchor to content in update (was missing).")
             }
-             if !content.entities.contains(arViewModel.sharedAnchorEntity) {
+            if !content.entities.contains(arViewModel.sharedAnchorEntity) {
                 content.add(arViewModel.sharedAnchorEntity)
-                print("Added sharedAnchorEntity to content in update (was missing).")
             }
-
             // Ensure models are correctly parented based on sync mode
             for model in modelManager.placedModels {
                 guard let entity = model.modelEntity else { continue }
@@ -148,28 +148,35 @@ struct InSession: View {
                     // Determine the INTENDED parent based on the current sync mode
                     let intendedParent: Entity?
                     let intendedParentName: String
+                    // Choose parent based on sync mode and tracking state
                     switch arViewModel.currentSyncMode {
-                    case .imageTarget, .objectTarget:
-                        // Ensure shared anchor is in the scene before considering it the intended parent
-                        // Check RealityView content first, as scene assignment might lag
-                        if !content.entities.contains(arViewModel.sharedAnchorEntity) {
-                            // Not in content, add it first
-                            content.add(arViewModel.sharedAnchorEntity)
-                            print("Added sharedAnchorEntity to content in update (was missing).")
+                    case .imageTarget:
+                        if arViewModel.isSyncedToImage {
+                            intendedParent = arViewModel.sharedAnchorEntity
+                            intendedParentName = "sharedAnchorEntity (Image Target Sync)"
+                        } else {
+                            intendedParent = modelAnchor
+                            intendedParentName = "modelAnchor (World)"
                         }
-                        // Now it should be safe to assign as intended parent
-                        intendedParent = arViewModel.sharedAnchorEntity
-                        intendedParentName = "sharedAnchorEntity (\(arViewModel.currentSyncMode.rawValue))"
+                    case .objectTarget:
+                        if arViewModel.isSyncedToObject {
+                            intendedParent = arViewModel.sharedAnchorEntity
+                            intendedParentName = "sharedAnchorEntity (Object Target Sync)"
+                        } else {
+                            intendedParent = modelAnchor
+                            intendedParentName = "modelAnchor (World)"
+                        }
                     case .world:
-                        // Ensure model anchor is in the scene
-                        if !content.entities.contains(modelAnchor) {
-                             content.add(modelAnchor)
-                             print("Added modelAnchor to content in update (was missing).")
-                        }
                         intendedParent = modelAnchor
                         intendedParentName = "modelAnchor (World)"
                     }
-
+                    
+                    // Skip models already parented for this sync mode
+                    if let parentComp = entity.components[ParentSyncComponent.self],
+                       parentComp.intendedParentName == intendedParentName {
+                        continue
+                    }
+                    
                     // Get the current parent
                     let currentParent = entity.parent
 
@@ -182,6 +189,12 @@ struct InSession: View {
                         // Preserve world transform during reparenting to avoid visual jumps
                         entity.setParent(validIntendedParent, preservingWorldTransform: true)
                         print("Successfully reparented \(entity.name) to \(intendedParentName).")
+                        // On initial world-mode reparent, shift entity forward 0.5m
+                        if arViewModel.currentSyncMode == .world {
+                            entity.position = [0, 0, -0.5]
+                        }
+                        // Mark entity as parented for this sync mode
+                        entity.components.set(ParentSyncComponent(intendedParentName: intendedParentName))
 
                         // After reparenting, update the model's local state if needed (optional)
                         // model.position = entity.position(relativeTo: validIntendedParent)
@@ -251,24 +264,14 @@ struct InSession: View {
                          return
                      }
 
-                     // Calculate the delta translation vector in world space
-                     let delta = currentDragLocation - previousLocation
-                     let deltaSIMD = SIMD3<Float>(Float(delta.x), Float(delta.y), Float(delta.z))
-
-                     // Get the entity's current world position
-                     let currentWorldPosition = currentDraggedEntity.position(relativeTo: nil)
-
-                     // Calculate the new target world position
-                     // Pass the raw world-space delta to the ModelManager
-                     Task { @MainActor in
-                         // Check if the entity still exists before handling drag change
-                         if modelManager.modelDict[currentDraggedEntity] != nil {
-                             modelManager.handleDragChange(entity: currentDraggedEntity, translation: deltaSIMD, arViewModel: arViewModel)
-                         }
-                     }
-
-                     // Update the previous location for the next frame
-                     previousDragLocation3D = currentDragLocation
+    // Calculate the delta translation vector in world space
+    let delta = currentDragLocation - previousLocation
+    let rawDelta = SIMD3<Float>(Float(delta.x), Float(delta.y), Float(delta.z))
+    Task { @MainActor in
+        // Pass the raw world-space delta to the ModelManager
+        modelManager.handleDragChange(entity: currentDraggedEntity, translation: rawDelta, arViewModel: arViewModel)
+    }
+    previousDragLocation3D = currentDragLocation
 
                      lastGestureEvent = "Dragging \(currentDraggedEntity.name)"
                  }
@@ -359,7 +362,7 @@ struct InSession: View {
             .padding(.top, 20)
             .opacity(0.8)
         }
-        .withWindowOpener() // Add window opening capability
+        // Window opener not needed here (handled at root)
         .onAppear {
             print("InSession has appeared. ModelManager has \(modelManager.placedModels.count) models loaded.")
             

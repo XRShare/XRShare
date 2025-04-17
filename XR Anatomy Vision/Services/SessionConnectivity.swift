@@ -61,7 +61,7 @@ class SessionConnectivity: ObservableObject {
         let modelID = modelType?.rawValue ?? "anchor-\(UUID())"
         _ = AnchorTransformPayload(
             anchorData: Data(),
-            modelID: modelID,
+            anchorID: modelID,
             transform: transformArr,
             modelType: modelType?.rawValue
         )
@@ -91,7 +91,7 @@ class SessionConnectivity: ObservableObject {
             // Update the last known transform component
             entity.components[LastTransformComponent.self] = LastTransformComponent(matrix: currentMatrix)
         }
-        transformCancellables.append(cancellable)
+        transformCancellables.append(cancellable as! AnyCancellable)
     }
     
     private var isApplyingRemoteTransform = false

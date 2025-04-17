@@ -8,8 +8,6 @@ class AppState: ObservableObject {
     @Published var objectTrackingProvider: ObjectTrackingProvider? = nil
 
     // Tracking Status
-    @Published var isImageTracked: Bool = false
-    @Published var isObjectTracked: Bool = false // New state for object tracking
     @Published var alertItem: AlertItem? = nil
 
     // Auto-start image tracking mode
@@ -25,22 +23,18 @@ class AppState: ObservableObject {
     func startImageTracking(provider: ImageTrackingProvider) {
         imageTrackingProvider = provider
         objectTrackingProvider = nil // Ensure only one provider is active
-        isObjectTracked = false
     }
 
     // Handle object tracking setup
     func startObjectTracking(provider: ObjectTrackingProvider) {
         objectTrackingProvider = provider
         imageTrackingProvider = nil // Ensure only one provider is active
-        isImageTracked = false
     }
 
     // Stop all tracking
     func stopTracking() {
         imageTrackingProvider = nil
         objectTrackingProvider = nil
-        isImageTracked = false
-        isObjectTracked = false
     }
 }
 
@@ -316,7 +310,7 @@ struct XRAnatomy_visionOSApp: App {
                 return
             }
 
-            print("Loaded reference object: \(finalReferenceObject.name ?? "Unnamed") from \(loadedURL?.path ?? "Unknown Path")")
+            print("Loaded reference object: \(finalReferenceObject.name) from \(loadedURL?.path ?? "Unknown Path")")
 
             let objectProvider = ObjectTrackingProvider(referenceObjects: [finalReferenceObject])
             providers.append(objectProvider)
@@ -355,7 +349,7 @@ struct XRAnatomy_visionOSApp: App {
         
         guard currentMode == .imageTarget, let imageProvider = provider else {
             print("Not starting image monitoring (Mode: \(currentMode.rawValue), Provider: \(provider == nil ? "nil" : "exists"))")
-            appState.isImageTracked = false // Ensure state is false if not monitoring
+            arViewModel.isImageTracked = false // Ensure state is false if not monitoring
             return
         }
         
@@ -376,14 +370,14 @@ struct XRAnatomy_visionOSApp: App {
                     
                     let imageAnchor = anchorUpdate.anchor
                     let event = anchorUpdate.event
+                    // Capture the image target's name for logging
+                    let imageName = imageAnchor.referenceImage.name ?? "Unknown"
                     
                     // Use any of the reference images
-                    let imageName = imageAnchor.referenceImage.name ?? "Unknown"
                     
                     // Using the AppState and ARViewModel objects directly within the MainActor context
                     switch event {
                     case .added, .updated:
-                        let imageName = imageAnchor.referenceImage.name ?? "Unknown"
                         if imageAnchor.isTracked {
                             // Image is currently tracked
                             if !arViewModel.isSyncedToImage {
@@ -391,28 +385,27 @@ struct XRAnatomy_visionOSApp: App {
                                 let newWorldTransform = imageAnchor.originFromAnchorTransform
                                 arViewModel.sharedAnchorEntity.setTransformMatrix(newWorldTransform, relativeTo: nil)
                                 arViewModel.isSyncedToImage = true // Mark as synced
-                                appState.isImageTracked = true // Mark as detected
-                                print("✅ Image Target '\(imageName)' detected. Synced sharedAnchorEntity transform.")
+                        arViewModel.isImageTracked = true // Mark as detected
+                                print("Image Target '\(imageName)' detected. Synced sharedAnchorEntity transform.")
                             } else {
                                 // Already synced, just update detection status if it wasn't already tracked
-                                if !appState.isImageTracked {
-                                     appState.isImageTracked = true
+                            if !arViewModel.isImageTracked {
+                                     arViewModel.isImageTracked = true
                                      print("👀 Image Target '\(imageName)' re-detected (already synced).")
-                                }
+                            }
                             }
                         } else {
                             // Image is lost
-                            if appState.isImageTracked {
-                                print("⚠️ Image Target '\(imageName)' lost tracking.")
-                                appState.isImageTracked = false
+                            if arViewModel.isImageTracked {
+                                print("Image Target '\(imageName)' lost tracking.")
+                                arViewModel.isImageTracked = false
                                 // DO NOT reset isSyncedToImage here - alignment persists
                             }
                         }
                     case .removed:
-                        let imageName = imageAnchor.referenceImage.name ?? "Unknown"
-                        if appState.isImageTracked {
-                            print("❌ Image Target '\(imageName)' anchor removed.")
-                            appState.isImageTracked = false
+                        if arViewModel.isImageTracked {
+                            print("Image Target '\(imageName)' anchor removed.")
+                            arViewModel.isImageTracked = false
                             // DO NOT reset isSyncedToImage here
                         }
                     @unknown default:
@@ -426,9 +419,9 @@ struct XRAnatomy_visionOSApp: App {
             
             // Ensure detection state is false if task finishes or exits loop
             // isSyncedToImage persists until explicitly reset
-            if appState.isImageTracked {
+            if arViewModel.isImageTracked {
                 print("Image monitoring loop finished/exited, resetting detection state.")
-                appState.isImageTracked = false
+                arViewModel.isImageTracked = false
             }
         }
     }
@@ -441,7 +434,7 @@ struct XRAnatomy_visionOSApp: App {
 
         guard currentMode == .objectTarget, let objectProvider = provider else {
             print("Not starting object monitoring (Mode: \(currentMode.rawValue), Provider: \(provider == nil ? "nil" : "exists"))")
-            appState.isObjectTracked = false // Ensure state is false if not monitoring
+            arViewModel.isObjectTracked = false // Ensure state is false if not monitoring
             return
         }
 
@@ -460,7 +453,7 @@ struct XRAnatomy_visionOSApp: App {
 
                     let objectAnchor = anchorUpdate.anchor
                     let event = anchorUpdate.event
-                    let objectName = objectAnchor.referenceObject.name ?? "Unknown Object"
+                    let objectName = objectAnchor.referenceObject.name
 
                     switch event {
                     case .added, .updated:
@@ -471,27 +464,27 @@ struct XRAnatomy_visionOSApp: App {
                                 let newWorldTransform = objectAnchor.originFromAnchorTransform
                                 arViewModel.sharedAnchorEntity.setTransformMatrix(newWorldTransform, relativeTo: nil)
                                 arViewModel.isSyncedToObject = true // Mark as synced
-                                appState.isObjectTracked = true // Mark as detected
-                                print("✅ Object Target '\(objectName)' detected. Synced sharedAnchorEntity transform.")
+                                arViewModel.isObjectTracked = true // Mark as detected
+                                print("Object Target '\(objectName)' detected. Synced sharedAnchorEntity transform.")
                             } else {
                                 // Already synced, just update detection status
-                                if !appState.isObjectTracked {
-                                    appState.isObjectTracked = true
+                                if !arViewModel.isObjectTracked {
+                                    arViewModel.isObjectTracked = true
                                     print("👀 Object Target '\(objectName)' re-detected (already synced).")
                                 }
                             }
                         } else {
                             // Object is lost
-                            if appState.isObjectTracked {
-                                print("⚠️ Object Target '\(objectName)' lost tracking.")
-                                appState.isObjectTracked = false
+                            if arViewModel.isObjectTracked {
+                                print("Object Target '\(objectName)' lost tracking.")
+                                arViewModel.isObjectTracked = false
                                 // DO NOT reset isSyncedToObject here - alignment persists
                             }
                         }
                     case .removed:
-                        if appState.isObjectTracked || arViewModel.isSyncedToObject { // Check both flags
-                            print("❌ Object Target '\(objectName)' anchor removed.")
-                            appState.isObjectTracked = false
+                        if arViewModel.isObjectTracked || arViewModel.isSyncedToObject { // Check both flags
+                            print("Object Target '\(objectName)' anchor removed.")
+                            arViewModel.isObjectTracked = false
                             // DO NOT reset isSyncedToObject here
                         }
                     @unknown default:
@@ -503,9 +496,9 @@ struct XRAnatomy_visionOSApp: App {
             }
 
             // Ensure detection state is false if task finishes or exits loop
-            if appState.isObjectTracked {
+            if arViewModel.isObjectTracked {
                 print("Object monitoring loop finished/exited, resetting detection state.")
-                appState.isObjectTracked = false
+                arViewModel.isObjectTracked = false
             }
         }
     }

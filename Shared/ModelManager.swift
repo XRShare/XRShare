@@ -148,31 +148,7 @@ final class ModelManager: ObservableObject {
         let instanceID = entity.components[InstanceIDComponent.self]?.id ?? entity.id.stringValue
         let modelTypeName = model.modelType.rawValue // Get name before potential removal
         
-        // Broadcast removal *before* removing locally
-        if broadcast, let arViewModel = model.arViewModel, let multipeerSession = arViewModel.multipeerSession {
-            let payload = RemoveModelPayload(instanceID: instanceID)
-            print("Attempting to broadcast removeModel for \(modelTypeName) with InstanceID: \(instanceID)") // Added log
-            do {
-                let data = try JSONEncoder().encode(payload)
-                multipeerSession.sendToAllPeers(data, dataType: .removeModel)
-                print("Successfully broadcasted removeModel: \(modelTypeName) (ID: \(instanceID))")
 
-                // SharePlay: send removeModel payload to all group participants
-                if let messenger = SharePlaySyncController.shared.messenger {
-                    Task {
-                        do {
-                            try await messenger.send(payload, to: .all)
-                        } catch {
-                            print("SharePlay: failed to send removeModel: \(error)")
-                        }
-                    }
-                }
-            } catch {
-                print("Error encoding RemoveModelPayload for \(modelTypeName) (ID: \(instanceID)): \(error)")
-            }
-        } else if broadcast {
-            print("Could not broadcast removeModel for \(modelTypeName): Missing ARViewModel or MultipeerSession.")
-        }
         
         // Clean up entity properly
         // Remove any highlight entities first
@@ -206,7 +182,17 @@ final class ModelManager: ObservableObject {
             selectedModelID = placedModels.first?.modelType
         }
         
-        print("Removed model: \(model.modelType.rawValue)")
+        // [L04] Broadcast removal after local state update to avoid race conditions
+        if broadcast, let arViewModel = model.arViewModel, let multipeerSession = arViewModel.multipeerSession {
+            let payload = RemoveModelPayload(instanceID: instanceID)
+            do {
+                let data = try JSONEncoder().encode(payload)
+                multipeerSession.sendToAllPeers(data, dataType: .removeModel)
+            } catch {
+                print("Error encoding RemoveModelPayload: \(error)")
+            }
+        }
+        print("Removed model: \(modelTypeName)")
     }
     
     @MainActor func reset() {
