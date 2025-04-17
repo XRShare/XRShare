@@ -76,3 +76,33 @@ The app supports real-time collaboration between multiple users:
 ## 📝 License
 
 This project is available for educational use.
+
+## 📚 Docset Ingestion
+
+You can ingest an Apple .docset (e.g. Apple API Reference) for retrieval or fine-tuning.
+
+1. Install Python dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+2. Run the ingestion script (replace paths accordingly):
+   ```bash
+   make ingest-docset DOCSET=/Users/alikara/Desktop/Apple_API_Reference.docset OUTPUT=data/docset_index.faiss
+   ```
+   This will produce:
+   - A FAISS index at `data/docset_index.faiss`
+   - Metadata file at `data/docset_index.faiss.meta.json`
+
+3. Use the index for retrieval-augmented queries or convert metadata for fine-tuning datasets.
+
+## 🔍 Querying the Docset Index
+
+After ingestion, you can fetch relevant API docs for a query:
+
+```bash
+make query-docset INDEX=data/docset_index.faiss \
+                   META=data/docset_index.faiss.meta.json \
+                   QUERY="How do I create a UIView?"
+```
+
+This will return the top matching documentation chunks from the Apple API Reference.

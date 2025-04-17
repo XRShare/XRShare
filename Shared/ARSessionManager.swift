@@ -7,13 +7,18 @@ class ARSessionManager {
     static let shared = ARSessionManager()
     private init() { }
 
-    /// Configures the AR session based on the selected sync mode.
+    /// Configures the AR session based on the selected sync mode, with an optional initial world map.
     /// - Parameters:
     ///   - arView: The ARView whose session needs configuration.
     ///   - syncMode: The desired synchronization mode (.world, .imageTarget, or .objectTarget).
     ///   - referenceImages: The set of reference images to detect (only used if syncMode is .imageTarget).
     ///   - referenceObjects: The set of reference objects to detect (only used if syncMode is .objectTarget).
-    func configureSession(for arView: ARView, syncMode: SyncMode, referenceImages: Set<ARReferenceImage> = Set(), referenceObjects: Set<ARReferenceObject> = Set()) {
+    ///   - initialWorldMap: An optional ARWorldMap to restore the session for late joiners.
+    func configureSession(for arView: ARView,
+                          syncMode: SyncMode,
+                          referenceImages: Set<ARReferenceImage> = Set(),
+                          referenceObjects: Set<ARReferenceObject> = Set(),
+                          initialWorldMap: ARWorldMap? = nil) {
         print("[iOS] Configuring ARSession for mode: \(syncMode.rawValue)")
         // Use ARWorldTrackingConfiguration as it supports world tracking, image detection, and object detection.
         let config = ARWorldTrackingConfiguration()
@@ -28,6 +33,11 @@ class ARSessionManager {
         }
         config.environmentTexturing = .automatic
         config.isCollaborationEnabled = true // Essential for multipeer
+        // If provided, restore from a saved world map
+        if let worldMap = initialWorldMap {
+            config.initialWorldMap = worldMap
+            print("[iOS] Restoring session with provided ARWorldMap.")
+        }
 
         // Enable Occlusion based on device capabilities
         if ARWorldTrackingConfiguration.supportsFrameSemantics(.personSegmentationWithDepth) {

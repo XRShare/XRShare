@@ -1,11 +1,5 @@
 ## Action Items
 
-[RH001] Repo Hygiene — Remove tracked .DS_Store, DerivedData/, imlement.txt, and z___A few thoughts...; update .gitignore to ignore standard Xcode/macOS artifacts (e.g., .DS_Store, DerivedData/, **/xcuserdata/, build/) | Rationale: removes unnecessary bloat and prevents future commits of user‑specific files | Priority: 1 | Depends: – | Done when: unwanted files removed from git and .gitignore updated
-
-[R02] Repo Hygiene — Remove or consolidate redundant visionOS state classes AppState (AppModel) and SessionConnectivity | Rationale: duplicated state management leads to inconsistency and complexity | Priority: 2 | Depends: L07 | Done when: state logic unified into a single component
-
-[R05] Repo Hygiene — Enforce consistent file naming conventions (PascalCase filenames matching primary type) | Rationale: generic or mismatched filenames reduce clarity | Priority: 3 | Depends: – | Done when: all Swift files follow standardized naming conventions
-
 [L01] Logic Bug — Ensure ARViewModel.syncLocalModels uses currentSyncMode to send correct transforms (world vs image/object) | Rationale: incorrect relative/world transforms on join break spatial alignment (Shared/ARViewModel.swift) | Priority: 1 | Depends: – | Done when: peers joining see models in correct positions under any sync mode
 
 [L02] Logic Bug — Refine MyCustomConnectivityService.handleModelTransform to locate entities by InstanceIDComponent.id and apply transforms/reparent under correct anchor based on currentSyncMode | Rationale: brittle fallback logic misapplies transforms and parenting (Shared/MyCustomConnectivityService.swift) | Priority: 1 | Depends: L01 | Done when: incoming transforms consistently map to correct entities and anchors
@@ -48,20 +42,10 @@
 
 [V01] DevOps — Validate and update GitHub Actions workflows to include build, test, and lint steps | Rationale: ensures CI catches build or style regressions | Priority: 3 | Depends: CS002 | Done when: CI passes build/test/lint on pushes and PRs
 
-[DOC001] Documentation — Update README.md with accurate setup, model inclusion, workspace/SPM guidance, and usage for iOS & visionOS | Rationale: outdated docs hinder onboarding | Priority: 2 | Depends: – | Done when: README covers all platforms, dependencies, and workflows
-
-[DOC002] Documentation — Add CONTRIBUTING.md and CODE_OF_CONDUCT.md to guide external collaborators and maintain standards | Rationale: necessary for community contributions | Priority: 3 | Depends: – | Done when: guidelines present in repo root
-
 [NF001] New Feature — Implement ARWorldMap sharing in Shared/ARSessionManager.swift for session join workflows | Rationale: late‑joining devices lack a shared world map, causing misaligned AR spaces contrary to product goal #2 | Priority: 1 | Depends: L01, L02 | Done when: ARSessionManager serializes current ARWorldMap, sends it to new peers, and peers restore their ARSession with the received map
 
 [NF002] New Feature — Finalize SessionConnectivity.broadcastAnchorCreation to send anchors to remote peers and apply them correctly | Rationale: synchronizes anchor creation across devices | Priority: 2 | Depends: NF001 | Done when: anchors appear at correct positions for remote peers
 
 [PM001] Performance — Optimize USDZ model assets in Shared/models by reducing mesh complexity and compressing textures | Rationale: improves load times and reduces memory footprint | Priority: 3 | Depends: – | Done when: models meet performance budget or guidelines
 
-[F02] New Feature — Add visual ownership indicators on models to show which peer placed them | Rationale: enhances collaboration awareness in multi-user sessions | Priority: 3 | Depends: – | Done when: ownership cues visible on each model
-
-## Next-Step Summary
-• Total items: 33
-• Priority breakdown: P1=7, P2=13, P3=13
-• Rough sprint scope: ≈40 SP (focus on all P1 items and top P2 tasks such as L01–L03, L06; remaining P2/P3 can follow)
-• Suggested reviewers: RealityKit/ARKit experts, networking lead for MyCustomConnectivityService, visionOS UI engineers, DevOps owner, documentation maintainer
+[F02] New Feature — Add visual ownership indicators on models to show which peer placed them | Rationale: enhances collaboration awareness in multi-user sessions | Priority: 3 | Depends: – | 

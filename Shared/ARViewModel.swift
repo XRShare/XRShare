@@ -350,6 +350,9 @@ class ARViewModel: NSObject, ObservableObject {
     @MainActor func setupARView(_ arView: ARView) {
         self.arView = arView
         self.setCurrentScene(arView.scene) // Set the scene
+        // [L03] Ensure the shared anchor is added to the scene before any placements or sync
+        arView.scene.addAnchor(sharedAnchorEntity)
+        print("Added sharedAnchorEntity to ARView scene in setupARView.")
 
         // Initial session configuration based on the current sync mode
         reconfigureARSession() // Call reconfigure to handle initial setup
@@ -509,10 +512,10 @@ class ARViewModel: NSObject, ObservableObject {
             // If relative, send the calculated relative transform; otherwise, send the world transform.
             let broadcastTransform = isRelativeToSharedAnchor ? transformMatrix : firstResult.worldTransform
             let payload = AddModelPayload(
-                instanceID: instanceID,
+                instanceID: instanceID, // Use the instance ID
                 modelType: modelToPlace.modelType.rawValue,
                 transform: broadcastTransform.toArray(),
-                isRelativeToImageAnchor: isRelativeToSharedAnchor // Use the generic flag name
+                isRelativeToSharedAnchor: isRelativeToSharedAnchor // Use the generic flag name
             )
             do {
                 let data = try JSONEncoder().encode(payload)
@@ -584,8 +587,8 @@ class ARViewModel: NSObject, ObservableObject {
         print("All models cleared")
     }
 
-    /// Reconfigures the ARKit session based on the current `currentSyncMode`. (iOS specific)
-    @MainActor func reconfigureARSession() {
+    /// Reconfigures the ARKit session based on the current `currentSyncMode`, optionally restoring from a world map. (iOS specific)
+    @MainActor func reconfigureARSession(initialWorldMap: ARWorldMap? = nil) {
         guard let arView = self.arView else {
             print("[iOS] Cannot reconfigure ARSession: ARView not available.")
             return
@@ -715,12 +718,13 @@ class ARViewModel: NSObject, ObservableObject {
         }
 
 
-        // Configure the session using the manager
+        // Configure the session using the manager, restoring world map if provided
         self.arSessionManager.configureSession(
             for: arView,
             syncMode: currentSyncMode,
             referenceImages: referenceImages,
-            referenceObjects: referenceObjects // Pass reference objects
+            referenceObjects: referenceObjects,
+            initialWorldMap: initialWorldMap
         )
         // Note: The actual configuration including frameSemantics happens within ARSessionManager.configureSession
         // which is called by the line above. No extra code needed here for semantics.
@@ -901,67 +905,101 @@ class ARViewModel: NSObject, ObservableObject {
         )
     }
     
+    #if os(iOS)
+    /// Sends the current ARWorldMap to a newly connected peer for session alignment.
+    /// Only the host should call this, to restore world tracking on late joiners.
+    func sendWorldMap(to peerID: MCPeerID) {
+        guard let arView = self.arView, let multipeer = self.multipeerSession else {
+            print("Cannot send world map: ARView or multipeer session not available.")
+            return
+        }
+        arView.session.getCurrentWorldMap { worldMap, error in
+            if let map = worldMap {
+                do {
+                    let data = try NSKeyedArchiver.archivedData(withRootObject: map, requiringSecureCoding: true)
+                    multipeer.sendToPeer(data, peerID: peerID, dataType: .arWorldMap)
+                    print("Sent ARWorldMap to \(peerID.displayName)")
+                } catch {
+                    print("Error archiving ARWorldMap: \(error)")
+                }
+            } else {
+                print("Failed to get current ARWorldMap: \(error?.localizedDescription ?? "unknown error")")
+            }
+        }
+    }
+    #endif
+    
     // MARK: - Synchronization on Connect
     
     /// Synchronizes locally owned models to a newly connected peer
     /// Called when a new peer connects to the session
     private func syncLocalModels(to targetPeerID: MCPeerID) {
         print("Synchronizing locally owned models to newly connected peer: \(targetPeerID.displayName)")
-        
+
         guard let multipeerSession = self.multipeerSession,
               let customService = self.customService,
               let modelManager = self.modelManager else {
             print("Cannot sync models: Required services not initialized")
             return
         }
-        
+
         // Get locally owned entities from the connectivity service
         let locallyOwnedEntities = customService.locallyOwnedEntities
-        
+
         // If we don't have any models to sync, just log and return
         if locallyOwnedEntities.isEmpty {
             print("No locally owned models to sync with new peer")
             return
         }
-        
+
         print("Found \(locallyOwnedEntities.count) locally owned models to sync")
-        
+
         // For each locally owned entity, create and send an AddModelPayload
         for entityID in locallyOwnedEntities {
             // Look up the entity using the entityLookup dictionary
             guard let entity = customService.entityLookup[entityID],
                   let model = modelManager.modelDict[entity],
-                  let instanceID = entity.components[InstanceIDComponent.self]?.id else {
-                print("Failed to get entity or model data for entity ID: \(entityID)")
+                  let instanceIDComponent = entity.components[InstanceIDComponent.self] else { // Get the component
+                print("Failed to get entity, model data, or InstanceIDComponent for entity ID: \(entityID)")
                 continue
             }
-            
-            // Determine if we should use relative or world transform based on sync mode
-            let isRelativeToImageAnchor = (self.currentSyncMode == .imageTarget)
-            
-            // Get the appropriate transform
+            let instanceID = instanceIDComponent.id // Get the ID from the component
+
+            // Determine and compute the transform based on sync mode
+            var isRelative = false
             let transform: simd_float4x4
-            if isRelativeToImageAnchor {
-                // Use transform relative to image anchor
-                transform = entity.transformMatrix(relativeTo: self.sharedAnchorEntity)
+            if self.currentSyncMode == .imageTarget || self.currentSyncMode == .objectTarget {
+                // Attempt relative transform only if shared anchor is in the scene
+                if self.sharedAnchorEntity.scene != nil {
+                    transform = entity.transformMatrix(relativeTo: self.sharedAnchorEntity)
+                    isRelative = true
+                    print("Syncing \(model.modelType.rawValue) (ID: \(instanceID)) relative to shared anchor.")
+                } else {
+                    // Fallback to world transform if anchor not ready
+                    transform = entity.transformMatrix(relativeTo: nil)
+                    isRelative = false
+                    print("Warning: Shared anchor not ready. Syncing \(model.modelType.rawValue) (ID: \(instanceID)) with world transform.")
+                }
             } else {
-                // Use world transform
+                // World sync mode
                 transform = entity.transformMatrix(relativeTo: nil)
+                isRelative = false
+                print("Syncing \(model.modelType.rawValue) (ID: \(instanceID)) with world transform.")
             }
-            
-            // Create AddModelPayload
+
+            // Create AddModelPayload using instanceID
             let payload = AddModelPayload(
-                instanceID: instanceID,
+                instanceID: instanceID, // Use the correct instance ID
                 modelType: model.modelType.rawValue,
                 transform: transform.toArray(),
-                isRelativeToImageAnchor: isRelativeToImageAnchor
+                isRelativeToSharedAnchor: isRelative // Send the correct relative flag
             )
-            
+
             do {
                 let data = try JSONEncoder().encode(payload)
                 // Send only to the specific new peer, not to all peers
                 multipeerSession.sendToPeer(data, peerID: targetPeerID, dataType: .addModel)
-                print("Sent model sync: \(model.modelType.rawValue) (ID: \(instanceID)) to \(targetPeerID.displayName)")
+                print("Sent model sync: \(model.modelType.rawValue) (ID: \(instanceID)) to \(targetPeerID.displayName), Relative: \(isRelative)")
             } catch {
                 print("Error encoding AddModelPayload for sync: \(error)")
             }
@@ -987,8 +1025,13 @@ extension ARViewModel: MultipeerSessionDelegate {
                     self.connectedPeers.append(peerID)
                 }
                 print("Peer connected: \(peerID.displayName)")
-                
-                // Sync local models to the newly connected peer
+                // Host should send world map first to align coordinate spaces
+                #if os(iOS)
+                if self.userRole == .host {
+                    self.sendWorldMap(to: peerID)
+                }
+                #endif
+                // Then sync locally owned models to the newly connected peer
                 self.syncLocalModels(to: peerID)
             case .connecting:
                 print("Peer connecting: \(peerID.displayName)")

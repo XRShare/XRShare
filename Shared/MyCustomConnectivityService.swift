@@ -120,46 +120,42 @@ class MyCustomConnectivityService: NSObject {
 
         // Get the appropriate transform based on the flag
         let transformMatrix: simd_float4x4
-        if relativeToSharedAnchor, let arViewModel = arViewModel, (arViewModel.currentSyncMode == .imageTarget || arViewModel.currentSyncMode == .objectTarget) {
-            // --- Image or Object Target Mode ---
-            // Calculate the transform relative to the shared anchor entity.
-            // Ensure sharedAnchorEntity is valid before calculating relative transform.
-            // Check if sharedAnchorEntity has a valid transform in the world.
-            let sharedAnchorWorldTransform = arViewModel.sharedAnchorEntity.transformMatrix(relativeTo: nil)
-            if sharedAnchorWorldTransform != matrix_identity_float4x4 || arViewModel.sharedAnchorEntity.scene != nil {
-                // Calculate relative transform: entityWorld * inverse(anchorWorld)
-                let entityWorldTransform = entity.transformMatrix(relativeTo: nil)
-                transformMatrix = entityWorldTransform * sharedAnchorWorldTransform.inverse
-                print("Sending transform relative to shared anchor.")
+        if relativeToSharedAnchor, let arViewModel = arViewModel,
+           (arViewModel.currentSyncMode == .imageTarget || arViewModel.currentSyncMode == .objectTarget) {
+            // Image/Object Target Mode: send transform relative to shared anchor
+            let sharedAnchor = arViewModel.sharedAnchorEntity
+            if sharedAnchor.scene != nil {
+                transformMatrix = entity.transformMatrix(relativeTo: sharedAnchor)
             } else {
-                print("Warning: sharedAnchorEntity not ready for relative transform calculation (transform is identity or not in scene). Sending world transform instead.")
-                transformMatrix = entity.transformMatrix(relativeTo: nil) // Fallback to world
+                print("Warning: sharedAnchorEntity not ready. Sending world transform instead.")
+                transformMatrix = entity.transformMatrix(relativeTo: nil)
             }
         } else {
-            // --- World Mode ---
-            // Use the world transform (transform relative to nil).
+            // World Mode: send world transform directly
             transformMatrix = entity.transformMatrix(relativeTo: nil)
-            print("Sending world transform.")
         }
 
         let transformArray = transformMatrix.toArray()
         let modelTypeString = modelType?.rawValue
-        // Use the InstanceIDComponent for a stable ID across sessions
-        let instanceID = entity.components[InstanceIDComponent.self]?.id ?? entity.id.stringValue
+        // [L06] Use the InstanceIDComponent for a stable ID across sessions
+        guard let instanceID = entity.components[InstanceIDComponent.self]?.id else {
+            print("Error: Cannot send transform for entity \(entity.id) - missing InstanceIDComponent.")
+            return
+        }
 
         let payload = ModelTransformPayload(
-            modelID: instanceID, // Use instanceID here
+            instanceID: instanceID, // Use instanceID here
             transform: transformArray,
             modelType: modelTypeString,
-            isRelativeToImageAnchor: relativeToSharedAnchor // Use the generic flag name here
+            isRelativeToSharedAnchor: relativeToSharedAnchor // Use the generic flag name here
         )
 
         do {
             let data = try JSONEncoder().encode(payload)
             multipeerSession.sendToAllPeers(data, dataType: .modelTransform)
-            
+
             // Debug messages slowing things down? Comment out or limit frequency.
-            // print("Sent model transform: \(modelID)")
+            // print("Sent model transform: \(instanceID)")
         } catch {
             print("Error encoding model transform: \(error)")
         }
@@ -168,28 +164,28 @@ class MyCustomConnectivityService: NSObject {
     /// Broadcast creation of an anchor with optional model
     func broadcastAnchorCreation(_ anchor: AnchorEntity, modelType: ModelType? = nil) {
         guard multipeerSession.session.connectedPeers.count > 0 else { return }
-        
+
         // Get all ModelEntity children
         let modelEntities = anchor.children.compactMap { $0 as? ModelEntity }
         guard !modelEntities.isEmpty || modelType != nil else {
             print("Warning: Trying to broadcast anchor without model entities or model type")
             return
         }
-        
+
         let anchorTransform = anchor.transform.matrix.toArray()
-        let modelID = "anchor-\(anchor.id.stringValue)"
+        let anchorID = "anchor-\(anchor.id.stringValue)" // Use anchorID
         let modelTypeString = modelType?.rawValue ?? modelEntities.first?.components[ModelTypeComponent.self]?.type.rawValue
-        
+
         // Use empty Data if no ARKit anchor
         let anchorData = Data()
-        
+
         let payload = AnchorTransformPayload(
             anchorData: anchorData,
-            modelID: modelID,
+            anchorID: anchorID, // Use anchorID field
             transform: anchorTransform,
             modelType: modelTypeString
         )
-        
+
         do {
             let data = try JSONEncoder().encode(payload)
             multipeerSession.sendToAllPeers(data, dataType: .anchorWithTransform)
@@ -237,14 +233,12 @@ class MyCustomConnectivityService: NSObject {
                 }
             case .anchorWithTransform:
                 self.handleAnchorWithTransform(payload, from: peerID)
-            case .collaborationData:
-                #if os(iOS)
-                self.handleCollaborationData(payload, from: peerID)
-                #endif
-            case .removeAnchors:
-                #if os(iOS)
-                self.handleRemoveAnchors(payload, from: peerID)
-                #endif
+            #if os(iOS) // Wrap iOS specific handlers
+//            case .collaborationData:
+//                self.handleCollaborationData(payload, from: peerID)
+//            case .removeAnchors:
+//                self.handleRemoveAnchors(payload, from: peerID)
+            #endif
             case .addModel:
                 self.handleAddModel(payload, from: peerID)
             case .removeModel:
@@ -258,18 +252,18 @@ class MyCustomConnectivityService: NSObject {
     }
     
     // MARK: - Add/Remove Model Handlers
-    
+
     private func handleAddModel(_ data: Data, from peerID: MCPeerID) {
         do {
             let payload = try JSONDecoder().decode(AddModelPayload.self, from: data)
-            print("Received addModel: \(payload.modelType) (ID: \(payload.instanceID)) from \(peerID.displayName)")
-            
+            print("Received addModel: \(payload.modelType) (ID: \(payload.instanceID)) from \(peerID.displayName), Relative: \(payload.isRelativeToSharedAnchor)")
+
             let modelType = ModelType(rawValue: payload.modelType)
-            let instanceID = payload.instanceID
+            let instanceID = payload.instanceID // [L06] Use instanceID from payload
             let matrix = simd_float4x4.fromArray(payload.transform)
-            let isRelativeToImageAnchor = payload.isRelativeToImageAnchor
-            
-            // Check if model with this instance ID already exists
+            let isReceivedTransformRelative = payload.isRelativeToSharedAnchor // Flag from sender
+
+            // [L02] Check if model with this instance ID already exists using InstanceIDComponent
             if entityLookup.values.contains(where: { $0.components[InstanceIDComponent.self]?.id == instanceID }) {
                 print("Model with instance ID \(instanceID) already exists. Ignoring addModel.")
                 return
@@ -278,117 +272,102 @@ class MyCustomConnectivityService: NSObject {
             // Load the model on the main thread
             DispatchQueue.main.async(execute: DispatchWorkItem(block: {
                 Task {
-                    // Check if the ModelManager has a *template* model of this type loaded
-                    let existingModelTemplate = self.modelManager.modelTypes.first(where: { $0.rawValue == payload.modelType }) != nil
-                    
-                    let model: Model
-                    if existingModelTemplate {
-                         // If template exists, create a new Model instance but try to reuse loaded entity data if possible
-                         // This part needs careful handling - for now, just load fresh
-                         model = await Model.load(modelType: modelType, arViewModel: self.arViewModel)
-                    } else {
-                         // Load fresh if no template or manager
-                         model = await Model.load(modelType: modelType, arViewModel: self.arViewModel)
-                    }
+                    // Load model (simplified loading logic for brevity)
+                    let model = await Model.load(modelType: modelType, arViewModel: self.arViewModel)
 
                     if let modelEntity = await model.modelEntity {
                         await MainActor.run {
-                            // Assign the received instance ID
+                            // [L06] Assign the received instance ID
                             modelEntity.components[InstanceIDComponent.self] = InstanceIDComponent(id: instanceID)
-                            
-                            // Determine the target parent and add the entity
+
+                            // [L02 & L03] Determine the target parent and add the entity based on CURRENT sync mode
                             let targetParent: Entity?
                             let transformToSet: simd_float4x4 = matrix // The transform received in the payload
-                            let syncMode = self.arViewModel?.currentSyncMode ?? .world // Get current sync mode
+                            let currentSyncMode = self.arViewModel?.currentSyncMode ?? .world // Get receiver's current sync mode
 
-                            // Check if the payload indicates relativity AND we are in a relative mode (Image or Object)
-                            if isRelativeToImageAnchor, (syncMode == .imageTarget || syncMode == .objectTarget), let sharedAnchor = self.arViewModel?.sharedAnchorEntity {
-                                // --- Image or Object Target Mode ---
+                            // Check if the receiver is in a relative mode (Image or Object)
+                            if (currentSyncMode == .imageTarget || currentSyncMode == .objectTarget), let sharedAnchor = self.arViewModel?.sharedAnchorEntity {
+                                // --- Receiver is in Image or Object Target Mode ---
                                 targetParent = sharedAnchor
-                                // Ensure shared anchor is in the scene graph before parenting
+                                // [L03] Ensure shared anchor is in the scene graph before parenting
                                 #if os(iOS)
                                 if sharedAnchor.scene == nil, let scene = self.arViewModel?.currentScene {
-                                     // Check if it's already in the scene's anchor list but not linked
-                                     if let existingAnchor = scene.anchors.first(where: { $0 == sharedAnchor }) {
-                                         print("SharedAnchorEntity found in scene anchors but scene property was nil (iOS). Using existing.")
-                                     } else {
+                                     if scene.anchors.first(where: { $0 == sharedAnchor }) == nil {
                                          scene.addAnchor(sharedAnchor)
                                          print("Added sharedAnchorEntity to scene in handleAddModel (iOS).")
                                      }
                                 }
                                 #elseif os(visionOS)
-                                // On visionOS, RealityView manages adding anchors. Check if it's part of the scene graph.
-                                if sharedAnchor.scene == nil {
-                                     // It might be added by RealityView later. We might need to defer parenting or rely on the update loop.
-                                     // For now, proceed assuming it will be available.
-                                     print("Warning: SharedAnchorEntity scene is nil on visionOS during handleAddModel. Proceeding with parenting.")
-                                }
+                                // On visionOS, RealityView manages adding anchors from the content.
+                                // We still need to check if it's ready (has transform or is in scene).
                                 #endif
-
-                                // Check again if the anchor is ready (has a non-identity transform or is in scene)
+                                // Check if anchor is ready (has non-identity transform or is in scene)
                                 let sharedAnchorWorldTransform = sharedAnchor.transformMatrix(relativeTo: nil)
                                 if sharedAnchorWorldTransform == matrix_identity_float4x4 && sharedAnchor.scene == nil {
-                                     print("Error: SharedAnchorEntity is not ready (identity transform and not in scene). Cannot add received model \(payload.modelType) relative to it.")
-                                     // Optionally fallback to world placement or skip
-                                     return
+                                     print("Error: SharedAnchorEntity is not ready. Cannot add received model \(payload.modelType) relative to it.")
+                                     return // Skip adding the model
                                 }
 
-                                print("Target parent for \(payload.modelType) is sharedAnchorEntity.")
-                                // The received transform `matrix` is ALREADY RELATIVE to the shared anchor. Apply it directly.
-                                modelEntity.transform.matrix = transformToSet
+                                // Apply transform: If received transform was relative, apply directly. If world, convert to relative.
+                                if isReceivedTransformRelative {
+                                    modelEntity.transform.matrix = transformToSet // Apply directly
+                                    print("Applying received relative transform to \(payload.modelType) under sharedAnchorEntity.")
+                                } else {
+                                    // Convert received world transform to be relative to shared anchor
+                                    let relativeMatrix = transformToSet * sharedAnchorWorldTransform.inverse
+                                    modelEntity.transform.matrix = relativeMatrix
+                                    print("Converting received world transform to relative for \(payload.modelType) under sharedAnchorEntity.")
+                                }
 
                             } else {
-                                // --- World Mode (or received non-relative transform) ---
-                                if isRelativeToImageAnchor {
-                                     print("Warning: Received relative transform flag for \(payload.modelType) but applying as world transform because current mode is \(syncMode.rawValue).")
+                                // --- Receiver is in World Mode ---
+                                if isReceivedTransformRelative {
+                                     print("Warning: Received relative transform flag for \(payload.modelType) but receiver is in World mode. Applying as world transform.")
                                 }
                                 #if os(iOS)
                                 // On iOS, create a new AnchorEntity at the received world transform and add the model to it.
-                                let worldAnchor = AnchorEntity(world: transformToSet)
+                                let worldAnchor = AnchorEntity(world: transformToSet) // Use received world transform
                                 targetParent = worldAnchor
-                                // Add the anchor to the scene
                                 if let scene = self.arViewModel?.currentScene {
                                     scene.addAnchor(worldAnchor)
                                     print("Added new world AnchorEntity to scene for received model \(payload.modelType) (iOS).")
+                                    modelEntity.transform = Transform() // Model's local transform relative to its anchor is identity
                                 } else {
                                      print("Warning: No scene found, cannot add world anchor for \(payload.modelType) (iOS).")
                                      return
                                 }
-                                // Model's transform relative to its own anchor is identity
-                                modelEntity.transform = Transform()
-
                                 #elseif os(visionOS)
-                                // On visionOS, parent under the predefined 'modelAnchor' if available.
+                                // On visionOS, parent under the predefined 'modelAnchor'.
                                 if let scene = self.arViewModel?.currentScene,
                                    let modelAnchor = scene.findEntity(named: "modelAnchor") as? AnchorEntity {
                                     targetParent = modelAnchor
+                                    // [L03] Ensure modelAnchor is in the scene graph
+                                    if modelAnchor.scene == nil {
+                                        print("Error: modelAnchor not found in visionOS scene graph. Cannot place received model \(payload.modelType).")
+                                        return // Skip adding
+                                    }
                                     print("Target parent for \(payload.modelType) is modelAnchor (visionOS).")
-                                    // The received transform `matrix` is a world transform. Set it relative to nil.
-                                    // The entity will be added to modelAnchor below.
+                                    // Apply the received world transform relative to nil (entity will be added to modelAnchor below)
                                     modelEntity.setTransformMatrix(transformToSet, relativeTo: nil)
                                 } else {
-                                    // Fallback if modelAnchor isn't found (shouldn't happen ideally)
                                     print("Warning: modelAnchor not found in visionOS scene. Cannot place received model \(payload.modelType).")
-                                    // Maybe add directly to scene content if possible, but RealityView manages this.
-                                    targetParent = nil // Indicate failure to find parent
+                                    targetParent = nil // Indicate failure
                                 }
                                 #else
-                                // Fallback for other potential platforms
-                                targetParent = nil
-                                print("Warning: Unsupported platform for world mode placement in handleAddModel.")
+                                targetParent = nil // Fallback
                                 #endif
                             }
 
                             // Add the model entity to the determined parent if found
                             if let parent = targetParent {
                                 parent.addChild(modelEntity)
-                                print("Added received model \(payload.modelType) (InstanceID: \(instanceID)) to parent \(parent.name). Relative: \(isRelativeToImageAnchor)")
+                                print("Added received model \(payload.modelType) (InstanceID: \(instanceID)) to parent \(parent.name). Receiver Mode: \(currentSyncMode.rawValue)")
 
                                 // Register the entity (owned by peer) - Ensure InstanceID is set first!
                                 print("Registering received entity \(modelEntity.id) with InstanceID \(instanceID)")
                                 self.registerEntity(modelEntity, modelType: modelType, ownedByLocalPeer: false)
 
-                                // Add to ModelManager's tracking (using the guaranteed strong reference)
+                                // Add to ModelManager's tracking
                                 self.modelManager.modelDict[modelEntity] = model
                                 self.modelManager.placedModels.append(model)
                                 print("Added received model \(payload.modelType) (InstanceID: \(instanceID)) to ModelManager.")
@@ -410,10 +389,10 @@ class MyCustomConnectivityService: NSObject {
     private func handleRemoveModel(_ data: Data, from peerID: MCPeerID) {
         do {
             let payload = try JSONDecoder().decode(RemoveModelPayload.self, from: data)
-            let instanceID = payload.instanceID
+            let instanceID = payload.instanceID // [L06] Use instanceID from payload
             print("Received removeModel request for InstanceID: \(instanceID) from \(peerID.displayName)")
 
-            // Find the entity with this instance ID in the lookup
+            // [L02] Find the entity with this instance ID in the lookup using InstanceIDComponent
             guard let entityToRemove = entityLookup.values.first(where: { $0.components[InstanceIDComponent.self]?.id == instanceID }) else {
                 print("handleRemoveModel: Could not find entity with instance ID \(instanceID) in local entityLookup.")
                 // Log current lookup for debugging
@@ -426,28 +405,24 @@ class MyCustomConnectivityService: NSObject {
             // Remove using ModelManager on the main thread
             DispatchQueue.main.async(execute: DispatchWorkItem(block: { [weak self] in // Use weak self
                 guard let self = self else { return }
-                
+
                 // Double-check if the entity still exists before removal attempt
                 guard let currentEntity = self.entityLookup[entityToRemove.id] else {
                     print("handleRemoveModel: Entity \(entityToRemove.name) (InstanceID: \(instanceID)) disappeared before removal could be executed on main thread.")
                     return
                 }
 
+                // Find the corresponding Model instance in ModelManager using the entity
                 let model = self.modelManager.modelDict[currentEntity]
                 if let model = model {
                     print("handleRemoveModel: Found model \(model.modelType.rawValue) in ModelManager for InstanceID \(instanceID). Calling removeModel(broadcast: false).")
                     // Call removeModel with broadcast: false to prevent loop
-                    // Use Task with MainActor to safely call the isolated method
                     Task { @MainActor in
                         // Pass the specific model instance found
-                        self.modelManager.removeModel(model, broadcast: false)
+                        self.modelManager.removeModel(model, broadcast: false) // removeModel should handle unregistration
                         print("handleRemoveModel: Successfully called modelManager.removeModel for \(model.modelType.rawValue) (InstanceID: \(instanceID))")
                     }
-                    
-                    // Also unregister from connectivity service *after* confirming removal starts
-                    // Note: modelManager.removeModel should ideally handle unregistration now.
-                    // self.unregisterEntity(currentEntity) // Let removeModel handle unregistration
-                    
+
                 } else {
                     // Fallback if not found in ModelManager (shouldn't happen ideally)
                     print("handleRemoveModel Warning: Model for InstanceID \(instanceID) not found in ModelManager dictionary. Removing entity \(currentEntity.name) directly from parent and unregistering.")
@@ -476,20 +451,20 @@ class MyCustomConnectivityService: NSObject {
     }
     
     // MARK: - Internal helper methods
-    
+
     func handleAnchorWithTransform(_ data: Data, from peerID: MCPeerID) {
         do {
             let payload = try JSONDecoder().decode(AnchorTransformPayload.self, from: data)
-            print("handleAnchorWithTransform: modelID=\(payload.modelID)")
-            
+            print("handleAnchorWithTransform: anchorID=\(payload.anchorID)") // Use anchorID
+
             let matrix = simd_float4x4.fromArray(payload.transform)
             let anchor = AnchorEntity()
             anchor.transform.matrix = matrix
-            
+
             // If we have a model type, load and attach the model
             if let modelTypeStr = payload.modelType {
                 let modelType = ModelType(rawValue: modelTypeStr)
-                
+
                 // On the main thread, attempt to load and place the model
                 DispatchQueue.main.async {
                     Task {
@@ -497,49 +472,57 @@ class MyCustomConnectivityService: NSObject {
                         if let arViewModel = self.arViewModel,
                            let existingModel = arViewModel.models.first(where: { $0.modelType.rawValue.lowercased() == modelTypeStr.lowercased() }),
                            let modelEntity = existingModel.modelEntity?.clone(recursive: true) {
-                            
+
                             // Use the existing model
                             anchor.addChild(modelEntity)
-                            
+
                             // Register entities
                             self.registerEntity(anchor, ownedByLocalPeer: false)
+                            // Ensure the cloned entity gets a unique instance ID if needed, or reuse if appropriate
+                            if modelEntity.components[InstanceIDComponent.self] == nil {
+                                modelEntity.components.set(InstanceIDComponent())
+                            }
                             self.registerEntity(modelEntity, modelType: existingModel.modelType, ownedByLocalPeer: false)
-                            
-                    // Add to scene
-                    if let scene = self.arViewModel?.currentScene {
-                        #if os(iOS)
-                        scene.addAnchor(anchor)
-                        #elseif os(visionOS)
-                        // For visionOS, manual anchor addition is not supported; no action taken
-                        #endif
-                    }
-                            
+
+                            // Add to scene
+                            if let scene = self.arViewModel?.currentScene {
+                                #if os(iOS)
+                                scene.addAnchor(anchor)
+                                #elseif os(visionOS)
+                                // For visionOS, manual anchor addition is not supported; no action taken
+                                #endif
+                            }
+
                             print("Added anchor from peer using existing model")
                         } else {
                             // Otherwise load the model
                             let model = await Model.load(modelType: modelType)
-                            
+
                             if let modelEntity = model.modelEntity {
                                 await MainActor.run {
                                     anchor.addChild(modelEntity)
-                                    
+
                                     // Register entities
                                     self.registerEntity(anchor, ownedByLocalPeer: false)
+                                    // Ensure the new entity gets an instance ID
+                                    if modelEntity.components[InstanceIDComponent.self] == nil {
+                                        modelEntity.components.set(InstanceIDComponent())
+                                    }
                                     self.registerEntity(modelEntity, modelType: modelType, ownedByLocalPeer: false)
-                                    
-                        // Add to scene
-                        if let scene = self.arViewModel?.currentScene {
-                            #if os(iOS)
-                            scene.addAnchor(anchor)
-                            #elseif os(visionOS)
-                            // For visionOS, manual anchor addition is not supported; no action taken
-                            #endif
-                        }
-                                    
+
+                                    // Add to scene
+                                    if let scene = self.arViewModel?.currentScene {
+                                        #if os(iOS)
+                                        scene.addAnchor(anchor)
+                                        #elseif os(visionOS)
+                                        // For visionOS, manual anchor addition is not supported; no action taken
+                                        #endif
+                                    }
+
                                     // Add to model manager
                                     self.modelManager.modelDict[modelEntity] = model
                                     self.modelManager.placedModels.append(model)
-                                    
+
                                     print("Added anchor from peer with newly loaded model")
                                 }
                             }
@@ -555,182 +538,188 @@ class MyCustomConnectivityService: NSObject {
     func handleModelTransform(_ data: Data, from peerID: MCPeerID) throws {
         do {
             let payload = try JSONDecoder().decode(ModelTransformPayload.self, from: data)
-            
-            // Process on main thread for UI updates
+            let instanceID = payload.instanceID // [L06] Use instanceID from payload
+            let matrix = simd_float4x4.fromArray(payload.transform)
+            let isReceivedTransformRelative = payload.isRelativeToSharedAnchor // Flag from sender
+
+            // Process on main thread for scene graph manipulation
             DispatchQueue.main.async(execute: DispatchWorkItem(block: {
-                let matrix = simd_float4x4.fromArray(payload.transform)
-                let isRelativeToImageAnchor = payload.isRelativeToImageAnchor ?? false
-                
-                // First try to find the entity by instanceID (most reliable)
-                let instanceID = payload.modelID // modelID now holds the instanceID
-                print("Looking for entity with InstanceID: \(instanceID) in entityLookup (\(self.entityLookup.count) entries)")
-                // Log available instance IDs for debugging
-                // self.entityLookup.values.forEach { print("  - Found in lookup: \($0.name), InstanceID: \($0.components[InstanceIDComponent.self]?.id ?? "nil")") }
-                
-                if let entity = self.entityLookup.values.first(where: { $0.components[InstanceIDComponent.self]?.id == instanceID }) {
-                     print("Found entity \(entity.name) by instance ID: \(instanceID) to update transform.")
-                     
-                     guard let arViewModel = self.arViewModel else {
-                         print("ARViewModel not found, cannot update transform for \(instanceID)")
-                         return
-                     }
-                    
-                    // Determine the expected parent based on the received flag and current sync mode
-                    let expectedParent: Entity?
-                    let syncMode = arViewModel.currentSyncMode
-                    if isRelativeToImageAnchor && (syncMode == .imageTarget || syncMode == .objectTarget) {
-                        // --- Image or Object Target Mode ---
-                        expectedParent = arViewModel.sharedAnchorEntity
-                        if expectedParent?.scene == nil {
-                             print("Warning: Expected parent (sharedAnchorEntity) for relative transform is not in scene. Cannot reliably update transform for \(instanceID).")
-                             // Attempt to apply world transform instead? Or just skip? Skip for now.
-                             return
-                        }
-                    } else {
-                        // World mode - the parent should ideally be an AnchorEntity placed in the world.
-                        // If the entity is directly under the scene, its transform is world transform.
-                        // If it's under an AnchorEntity, its transform is relative to that anchor.
-                        // Let's assume for world mode, the transform received IS the world transform.
-                        // We might need to adjust the entity's parentage if it's currently under the image anchor.
-                        expectedParent = nil // Representing world space (or an appropriate world anchor)
-                    }
+                // [L02] Find the entity by instanceID
+                guard let entity = self.entityLookup.values.first(where: { $0.components[InstanceIDComponent.self]?.id == instanceID }) else {
+                    print("handleModelTransform: Could not find entity with instanceID \(instanceID).")
+                    return
+                }
+                // print("handleModelTransform: Found entity \(entity.name) (ID: \(instanceID)) to update.") // Reduce log noise
 
-                    // --- Reparenting and Transform Logic ---
-                    let currentParent = entity.parent
-
-                    if isRelativeToImageAnchor && (syncMode == .imageTarget || syncMode == .objectTarget) {
-                        // --- Image or Object Target Mode ---
-                        // Ensure parent is sharedAnchorEntity
-                        if currentParent !== arViewModel.sharedAnchorEntity {
-                            print("Reparenting \(instanceID) to sharedAnchorEntity for \(syncMode.rawValue) mode.")
-                            // Ensure shared anchor is in scene first (iOS mainly)
-                            #if os(iOS)
-                            if arViewModel.sharedAnchorEntity.scene == nil, let scene = arViewModel.currentScene {
-                                scene.addAnchor(arViewModel.sharedAnchorEntity)
-                            }
-                            #endif
-                            if arViewModel.sharedAnchorEntity.scene != nil {
-                                entity.setParent(arViewModel.sharedAnchorEntity, preservingWorldTransform: true)
-                            } else {
-                                print("Warning: Cannot reparent \(instanceID) to sharedAnchorEntity because it's not in the scene.")
-                                // Skip transform update if reparenting failed
-                                return
-                            }
-                        }
-                        // Apply the received transform (which is relative to sharedAnchorEntity)
-                        entity.transform.matrix = matrix
-
-                    } else {
-                        // --- World Mode (or received non-relative transform) ---
-                        if isRelativeToImageAnchor {
-                             print("Warning: Received relative transform flag for \(instanceID) but applying as world transform because current mode is \(syncMode.rawValue).")
-                        }
-                        // Ensure parent is NOT sharedAnchorEntity. Move to appropriate world anchor.
-                        if currentParent === arViewModel.sharedAnchorEntity {
-                             print("Reparenting \(instanceID) from sharedAnchorEntity to World mode parent.")
-                             #if os(iOS)
-                             // Create a new world anchor at the target world position and reparent.
-                             let worldAnchor = AnchorEntity(world: matrix)
-                             if let scene = arViewModel.currentScene {
-                                 scene.addAnchor(worldAnchor)
-                                 entity.setParent(worldAnchor, preservingWorldTransform: false) // World transform is handled by anchor
-                                 entity.transform = Transform() // Reset local transform
-                             } else {
-                                 print("Warning: Cannot reparent \(instanceID) to world anchor (iOS) - scene missing.")
-                                 return // Skip update
-                             }
-                             #elseif os(visionOS)
-                             // Reparent to the 'modelAnchor'
-                             if let scene = arViewModel.currentScene, let modelAnchor = scene.findEntity(named: "modelAnchor") as? AnchorEntity {
-                                 entity.setParent(modelAnchor, preservingWorldTransform: true)
-                                 // Apply the received world transform after reparenting
-                                 entity.setTransformMatrix(matrix, relativeTo: nil)
-                             } else {
-                                 print("Warning: Cannot reparent \(instanceID) to modelAnchor (visionOS) - anchor missing.")
-                                 return // Skip update
-                             }
-                             #endif
-                        } else {
-                             // Already in world space (or should be). Apply the received world transform.
-                             entity.setTransformMatrix(matrix, relativeTo: nil)
-                        }
-                    }
-                    // --- End Reparenting ---
-
-                    // Update the LastTransformComponent cache *after* applying
-                    entity.components[LastTransformComponent.self] = LastTransformComponent(matrix: entity.transform.matrix)
-
-                    print("Applied transform to \(instanceID). RelativeToShared: \(isRelativeToImageAnchor), Mode: \(syncMode.rawValue)")
+                guard let arViewModel = self.arViewModel else {
+                    print("ARViewModel not found, cannot update transform for \(instanceID)")
                     return
                 }
 
-                // Fallback: Try to find the entity by its model type (Less reliable, keep as last resort)
-                if let modelTypeStr = payload.modelType {
-                    // Check model manager
-                    for (entity, model) in self.modelManager.modelDict {
-                        if model.modelType.rawValue.lowercased() == modelTypeStr.lowercased() {
-                            self.applyTransformToFallbackEntity(entity: entity, matrix: matrix, isRelative: isRelativeToImageAnchor)
-                            return
-                        }
-                    }
+                // [L02 & L03] Determine the expected parent based on the receiver's current sync mode
+                let currentSyncMode = arViewModel.currentSyncMode
+                let intendedParent: Entity?
+                let intendedParentName: String
 
-                    // Then check if any matching entities in the lookup
-                    for (_, entity) in self.entityLookup {
-                        if let component = entity.components[ModelTypeComponent.self],
-                           let modelTypeStr = payload.modelType,
-                           component.type.rawValue.lowercased() == modelTypeStr.lowercased() {
-                            self.applyTransformToFallbackEntity(entity: entity, matrix: matrix, isRelative: isRelativeToImageAnchor)
+                if currentSyncMode == .imageTarget || currentSyncMode == .objectTarget {
+                    // --- Receiver is in Image or Object Target Mode ---
+                    intendedParent = arViewModel.sharedAnchorEntity
+                    intendedParentName = "sharedAnchorEntity (\(currentSyncMode.rawValue))"
+                    // [L03] Check if shared anchor is ready
+                    let sharedAnchorWorldTransform = arViewModel.sharedAnchorEntity.transformMatrix(relativeTo: nil)
+                    if sharedAnchorWorldTransform == matrix_identity_float4x4 && arViewModel.sharedAnchorEntity.scene == nil {
+                         print("Warning: Expected parent (\(intendedParentName)) for relative transform is not ready. Skipping transform update for \(instanceID).")
+                         return
+                    }
+                } else {
+                    // --- Receiver is in World Mode ---
+                    #if os(iOS)
+                    // On iOS, the parent should be a world AnchorEntity. Find it or assume scene root.
+                    // For simplicity, we'll assume the transform is world and apply directly.
+                    // Reparenting logic below handles moving it if needed.
+                    intendedParent = entity.parent as? AnchorEntity // Check if already under a world anchor
+                    intendedParentName = "World Anchor (iOS)"
+                    #elseif os(visionOS)
+                    // On visionOS, the parent should be modelAnchor.
+                    if let scene = arViewModel.currentScene, let modelAnchor = scene.findEntity(named: "modelAnchor") as? AnchorEntity {
+                        intendedParent = modelAnchor
+                        intendedParentName = "modelAnchor (visionOS)"
+                        // [L03] Check if modelAnchor is ready
+                        if modelAnchor.scene == nil {
+                            print("Warning: Expected parent (\(intendedParentName)) for world transform is not ready. Skipping transform update for \(instanceID).")
                             return
                         }
+                    } else {
+                        print("Warning: modelAnchor not found in visionOS scene. Cannot determine intended parent for \(instanceID). Skipping update.")
+                        return
                     }
+                    #else
+                    intendedParent = nil // Fallback
+                    intendedParentName = "Unknown World Parent"
+                    #endif
                 }
 
-                // Last resort: Try traditional entity ID matching if all else fails
-                for (entityID, entity) in self.entityLookup {
-                     if entityID.stringValue == instanceID {
-                         self.applyTransformToFallbackEntity(entity: entity, matrix: matrix, isRelative: isRelativeToImageAnchor)
-                         return
-                     }
-                 }
-                
-                print("Could not find entity with instanceID \(instanceID) for transform update")
-            }))
-        } catch {
-            print("Error decoding ModelTransformPayload: \(error)")
-        }
-    }
-    
-    #if os(iOS)
+                // --- Reparenting Logic ---
+                let currentParent = entity.parent
+                var needsReparenting = false
+
+                if (currentSyncMode == .imageTarget || currentSyncMode == .objectTarget) {
+                    if currentParent !== intendedParent { // Intended parent is sharedAnchorEntity
+                        needsReparenting = true
+                        print("Reparenting \(instanceID) to \(intendedParentName).")
+                    }
+                } else { // World Mode
+                    #if os(iOS)
+                    // In world mode, parent should NOT be sharedAnchorEntity.
+                    if currentParent === arViewModel.sharedAnchorEntity {
+                        needsReparenting = true
+                        print("Reparenting \(instanceID) from sharedAnchorEntity to World (iOS).")
+                        // On iOS, when reparenting to world, create a new anchor at the entity's current world pos
+                        let newWorldAnchor = AnchorEntity(world: entity.transformMatrix(relativeTo: nil))
+                        if let scene = arViewModel.currentScene {
+                            scene.addAnchor(newWorldAnchor)
+                            entity.setParent(newWorldAnchor, preservingWorldTransform: true)
+                            entity.transform = Transform() // Reset local transform relative to new anchor
+                            print("Successfully reparented \(instanceID) to new World Anchor (iOS).")
+                        } else {
+                            print("Error: Cannot reparent \(instanceID) to World (iOS) - scene not found.")
+                            return // Skip update if scene is missing
+                        }
+                        needsReparenting = false // Handled reparenting here
+                    }
+                    // We don't strictly enforce parenting under a specific world anchor here,
+                    // as long as it's not the shared one.
+                    #elseif os(visionOS)
+                    // In world mode, parent SHOULD be modelAnchor.
+                    if currentParent !== intendedParent { // Intended parent is modelAnchor
+                        needsReparenting = true
+                        print("Reparenting \(instanceID) to \(intendedParentName).")
+                    }
+                    #endif
+                }
+
+                if needsReparenting {
+                    guard let validIntendedParent = intendedParent else {
+                        print("Error: Cannot reparent \(instanceID) - intended parent is nil.")
+                        return // Skip update if intended parent is invalid
+                    }
+                    // Preserve world transform during reparenting
+                    entity.setParent(validIntendedParent, preservingWorldTransform: true)
+                    print("Successfully reparented \(instanceID) to \(validIntendedParent.name).")
+                }
+                // --- End Reparenting ---
+
+
+                // --- Apply Transform Logic ---
+                // Apply transform AFTER potential reparenting
+                if currentSyncMode == .imageTarget || currentSyncMode == .objectTarget {
+                    // Image/Object Target Mode: apply transform relative to shared anchor
+                    let sharedAnchor = arViewModel.sharedAnchorEntity
+                    // Ensure shared anchor is in the scene graph
+                    guard sharedAnchor.scene != nil else {
+                        print("Warning: Shared anchor not ready. Skipping transform for \(instanceID).")
+                        return
+                    }
+                    if isReceivedTransformRelative {
+                        // Received transform is relative to shared anchor
+                        entity.setTransformMatrix(matrix, relativeTo: sharedAnchor)
+                    } else {
+                        // Received world transform: convert to relative
+                        let anchorWorld = sharedAnchor.transformMatrix(relativeTo: nil)
+                        let relativeMatrix = anchorWorld.inverse * matrix
+                        entity.setTransformMatrix(relativeMatrix, relativeTo: sharedAnchor)
+                        print("Converted received world transform to relative for \(instanceID) under \(intendedParentName).")
+                    }
+                } else {
+                    // World Mode: apply world transform directly
+                    if isReceivedTransformRelative {
+                        print("Warning: Received relative transform for \(instanceID) but in World mode. Applying as world transform.")
+                    }
+                    entity.setTransformMatrix(matrix, relativeTo: nil)
+                }
+                // --- End Apply Transform ---
+
+                // Update the LastTransformComponent cache *after* applying
+                entity.components[LastTransformComponent.self] = LastTransformComponent(matrix: entity.transform.matrix)
+
+                // print("Applied transform to \(instanceID). Receiver Mode: \(currentSyncMode.rawValue), Received Relative: \(isReceivedTransformRelative)") // Reduce log noise
+            })) // End of DispatchQueue.main.async block
+    } // End of handleModelTransform function
+
+    #if os(iOS) // Wrap the entire function definition
     func handleCollaborationData(_ data: Data, from peerID: MCPeerID) {
         guard let arView = arViewModel?.arView else { return }
-        
+
         do {
             if let collaborationData = try NSKeyedUnarchiver.unarchivedObject(
                 ofClass: ARSession.CollaborationData.self,
                 from: data) {
-                
+
                 arView.session.update(with: collaborationData)
             }
         } catch {
             print("Error decoding collaboration data: \(error)")
         }
     }
-    
+    #endif // End of handleCollaborationData wrapper
+
+    #if os(iOS) // Wrap the entire function definition
     func handleRemoveAnchors(_ data: Data, from peerID: MCPeerID) {
         guard let arView = arViewModel?.arView else { return }
-        
+        guard let arView = arViewModel?.arView else { return }
+
         do {
             if let uuidString = try NSKeyedUnarchiver.unarchivedObject(
                 ofClass: NSString.self,
                 from: data) as String?,
                let uuid = UUID(uuidString: uuidString) {
-                
+
                 // Find and remove the anchor
                 if let anchor = arView.session.currentFrame?.anchors.first(where: { $0.identifier == uuid }) {
                     arView.session.remove(anchor: anchor)
                     print("Removed anchor: \(uuid)")
                 }
-                
+
                 // Remove from arViewModel's tracked anchors
                 if let index = arViewModel?.placedAnchors.firstIndex(where: { $0.identifier == uuid }) {
                     arViewModel?.placedAnchors.remove(at: index)
@@ -740,44 +729,9 @@ class MyCustomConnectivityService: NSObject {
             print("Error decoding anchor removal data: \(error)")
         }
     }
-    #endif
+    #endif // End of handleRemoveAnchors wrapper
 
-    // Helper to apply transform in fallback scenarios, considering sync mode
-    private func applyTransformToFallbackEntity(entity: Entity, matrix: simd_float4x4, isRelative: Bool) {
-        guard let arViewModel = self.arViewModel else { return }
-        let syncMode = arViewModel.currentSyncMode
-
-        if isRelative && (syncMode == .imageTarget || syncMode == .objectTarget) {
-            // Apply relative transform, reparenting if necessary
-            if let currentParent = entity.parent, currentParent === arViewModel.sharedAnchorEntity {
-                entity.transform.matrix = matrix // Already correct parent
-            } else {
-                // Reparent to shared anchor first
-                print("Fallback: Reparenting \(entity.name) to sharedAnchorEntity for relative transform.")
-                entity.removeFromParent()
-                arViewModel.sharedAnchorEntity.addChild(entity)
-                entity.transform.matrix = matrix // Apply relative transform
-            }
-        } else {
-            // Apply world transform
-            if isRelative {
-                 print("Fallback Warning: Received relative transform flag for \(entity.name) but applying as world transform because current mode is \(syncMode.rawValue).")
-            }
-            // Ensure parent is not the shared anchor if it is currently
-            if let currentParent = entity.parent, currentParent === arViewModel.sharedAnchorEntity {
-                 print("Fallback: Reparenting \(entity.name) from sharedAnchorEntity to world parent.")
-                 // On iOS/visionOS, simply removing from parent and setting world transform might suffice
-                 // if the entity gets re-added to the scene root or appropriate world anchor elsewhere.
-                 // For simplicity here, just remove and set world transform.
-                 entity.removeFromParent()
-                 // Ideally, re-add to the correct world anchor (e.g., modelAnchor on visionOS)
-                 // This might require more context. For now, just set world transform.
-                 entity.setTransformMatrix(matrix, relativeTo: nil)
-            } else {
-                 // Already in world space (or should be), just set world transform
-                 entity.setTransformMatrix(matrix, relativeTo: nil)
-            }
-        }
-        print("Fallback: Applied transform to \(entity.name). Relative: \(isRelative), Mode: \(syncMode.rawValue)")
-    }
+    // Helper method removed as fallback logic is removed.
+    // private func applyTransformToFallbackEntity(entity: Entity, matrix: simd_float4x4, isRelative: Bool) { ... }
+} // End of MyCustomConnectivityService class - Ensure this brace is correctly placed and matches the class opening.
 }

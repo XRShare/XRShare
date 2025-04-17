@@ -89,39 +89,32 @@ final class ModelManager: ObservableObject {
                     if let arViewModel = arViewModel, let multipeerSession = arViewModel.multipeerSession {
                         // Determine the transform based on sync mode and parentage
                         let transformToSend: simd_float4x4
-                        let isRelativeToImageAnchor: Bool
-
-                        if arViewModel.currentSyncMode == .imageTarget {
-                            // Assume it should be parented under sharedAnchorEntity
-                            // If not parented yet, calculate hypothetical relative transform
+                        // Determine if the model transform should be relative to the shared anchor (image or object target)
+                        let isRelativeToSharedAnchor: Bool = (arViewModel.currentSyncMode == .imageTarget || arViewModel.currentSyncMode == .objectTarget)
+                        if isRelativeToSharedAnchor {
+                            // If already parented under sharedAnchorEntity, use its local transform; otherwise, calculate world-relative and convert
                             if entity.parent == arViewModel.sharedAnchorEntity {
-                                transformToSend = entity.transform.matrix // Already relative
+                                transformToSend = entity.transform.matrix
                             } else {
-                                // Calculate transform relative to where sharedAnchorEntity *is* or *should be*
-                                // This might be tricky if sharedAnchorEntity isn't placed yet.
-                                // Sending world transform might be safer initially if parent isn't set.
-                                // Let's assume for loadModel, it's placed at the origin of its intended parent.
-                                transformToSend = entity.transform.matrix // Send local transform relative to intended parent origin
-                                print("Warning: Broadcasting addModel for \(modelType.rawValue) in ImageTarget mode, but entity may not be parented yet. Sending local transform.")
+                                // Fallback: send world transform relative to intended parent origin
+                                transformToSend = entity.transform.matrix
+                                print("Warning: Broadcasting addModel for \(modelType.rawValue) in relative mode, but entity may not be parented yet. Sending local transform.")
                             }
-                             isRelativeToImageAnchor = true
                         } else {
-                            // World mode: Assume it's placed relative to a world anchor (e.g., modelAnchor on visionOS, or a new AnchorEntity on iOS)
-                            // Send the world transform.
+                            // World mode: send absolute world transform
                             transformToSend = entity.transformMatrix(relativeTo: nil)
-                            isRelativeToImageAnchor = false
                         }
 
                         let payload = AddModelPayload(
                             instanceID: instanceID,
                             modelType: modelType.rawValue,
                             transform: transformToSend.toArray(),
-                            isRelativeToImageAnchor: isRelativeToImageAnchor
+                            isRelativeToSharedAnchor: isRelativeToSharedAnchor
                         )
                         do {
                             let data = try JSONEncoder().encode(payload)
                             multipeerSession.sendToAllPeers(data, dataType: .addModel)
-                            print("Broadcasted addModel: \(modelType.rawValue) (ID: \(instanceID)), Relative: \(isRelativeToImageAnchor)")
+                            print("Broadcasted addModel: \(modelType.rawValue) (ID: \(instanceID)), Relative: \(isRelativeToSharedAnchor)")
                         } catch {
                             print("Error encoding AddModelPayload: \(error)")
                         }

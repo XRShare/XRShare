@@ -64,21 +64,21 @@ struct InSession: View {
                         referenceSphere.position = refObj.position
                         referenceSphere.name = "ReferenceSphere\(index)"
                         referenceSphere.generateCollisionShapes(recursive: true)
-                        
+
                         // Make sure it has collision for interaction
                         referenceSphere.collision = CollisionComponent(shapes: [.generateSphere(radius: 0.03)])
-                        
+
                         // Add input target component for interactivity
                         referenceSphere.components.set(InputTargetComponent())
-                        
+
                         // Add hover effect to show interactivity
                         referenceSphere.components.set(HoverEffectComponent())
-                        
+
                         // Add directly to the content
                         content.add(referenceSphere)
                         print("Added interactive reference sphere \(index) at \(refObj.position)")
                     }
-                    
+
                     // Add a main reference sphere with high visibility
                     let mainSphere = ModelEntity(
                         mesh: .generateSphere(radius: 0.05),
@@ -88,42 +88,62 @@ struct InSession: View {
                     mainSphere.name = "MainSphere"
                     mainSphere.generateCollisionShapes(recursive: true)
                     mainSphere.collision = CollisionComponent(shapes: [.generateSphere(radius: 0.05)])
-                    
+
                     // Add input target component for interactivity
                     mainSphere.components.set(InputTargetComponent())
-                    
+
                     // Add hover effect to show interactivity
                     mainSphere.components.set(HoverEffectComponent())
-                    
+
                     content.add(mainSphere)
                     print("Added interactive main sphere at \(mainSphere.position)")
                 }
-                
-                // Add both anchors to the scene (guaranteed present)
-                content.add(modelAnchor)
-                content.add(arViewModel.sharedAnchorEntity)
-                
+
+                // [L03] Add both anchors to the scene content if they aren't already present.
+                // RealityView manages adding them to the actual scene graph.
+                if !content.entities.contains(modelAnchor) {
+                    content.add(modelAnchor)
+                    print("Added modelAnchor to RealityView content.")
+                }
+                if !content.entities.contains(arViewModel.sharedAnchorEntity) {
+                    content.add(arViewModel.sharedAnchorEntity)
+                    print("Added sharedAnchorEntity to RealityView content.")
+                }
+
                 // Make sure they're enabled
                 modelAnchor.isEnabled = true
                 arViewModel.sharedAnchorEntity.isEnabled = true
-                
-                print("Added both world and image anchors to scene")
-                
+
+                print("Ensured both world and shared anchors are in RealityView content.")
+
                 // Set up head anchor for spatial awareness
                 let headAnchor = AnchorEntity(.head)
                 content.add(headAnchor)
-                
-                sessionConnectivity.addAnchorsIfNeeded(
-                    headAnchor: headAnchor,
-                    modelAnchor: modelAnchor,
-                    content: content
-                )
-                
+
+                // Pass the anchors to the connectivity service if needed (though it might get them from ARViewModel now)
+                // sessionConnectivity.addAnchorsIfNeeded(
+                //     headAnchor: headAnchor,
+                //     modelAnchor: modelAnchor,
+                //     content: content
+                // )
+
                 print("Scene initialized with reference objects and anchors")
         } update: { content in
-                // Ensure models are correctly parented based on sync mode
-                for model in modelManager.placedModels {
-                    guard let entity = model.modelEntity else { continue }
+            // [L03] Ensure anchors are present in the content during updates as well.
+            // This is crucial because the update block runs frequently and might be
+            // the first place where parenting logic executes after a mode switch.
+            if !content.entities.contains(modelAnchor) {
+                content.add(modelAnchor)
+                print("Added modelAnchor to content in update (was missing).")
+            }
+             if !content.entities.contains(arViewModel.sharedAnchorEntity) {
+                content.add(arViewModel.sharedAnchorEntity)
+                print("Added sharedAnchorEntity to content in update (was missing).")
+            }
+
+            // Ensure models are correctly parented based on sync mode
+            for model in modelManager.placedModels {
+                guard let entity = model.modelEntity else { continue }
 
                     // Determine the INTENDED parent based on the current sync mode
                     let intendedParent: Entity?
@@ -131,34 +151,22 @@ struct InSession: View {
                     switch arViewModel.currentSyncMode {
                     case .imageTarget, .objectTarget:
                         // Ensure shared anchor is in the scene before considering it the intended parent
-                        if arViewModel.sharedAnchorEntity.scene == nil {
-                            // Check if it's in the RealityView content but not yet assigned to the scene graph
-                            if content.entities.contains(arViewModel.sharedAnchorEntity) {
-                                // It exists in content, likely okay to parent to, scene assignment might be pending
-                                intendedParent = arViewModel.sharedAnchorEntity
-                            } else {
-                                // Not in content, add it first
-                                content.add(arViewModel.sharedAnchorEntity)
-                                print("Added sharedAnchorEntity to content in update (was missing).")
-                                intendedParent = arViewModel.sharedAnchorEntity
-                            }
-                        } else {
-                            intendedParent = arViewModel.sharedAnchorEntity
+                        // Check RealityView content first, as scene assignment might lag
+                        if !content.entities.contains(arViewModel.sharedAnchorEntity) {
+                            // Not in content, add it first
+                            content.add(arViewModel.sharedAnchorEntity)
+                            print("Added sharedAnchorEntity to content in update (was missing).")
                         }
+                        // Now it should be safe to assign as intended parent
+                        intendedParent = arViewModel.sharedAnchorEntity
                         intendedParentName = "sharedAnchorEntity (\(arViewModel.currentSyncMode.rawValue))"
                     case .world:
                         // Ensure model anchor is in the scene
-                        if modelAnchor.scene == nil {
-                             if content.entities.contains(modelAnchor) {
-                                 intendedParent = modelAnchor
-                             } else {
-                                 content.add(modelAnchor)
-                                 print("Added modelAnchor to content in update (was missing).")
-                                 intendedParent = modelAnchor
-                             }
-                        } else {
-                            intendedParent = modelAnchor
+                        if !content.entities.contains(modelAnchor) {
+                             content.add(modelAnchor)
+                             print("Added modelAnchor to content in update (was missing).")
                         }
+                        intendedParent = modelAnchor
                         intendedParentName = "modelAnchor (World)"
                     }
 
@@ -166,28 +174,24 @@ struct InSession: View {
                     let currentParent = entity.parent
 
                     // Reparent ONLY if the current parent is different from the intended parent
-                    if currentParent !== intendedParent {
+                    // AND the intended parent is not nil (i.e., it was successfully determined)
+                    if let validIntendedParent = intendedParent, currentParent !== validIntendedParent {
                         // Log the reparenting action
                         print("Reparenting \(entity.name): Current parent (\(currentParent?.name ?? "nil")) != Intended parent (\(intendedParentName)). SyncMode: \(arViewModel.currentSyncMode.rawValue)")
 
-                        // Ensure the intended parent is valid before reparenting
-                        if let validIntendedParent = intendedParent {
-                            // Preserve world transform during reparenting to avoid visual jumps
-                            entity.setParent(validIntendedParent, preservingWorldTransform: true)
-                            print("Successfully reparented \(entity.name) to \(intendedParentName).")
+                        // Preserve world transform during reparenting to avoid visual jumps
+                        entity.setParent(validIntendedParent, preservingWorldTransform: true)
+                        print("Successfully reparented \(entity.name) to \(intendedParentName).")
 
-                            // After reparenting, update the model's local state if needed (optional)
-                            // model.position = entity.position(relativeTo: validIntendedParent)
-                            // model.rotation = entity.orientation(relativeTo: validIntendedParent)
-                            // model.scale = entity.scale(relativeTo: validIntendedParent)
+                        // After reparenting, update the model's local state if needed (optional)
+                        // model.position = entity.position(relativeTo: validIntendedParent)
+                        // model.rotation = entity.orientation(relativeTo: validIntendedParent)
+                        // model.scale = entity.scale(relativeTo: validIntendedParent)
 
-                        } else {
-                            print("Warning: Cannot reparent \(entity.name) because intended parent (\(intendedParentName)) is nil or not ready.")
-                            // If intended parent is nil, maybe remove the entity? Or leave it detached?
-                            // For now, just log the warning.
-                        }
+                    } else if intendedParent == nil {
+                         print("Warning: Cannot determine intended parent for \(entity.name) in update block. Skipping reparent check.")
                     }
-                    // Else: Entity already has the correct parent, no action needed.
+                    // Else: Entity already has the correct parent, or intended parent couldn't be determined. No action needed.
                 }
 
                 // Update model selection highlights and broadcast transforms
@@ -432,4 +436,3 @@ struct InSession: View {
         }
     }
 }
-
