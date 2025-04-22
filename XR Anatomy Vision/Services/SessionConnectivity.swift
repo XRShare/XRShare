@@ -91,7 +91,7 @@ class SessionConnectivity: ObservableObject {
             // Update the last known transform component
             entity.components[LastTransformComponent.self] = LastTransformComponent(matrix: currentMatrix)
         }
-        transformCancellables.append(cancellable as! AnyCancellable)
+        transformCancellables.append(AnyCancellable(cancellable))
     }
     
     private var isApplyingRemoteTransform = false

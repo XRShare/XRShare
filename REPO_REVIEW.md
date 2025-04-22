@@ -13,10 +13,4 @@
 
 [UX004] UI/UX — Clarify or generalize the “Info Mode” feature beyond specific models to ensure consistent user understanding | Rationale: unclear purpose confuses users (XR Anatomy Vision/Scenes/ModelSelectionScreen.swift) | Priority: 3 | Depends: – | Done when: info mode behavior is intuitive or documented
 
-[NF001] New Feature — Implement ARWorldMap sharing in Shared/ARSessionManager.swift for session join workflows | Rationale: late‑joining devices lack a shared world map, causing misaligned AR spaces contrary to product goal #2 | Priority: 1 | Depends: L01, L02 | Done when: ARSessionManager serializes current ARWorldMap, sends it to new peers, and peers restore their ARSession with the received map
-
-[NF002] New Feature — Finalize SessionConnectivity.broadcastAnchorCreation to send anchors to remote peers and apply them correctly | Rationale: synchronizes anchor creation across devices | Priority: 2 | Depends: NF001 | Done when: anchors appear at correct positions for remote peers
-
-[PM001] Performance — Optimize USDZ model assets in Shared/models by reducing mesh complexity and compressing textures | Rationale: improves load times and reduces memory footprint | Priority: 3 | Depends: – | Done when: models meet performance budget or guidelines
-
 [F02] New Feature — Add visual ownership indicators on models to show which peer placed them | Rationale: enhances collaboration awareness in multi-user sessions | Priority: 3 | Depends: – | 

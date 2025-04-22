@@ -259,7 +259,7 @@ struct DebugControlsView: View {
                     Text("Synced via Image").font(.caption)
                     Spacer()
                     Button("Re-Sync") {
-                        arViewModel.triggerImageSync()
+                        arViewModel.triggerSync()
                         lastAction = "Triggered Image Re-Sync"
                     }
                     .buttonStyle(.bordered)
@@ -295,7 +295,7 @@ struct DebugControlsView: View {
                     Text("Synced via Object").font(.caption)
                     Spacer()
                     Button("Re-Sync") {
-                        arViewModel.triggerImageSync()
+                        arViewModel.triggerSync()
                         lastAction = "Triggered Object Re-Sync"
                     }
                     .buttonStyle(.bordered)

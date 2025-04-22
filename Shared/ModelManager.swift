@@ -75,7 +75,11 @@ final class ModelManager: ObservableObject {
                     if entity.components[InstanceIDComponent.self] == nil {
                         entity.components.set(InstanceIDComponent())
                     }
-                    let instanceID = entity.components[InstanceIDComponent.self]!.id
+                    guard let idComp = entity.components[InstanceIDComponent.self] else {
+                        print("Error: Missing InstanceIDComponent on entity during model loading.")
+                        return
+                    }
+                    let instanceID = idComp.id
                     
                     // Register with connectivity service
                     if let customService = arViewModel?.customService {

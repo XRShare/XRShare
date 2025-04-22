@@ -115,3 +115,19 @@ make query-docset INDEX=data/docset_index.faiss \
 ```
 
 This will return the top matching documentation chunks from the Apple API Reference.
+  
+## 📝 Codex Summary Regeneration
+
+Codex context files (`codex.md` and `CODEBASE_SUMMARY.md`) are auto-generated locally and ignored by Git. To set up automatic updates on each commit via a pre-commit hook, install and enable [pre-commit](https://pre-commit.com/):
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+To regenerate the summaries manually at any time, run:
+
+```bash
+make codex-summary
+```
+ 

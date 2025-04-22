@@ -137,7 +137,7 @@ struct SettingsView: View {
                     }
                 }
                 Button("Re-Sync Image") {
-                    arViewModel.triggerImageSync()
+                    arViewModel.triggerSync()
                 }
                 .buttonStyle(.bordered)
                 .disabled(arViewModel.currentSyncMode != .imageTarget)
@@ -160,7 +160,7 @@ struct SettingsView: View {
                      }
                  }
                  Button("Re-Sync Object") {
-                     arViewModel.triggerImageSync() // Reusing triggerImageSync which now handles object mode too
+                     arViewModel.triggerSync() // Reusing triggerSync for both modes
                  }
                  .buttonStyle(.bordered)
                  .disabled(arViewModel.currentSyncMode != .objectTarget)
