@@ -104,26 +104,26 @@ struct ModelSelectionScreen: View {
                             
                             Spacer()
                         
-                            
+                            // Users can select to get brief description of the model
                             HStack(spacing: 12){
                                 Button(action: {
                                     print("Info Selected")
                                     modelManager.isInfoModeActive.toggle()
                                 }) {
-                                    Image(systemName: "list.bullet")
+                                    Image(systemName: "cursorarrow.rays")
                                         .foregroundColor(.white)
                                 }
                                 .buttonStyle(.plain)
                                 
                                 
-                                
+                                // After selecting, users can select part of model to get more information about it
                                 Button(action: {
                                     print("more info Selected")
                                     dismissWindow(id: "ModelInfoWindow")
                                     modelManager.selectedModelInfo = mod.modelType.rawValue
                                     openWindow(id: "ModelInfoWindow" )
                                 }) {
-                                    Image(systemName: "cube.box.fill")
+                                    Image(systemName: "info.circle")
                                         .foregroundColor(.white)
                                 }
                                 .buttonStyle(.plain)
