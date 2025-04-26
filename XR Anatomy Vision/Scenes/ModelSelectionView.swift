@@ -110,7 +110,7 @@ struct ModelSelectionScreen: View {
                                     print("Info Selected")
                                     modelManager.isInfoModeActive.toggle()
                                 }) {
-                                    Image(systemName: "cursorarrow.rays")
+                                    Image(systemName: "hand.tap")
                                         .foregroundColor(.white)
                                 }
                                 .buttonStyle(.plain)
