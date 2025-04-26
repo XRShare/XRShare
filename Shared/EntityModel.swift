@@ -6,3 +6,16 @@
 //
 
 import Foundation
+import SwiftUI
+
+
+enum EntityType: Equatable {
+    case named(String)
+    case none
+    
+}
+
+
+class EntityModel: ObservableObject {
+    @Published var currentEntity: EntityType = .none
+}
