@@ -30,6 +30,7 @@ final class AppModel: ObservableObject {
     
     // The ID for the immersive space
     let immersiveSpaceID: String = "ImmersiveSpace"
+    let detailViewID: String = "DetailViewID"
     
     // MARK: - Hosting
     func hostSession() {

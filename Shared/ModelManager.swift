@@ -63,7 +63,17 @@ final class ModelManager: ObservableObject {
             print("Attempting to load model: \(modelType.rawValue).usdz")
             let model = await Model.load(modelType: modelType, arViewModel: arViewModel)
             let modelEntity = await model.modelEntity // Directly access after await
-            if let entity = modelEntity {
+            
+            guard let entity = try? await Entity.load(named: modelType.rawValue) else{
+                           print("failed to load eneity for----")
+                           return
+                       }
+            
+            configureInteractivity(for: entity)
+            
+            print( "Loaded entity hierarchy for \(modelType.rawValue):")
+            printHierarchy(for: entity)
+            
                 await MainActor.run {
                     self.modelDict[entity] = model
                     self.placedModels.append(model)
@@ -139,11 +149,39 @@ final class ModelManager: ObservableObject {
                 } // End of MainActor.run
                 
                 print("\(modelType.rawValue) chosen – model loaded and selected")
-            } else {
-                print("Failed to load model entity for \(modelType.rawValue).usdz")
-            }
+            
         }
     }
+    
+    func printHierarchy(for entity: Entity, level: Int = 0) {
+        let indent = String(repeating: "  ", count: level)
+        print("\(indent)- \(entity.name) [\(type(of: entity))]")
+        
+        for child in entity.children {
+            printHierarchy(for: child, level: level + 1)
+        }
+    }
+    
+    
+    func configureInteractivity(for entity: Entity) {
+        for child in entity.children {
+            print("This is the child \(child.name)")
+            configureInteractivity(for: child)
+        }
+        
+
+        if let modelEntity = entity as? ModelEntity {
+            if modelEntity.components[CollisionComponent.self] == nil {
+                // Fallback: use simple box shape to enable interaction
+                let shape = ShapeResource.generateBox(size: [0.1, 0.1, 0.1])
+                modelEntity.components.set(CollisionComponent(shapes: [shape]))
+            }
+
+            modelEntity.components.set(InputTargetComponent(allowedInputTypes: .all))
+            modelEntity.components.set(HoverEffectComponent())
+        }
+    }
+
 
     // MARK: - Remove a Single Model
     @MainActor func removeModel(_ model: Model, broadcast: Bool = true) { // Added broadcast flag

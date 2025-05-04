@@ -13,13 +13,13 @@ struct SelectedPartInfoScreen: View {
     @Environment(\.openImmersiveSpace) private var openImmersiveSpace
     @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
     
+    @State var title: String
+    
     var body: some View{
         
                 VStack(alignment: .leading, spacing: 12) {
                     
-                        
-                        
-                        Text("Selected: BlueBerries")
+                        Text("Model part selected: \(title)")
                             .font(.title)
                             .padding(.leading, 12)
                         
@@ -30,8 +30,9 @@ struct SelectedPartInfoScreen: View {
                                 .font(.body)
                                 .padding(.bottom, 12)
                         } else {
-                            Text("No part selected.")
+                            Text("No information on part selected.")
                                 .foregroundColor(.secondary)
+                                .padding(.leading, 12)
                     }
 
                 }

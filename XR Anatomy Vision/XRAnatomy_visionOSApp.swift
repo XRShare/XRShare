@@ -144,8 +144,9 @@ struct XRAnatomy_visionOSApp: App {
                 .defaultSize(width: 400, height: 400)
                 .windowResizability(.automatic)
         
-        WindowGroup(id: "SelectedPartInfoWindow"){
-            SelectedPartInfoScreen(modelManager: modelManager)
+        WindowGroup(id: appModel.detailViewID, for: String.self){ value in
+            
+            SelectedPartInfoScreen(modelManager: modelManager, title: value.wrappedValue!)
                 .environmentObject(arViewModel)
                 .environmentObject(appModel)
                 .environmentObject(appState)

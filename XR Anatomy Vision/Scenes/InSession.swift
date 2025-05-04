@@ -26,6 +26,7 @@ struct InSession: View {
     
     @ObservedObject var modelManager: ModelManager
     @StateObject private var sessionConnectivity = SessionConnectivity()
+    @StateObject private var entityModel = EntityModel()
     
     // Passed Properties
     var session: ARKitSession // Receive the ARKitSession instance
@@ -214,28 +215,47 @@ struct InSession: View {
                 )
             }
             // --- visionOS Gestures ---
-                .gesture(SpatialTapGesture()
-                      .targetedToAnyEntity()
-                      .onEnded { value in
+                .gesture(SpatialTapGesture().targetedToAnyEntity().onEnded ({ value in
+                    
+                    print("🎯 Tapped entity: \(value.entity.name)")
+                    
+                    let entity = value.entity
+                    let name = entity.name
+                    
+                    
+                    let previous = entityModel.currentEntity
+                    entityModel.currentEntity = .named(name)
+                    
+                    if case .named(let oldName) = previous, oldName == name {
+                        entityModel.currentEntity = .none
+                    }
+                    
+                    
+                    if modelManager.isInfoModeActive {
+                        self.dismissWindow(id: appModel.detailViewID, value: name )
+                        self.openWindow(id: appModel.detailViewID, value: name)
+                    }
 
-                          print("Spatial Tap detected on entity: \(value.entity.name)")
+                        // print("Spatial Tap detected on entity: \(value.entity.name)")
                           // Call handleTap on the main actor
                           
-                          Task{ @MainActor in
-                              if modelManager.isInfoModeActive {
-                                  print("Tapped part: \(value.entity.name)")
+                        //  Task{ @MainActor in
+                        //   if modelManager.isInfoModeActive {
+                               //   print("Tapped part: \(value.entity.name)")
                                  
                                   
-                                  modelManager.selectedPartInfo = modelManager.pancakeInfo(for: value.entity.name)
-                                  dismissWindow(id: "SelectedPartInfoWindow")
-                                  openWindow(id: "SelectedPartInfoWindow")
-                              } else{
-                                  modelManager.handleTap(entity: value.entity)
-                              }
+                               //   modelManager.selectedPartInfo = modelManager.pancakeInfo(for: value.entity.name)
+                               //   dismissWindow(id: "SelectedPartInfoWindow")
+                               //   openWindow(id: "SelectedPartInfoWindow")
+                         //     } else{
+                           //       modelManager.handleTap(entity: value.entity)
+                             // }
                               
-                          }
+                         // }
                       }
-                  )
+                  ))
+            
+            
             .simultaneousGesture(DragGesture()
                  .targetedToAnyEntity()
                  .onChanged { value in
