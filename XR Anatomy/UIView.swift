@@ -221,8 +221,10 @@ struct XRAnatomyView: View {
     private func handleBackButtonTap() {
         // Stop the session so we can pick host/join again
         // Call methods directly on the arViewModel instance
-        arViewModel.stopMultipeerServices()
+        // First reset the AR session (which
+        // also clears models), then tear down multipeer.
         arViewModel.resetARSession()
+        arViewModel.stopMultipeerServices()
         hasSelectedMode = false // Return to main menu
     }
 }

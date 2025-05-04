@@ -7,452 +7,414 @@ struct DebugControlsView: View {
     @EnvironmentObject var appModel: AppModel
     @EnvironmentObject var appState: AppState
     @Environment(\.openWindow) private var openWindow
-    
+
     @State private var lastAction = "Debug panel opened"
     @State private var showModelList = true
     @State private var scaleAmount: Float = 0.15
     @State private var rotationX: Float = 0
     @State private var rotationY: Float = 0
     @State private var rotationZ: Float = 0
-    
+
     var body: some View {
-        return NavigationStack {
+        NavigationStack {
             VStack(spacing: 12) {
-                Text("XR Anatomy Debug Controls")
-                    .panelHeader()
-                
-                // Model selection and transformation controls
-                HStack(spacing: 20) {
-                    // Reset position button
-                    Button(action: {
-                        if let model = getSelectedModel() {
-                            resetModel(model)
-                            lastAction = "Reset model \(model.modelType.rawValue)"
-                        }
-                    }) {
-                        VStack {
-                            Image(systemName: "arrow.counterclockwise")
-                                .font(.title3)
-                            Text("Reset")
-                                .font(.caption)
-                        }
-                        .frame(width: 60, height: 50)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.orange)
-                    
-                    // Add model button
-                    Button(action: {
-                        if let heartType = modelManager.modelTypes.first(where: { $0.rawValue == "Heart" }) {
-                            modelManager.loadModel(for: heartType, arViewModel: arViewModel)
-                            lastAction = "Added Heart model"
-                        } else if let firstModel = modelManager.modelTypes.first {
-                            modelManager.loadModel(for: firstModel, arViewModel: arViewModel)
-                            lastAction = "Added \(firstModel.rawValue) model"
-                        }
-                    }) {
-                        VStack {
-                            Image(systemName: "plus.circle")
-                                .font(.title3)
-                            Text("Add")
-                                .font(.caption)
-                        }
-                        .frame(width: 60, height: 50)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.green)
-                    
-                    // No additional control panel button needed
-                    Text("Debug Console")
-                        .font(.caption)
-                        .padding(8)
-                        .background(Color.gray.opacity(0.2))
-                        .cornerRadius(8)
-                        .foregroundColor(.secondary)
-                }
-                
-                // Transformation controls
-                VStack(spacing: 8) {
-                    Text("Scale")
-                        .font(.subheadline)
-                    
-                    HStack {
-                        Text("0.05")
-                            .font(.caption)
-                        
-                        Slider(value: Binding(
-                            get: { Double(scaleAmount) },
-                            set: { newValue in
-                                scaleAmount = Float(newValue)
-                                
-                                if let model = getSelectedModel() {
-                                    scaleTo(model, scale: scaleAmount)
-                                }
-                            }
-                        ), in: 0.05...1.0)
-                        
-                        Text("1.0")
-                            .font(.caption)
-                    }
-                    
-                    Text("Rotation")
-                        .font(.subheadline)
-                        .padding(.top, 4)
-                    
-                    // Rotation buttons
-                    HStack(spacing: 12) {
-                        ForEach(["X", "Y", "Z"], id: \.self) { axis in
-                            Button(action: {
-                                if let model = getSelectedModel() {
-                                    rotateModel(model, axis: axis)
-                                }
-                            }) {
-                                Text(axis)
-                                    .font(.headline)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(axis == "X" ? .red : (axis == "Y" ? .green : .blue))
-                        }
-                    }
-                }
-                
+                headerSection
+                modelControlButtons
+                transformSection
                 Divider()
-                
-                // Model management
-                if showModelList {
-                    VStack(alignment: .leading) {
-                        Text("Available Models:")
-                            .font(.headline)
-                        
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: 8) {
-                                ForEach(modelManager.modelTypes) { modelType in
-                                    Button(action: {
-                                        modelManager.loadModel(for: modelType, arViewModel: arViewModel)
-                                        lastAction = "Added \(modelType.rawValue) model"
-                                    }) {
-                                        HStack {
-                                            Text(modelType.rawValue)
-                                            Spacer()
-                                            Image(systemName: "plus")
-                                        }
-                                        .padding(.vertical, 4)
-                                    }
-                                    .buttonStyle(.borderless)
-                                }
-                            }
-                            .padding(.horizontal)
-                        }
-                        .frame(height: 120)
-                        .background(Color.secondary.opacity(0.1))
-                        .cornerRadius(8)
-                        
-                        // Current loaded models with selection
-                        if !modelManager.placedModels.isEmpty {
-                            Text("Loaded Models:")
-                                .font(.headline)
-                                .padding(.top, 8)
-                            
-                            ScrollView {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    ForEach(modelManager.placedModels) { model in
-                                        Button(action: {
-                                            modelManager.selectedModelID = model.modelType
-                                            lastAction = "Selected \(model.modelType.rawValue) model"
-                                        }) {
-                                            HStack {
-                                                Text(model.modelType.rawValue)
-                                                    .foregroundColor(modelManager.selectedModelID == model.modelType ? .blue : .primary)
-                                                Spacer()
-                                                if modelManager.selectedModelID == model.modelType {
-                                                    Image(systemName: "checkmark.circle.fill")
-                                                        .foregroundColor(.blue)
-                                                }
-                                            }
-                                            .padding(.vertical, 4)
-                                        }
-                                        .buttonStyle(.borderless)
-                                    }
-                                }
-                                .padding(.horizontal)
-                            }
-                            .frame(height: 100)
-                            .background(Color.secondary.opacity(0.1))
-                            .cornerRadius(8)
-                        }
-                    }
-                }
-                
-                // Current model section
-                if !modelManager.placedModels.isEmpty {
-                    HStack {
-                        Text("Current Model: ")
-                            .font(.subheadline)
-                        
-                        if let selectedModel = getSelectedModel() {
-                            Text(selectedModel.modelType.rawValue)
-                                .font(.subheadline.bold())
-                        } else {
-                            Text("None selected")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-                
-                // Sync Mode Selector
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Sync Mode:")
-                        .font(.headline)
-                    
-                    Picker("Sync Mode", selection: $arViewModel.currentSyncMode) {
-                        ForEach(SyncMode.allCases, id: \.self) { mode in
-                            Text(mode.rawValue).tag(mode)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .onChange(of: arViewModel.currentSyncMode) { _, newMode in
-                        // Post notification for sync mode change
-                        NotificationCenter.default.post(name: Notification.Name("syncModeChanged"), object: nil)
-                        lastAction = "Switched to \(newMode.rawValue)"
-                        // Reset sync state immediately
-                        arViewModel.isSyncedToImage = false
-                        appState.isImageTracked = false
-                        arViewModel.isSyncedToObject = false
-                        appState.isObjectTracked = false
-                    }
-
-                    // --- Sync Status Indicators ---
-                    // Show image tracking status when in image target mode
-                    if arViewModel.currentSyncMode == .imageTarget {
-                        HStack {
-                            Circle()
-                                .fill(appState.isImageTracked ? Color.green : Color.red)
-                                .frame(width: 10, height: 10)
-                            
-                            Text(appState.isImageTracked ? "Image Target Detected" : "Searching for Image Target...")
-                                .font(.caption)
-                                .foregroundColor(appState.isImageTracked ? .primary : .secondary)
-                        }
-                        .padding(.top, 4)
-
-                        // Sync Status and Re-Sync Button
-                        if arViewModel.isSyncedToImage {
-                            HStack {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
-                                Text("Synced via Image")
-                                    .font(.caption)
-                                Spacer()
-                                Button("Re-Sync") {
-                                    arViewModel.triggerImageSync()
-                                    lastAction = "Triggered Image Re-Sync"
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                            }
-                            .padding(.top, 4)
-                        } else {
-                             Text("Awaiting Image Sync...")
-                                 .font(.caption)
-                                 .foregroundColor(.orange)
-                                 .padding(.top, 4)
-                        }
-                    }
-                    // Show object tracking status when in object target mode
-                    else if arViewModel.currentSyncMode == .objectTarget {
-                         HStack {
-                             Circle()
-                                 .fill(appState.isObjectTracked ? Color.green : Color.red)
-                                 .frame(width: 10, height: 10)
-
-                             Text(appState.isObjectTracked ? "Object Target Detected" : "Searching for Object Target...")
-                                 .font(.caption)
-                                 .foregroundColor(appState.isObjectTracked ? .primary : .secondary)
-                         }
-                         .padding(.top, 4)
-
-                         // Sync Status and Re-Sync Button
-                         if arViewModel.isSyncedToObject {
-                             HStack {
-                                 Image(systemName: "checkmark.circle.fill")
-                                     .foregroundColor(.green)
-                                 Text("Synced via Object")
-                                     .font(.caption)
-                                 Spacer()
-                                 Button("Re-Sync") {
-                                     arViewModel.triggerImageSync() // Reusing triggerImageSync
-                                     lastAction = "Triggered Object Re-Sync"
-                                 }
-                                 .buttonStyle(.bordered)
-                                 .controlSize(.small)
-                             }
-                             .padding(.top, 4)
-
-                             // Debug button to load the reference object's model
-                             Button("Load Reference Model") {
-                                 let referenceModelType = ModelType(rawValue: "model-mobile")
-                                 Task { @MainActor in
-                                     guard let modelManager = arViewModel.modelManager, let customService = arViewModel.customService else {
-                                         print("Error: ModelManager or CustomService not available for reference model loading.")
-                                         lastAction = "Error loading ref model"
-                                         return
-                                     }
-                                     // Load the model template
-                                     let modelTemplate = await Model.load(modelType: referenceModelType, arViewModel: arViewModel)
-
-                                     if let entityTemplate = modelTemplate.modelEntity {
-                                         // Clone the entity for placement
-                                         let clonedEntity = entityTemplate.clone(recursive: true)
-                                         clonedEntity.name = "ReferenceObjectModel_Debug" // Give it a specific name
-                                         clonedEntity.transform = Transform() // Align at origin of the shared anchor
-
-                                         // Assign a unique instance ID if needed (should happen automatically in Model init/load)
-                                         if clonedEntity.components[InstanceIDComponent.self] == nil {
-                                             clonedEntity.components.set(InstanceIDComponent())
-                                         }
-                                         let instanceID = clonedEntity.components[InstanceIDComponent.self]!.id
-
-                                         // Add to the shared anchor (which tracks the physical object)
-                                         arViewModel.sharedAnchorEntity.addChild(clonedEntity)
-
-                                         // Create a new Model instance specifically for this placed debug entity
-                                         let placedDebugModel = Model(modelType: referenceModelType, arViewModel: arViewModel)
-                                         placedDebugModel.modelEntity = clonedEntity // Assign the cloned entity
-                                         placedDebugModel.loadingState = .loaded // Mark as loaded
-
-                                         // Register with ModelManager for gesture handling
-                                         modelManager.modelDict[clonedEntity] = placedDebugModel
-                                         modelManager.placedModels.append(placedDebugModel) // Add to placed models list
-
-                                         // Register with ConnectivityService as locally owned, DO NOT BROADCAST ADD
-                                         customService.registerEntity(clonedEntity, modelType: referenceModelType, ownedByLocalPeer: true)
-
-                                         print("Loaded and registered interactive reference model 'model-mobile.usdz' (InstanceID: \(instanceID)) onto tracked object.")
-                                         lastAction = "Loaded interactive ref model"
-
-                                     } else {
-                                         arViewModel.alertItem = AlertItem(title: "Load Failed", message: "Could not load 'model-mobile.usdz'.")
-                                         lastAction = "Failed to load ref model"
-                                     }
-                                 }
-                             }
-                             .buttonStyle(.bordered)
-                             .tint(.purple)
-                             .disabled(!arViewModel.isSyncedToObject) // Only enable after initial sync
-                             .padding(.top, 5)
-
-                         } else {
-                              Text("Awaiting Object Sync...")
-                                  .font(.caption)
-                                  .foregroundColor(.orange)
-                                  .padding(.top, 4)
-                         }
-                    }
-                }
-                .padding(.vertical, 8)
-                .background(Color.secondary.opacity(0.1))
-                .cornerRadius(8)
-
-                // Test Message Button
-                Button("Send Test Message") {
-                    arViewModel.sendTestMessage()
-                    lastAction = "Sent test message"
-                }
-                .padding(.top, 10)
-                
-                Text("Status: \(lastAction)")
-                    .font(.caption)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.top, 4)
-                
+                if showModelList { modelListsSection }
+                currentModelSection
+                syncSection
+                testMessageSection
                 Spacer()
             }
             .padding()
             .toolbar {
                 ToolbarItem {
-                    Button(action: {
-                        showModelList.toggle()
-                    }) {
-                        Image(systemName: showModelList ? "list.bullet.circle.fill" : "list.bullet.circle")
+                    Button(action: { showModelList.toggle() }) {
+                        Image(systemName: showModelList ? "list.bullet.circle.fill"
+                                                        : "list.bullet.circle")
                     }
                 }
             }
         }
-        .withWindowOpener() // Add capability to open windows
     }
-    
-    // Helper functions for model manipulation
-    
-    // Get the currently selected model based on selectedModelID
+
+    // MARK: - Sub‑sections
+
+    @ViewBuilder
+    private var headerSection: some View {
+        Text("XR Anatomy Debug Controls")
+            .panelHeader()
+    }
+
+    @ViewBuilder
+    private var modelControlButtons: some View {
+        HStack(spacing: 20) {
+            Button {
+                if let model = getSelectedModel() {
+                    resetModel(model)
+                    lastAction = "Reset model \(model.modelType.rawValue)"
+                }
+            } label: {
+                VStack {
+                    Image(systemName: "arrow.counterclockwise").font(.title3)
+                    Text("Reset").font(.caption)
+                }
+                .frame(width: 60, height: 50)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.orange)
+
+            Button {
+                if let heartType = modelManager.modelTypes.first(where: { $0.rawValue == "Heart" }) {
+                    modelManager.loadModel(for: heartType, arViewModel: arViewModel)
+                    lastAction = "Added Heart model"
+                } else if let first = modelManager.modelTypes.first {
+                    modelManager.loadModel(for: first, arViewModel: arViewModel)
+                    lastAction = "Added \(first.rawValue) model"
+                }
+            } label: {
+                VStack {
+                    Image(systemName: "plus.circle").font(.title3)
+                    Text("Add").font(.caption)
+                }
+                .frame(width: 60, height: 50)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.green)
+
+            Text("Debug Console")
+                .font(.caption)
+                .padding(8)
+                .background(Color.gray.opacity(0.2))
+                .cornerRadius(8)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var transformSection: some View {
+        VStack(spacing: 8) {
+            Text("Scale").font(.subheadline)
+            HStack {
+                Text("0.05").font(.caption)
+                Slider(
+                    value: Binding(
+                        get: { Double(scaleAmount) },
+                        set: { newVal in
+                            scaleAmount = Float(newVal)
+                            if let m = getSelectedModel() { scaleTo(m, scale: scaleAmount) }
+                        }),
+                    in: 0.05...1.0
+                )
+                Text("1.0").font(.caption)
+            }
+
+            Text("Rotation").font(.subheadline).padding(.top, 4)
+            HStack(spacing: 12) {
+                ForEach(["X", "Y", "Z"], id: \.self) { axis in
+                    Button {
+                        if let m = getSelectedModel() { rotateModel(m, axis: axis) }
+                    } label: {
+                        Text(axis).font(.headline)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(axis == "X" ? .red : (axis == "Y" ? .green : .blue))
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var modelListsSection: some View {
+        VStack(alignment: .leading) {
+            Text("Available Models:").font(.headline)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(modelManager.modelTypes) { type in
+                        Button {
+                            modelManager.loadModel(for: type, arViewModel: arViewModel)
+                            lastAction = "Added \(type.rawValue) model"
+                        } label: {
+                            HStack {
+                                Text(type.rawValue)
+                                Spacer()
+                                Image(systemName: "plus")
+                            }
+                            .padding(.vertical, 4)
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                }
+                .padding(.horizontal)
+            }
+            .frame(height: 120)
+            .background(Color.secondary.opacity(0.1))
+            .cornerRadius(8)
+
+            if !modelManager.placedModels.isEmpty {
+                Text("Loaded Models:").font(.headline).padding(.top, 8)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(modelManager.placedModels) { model in
+                            Button {
+                                modelManager.selectedModelID = model.modelType
+                                lastAction = "Selected \(model.modelType.rawValue) model"
+                            } label: {
+                                HStack {
+                                    Text(model.modelType.rawValue)
+                                        .foregroundColor(
+                                            modelManager.selectedModelID == model.modelType
+                                            ? .blue : .primary
+                                        )
+                                    Spacer()
+                                    if modelManager.selectedModelID == model.modelType {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.blue)
+                                    }
+                                }
+                                .padding(.vertical, 4)
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+                .frame(height: 100)
+                .background(Color.secondary.opacity(0.1))
+                .cornerRadius(8)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var currentModelSection: some View {
+        if !modelManager.placedModels.isEmpty {
+            HStack {
+                Text("Current Model: ").font(.subheadline)
+                if let selected = getSelectedModel() {
+                    Text(selected.modelType.rawValue).bold()
+                } else {
+                    Text("None selected").foregroundColor(.secondary)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var syncSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Sync Mode:").font(.headline)
+            Picker("Sync Mode", selection: $arViewModel.currentSyncMode) {
+                ForEach(SyncMode.allCases, id: \.self) {
+                    Text($0.rawValue).tag($0)
+                }
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: arViewModel.currentSyncMode) { _, new in
+                NotificationCenter.default.post(
+                    name: Notification.Name("syncModeChanged"),
+                    object: nil
+                )
+                lastAction = "Switched to \(new.rawValue)"
+                arViewModel.isSyncedToImage = false
+                arViewModel.isImageTracked = false
+                arViewModel.isSyncedToObject = false
+                arViewModel.isObjectTracked = false
+            }
+
+            if arViewModel.currentSyncMode == .imageTarget {
+                imageSyncStatus
+            } else if arViewModel.currentSyncMode == .objectTarget {
+                objectSyncStatus
+            }
+        }
+        .padding(.vertical, 8)
+        .background(Color.secondary.opacity(0.1))
+        .cornerRadius(8)
+    }
+
+    @ViewBuilder
+    private var imageSyncStatus: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Circle()
+                    .fill(arViewModel.isImageTracked ? Color.green : Color.red)
+                    .frame(width: 10, height: 10)
+                Text(
+                    arViewModel.isImageTracked
+                        ? "Image Target Detected"
+                        : "Searching for Image Target..."
+                )
+                    .font(.caption)
+                    .foregroundColor(arViewModel.isImageTracked ? .primary : .secondary)
+            }
+            if arViewModel.isSyncedToImage {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text("Synced via Image").font(.caption)
+                    Spacer()
+                    Button("Re-Sync") {
+                        arViewModel.triggerSync()
+                        lastAction = "Triggered Image Re-Sync"
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+            } else {
+                Text("Awaiting Image Sync...")
+                    .font(.caption)
+                    .foregroundColor(.orange)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var objectSyncStatus: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Circle()
+                    .fill(arViewModel.isObjectTracked ? Color.green : Color.red)
+                    .frame(width: 10, height: 10)
+                Text(
+                    arViewModel.isObjectTracked
+                        ? "Object Target Detected"
+                        : "Searching for Object Target..."
+                )
+                    .font(.caption)
+                    .foregroundColor(arViewModel.isObjectTracked ? .primary : .secondary)
+            }
+            if arViewModel.isSyncedToObject {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text("Synced via Object").font(.caption)
+                    Spacer()
+                    Button("Re-Sync") {
+                        arViewModel.triggerSync()
+                        lastAction = "Triggered Object Re-Sync"
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+                Button("Load Reference Model") {
+                    loadReferenceModel()
+                }
+                .buttonStyle(.bordered)
+                .tint(.purple)
+                .disabled(!arViewModel.isSyncedToObject)
+            } else {
+                Text("Awaiting Object Sync...")
+                    .font(.caption)
+                    .foregroundColor(.orange)
+            }
+        }
+
+    }
+
+    @ViewBuilder
+    private var testMessageSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Last Action:").font(.headline)
+            Text(lastAction)
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding(.vertical, 8)
+        .background(Color.secondary.opacity(0.1))
+        .cornerRadius(8)
+    }
+
+    private func loadReferenceModel() {
+        let referenceModelType = ModelType(rawValue: "model-mobile")
+        Task { @MainActor in
+            guard let modelMgr = arViewModel.modelManager,
+                  let svc = arViewModel.customService else {
+                print("Error: ModelManager or CustomService not available for reference model loading.")
+                lastAction = "Error loading ref model"
+                return
+            }
+            let template = await Model.load(modelType: referenceModelType, arViewModel: arViewModel)
+            guard let entityTmpl = template.modelEntity else {
+                arViewModel.alertItem = AlertItem(
+                    title: "Load Failed",
+                    message: "Could not load 'model-mobile.usdz'."
+                )
+                lastAction = "Failed to load ref model"
+                return
+            }
+
+            let cloned = entityTmpl.clone(recursive: true)
+            cloned.name = "ReferenceObjectModel_Debug"
+            cloned.transform = Transform()
+            if cloned.components[InstanceIDComponent.self] == nil {
+                cloned.components.set(InstanceIDComponent())
+            }
+            arViewModel.sharedAnchorEntity.addChild(cloned)
+
+            let placed = Model(modelType: referenceModelType, arViewModel: arViewModel)
+            placed.modelEntity = cloned
+            placed.loadingState = .loaded
+
+            modelMgr.modelDict[cloned] = placed
+            modelMgr.placedModels.append(placed)
+            svc.registerEntity(
+                cloned,
+                modelType: referenceModelType,
+                ownedByLocalPeer: true
+            )
+
+            print("Loaded and registered interactive reference model 'model-mobile.usdz'.")
+            lastAction = "Loaded interactive ref model"
+        }
+    }
+
     func getSelectedModel() -> Model? {
-        // If we have a selectedModelID, find the corresponding model
         if let selectedModelID = modelManager.selectedModelID {
             return modelManager.placedModels.first(where: { $0.modelType == selectedModelID })
         } 
-        // Fallback to the first model if none is explicitly selected
         return modelManager.placedModels.first
     }
-    
-    // Reset model to default position and orientation
+
     func resetModel(_ model: Model) {
         guard let entity = model.modelEntity else { return }
-        
-        // Save original position
+
         let originalPosition = entity.position
-        
-        // Reset scale and rotation
         entity.scale = SIMD3<Float>(repeating: 0.15)
         entity.transform.rotation = simd_quatf(angle: 0, axis: [0, 1, 0])
-        
-        // Keep original position
         entity.position = originalPosition
-        
-        // Update model data
         model.scale = entity.scale
         model.rotation = entity.transform.rotation
-        
-        // Force update for multiplayer
+
         if let arViewModel = model.arViewModel {
             arViewModel.sendTransform(for: entity)
         }
-        
-        // Update slider value
+
         scaleAmount = 0.15
     }
-    
-    // Scale model while keeping its position fixed
+
     func scaleTo(_ model: Model, scale: Float) {
         guard let entity = model.modelEntity else { return }
-        
-        // Save original position
+
         let originalPosition = entity.position
-        
-        // Apply new scale uniformly
         let newScale = SIMD3<Float>(repeating: scale)
         entity.scale = newScale
-        
-        // Restore original position
         entity.position = originalPosition
-        
-        // Update model data
         model.scale = newScale
-        
-        // Force update for multiplayer
+
         if let arViewModel = model.arViewModel {
             arViewModel.sendTransform(for: entity)
         }
     }
-    
-    // Rotate model around specified axis while keeping position fixed
+
     func rotateModel(_ model: Model, axis: String) {
         guard let entity = model.modelEntity else { return }
-        
-        // Save original position
+
         let originalPosition = entity.position
-        
-        // Create rotation based on axis
         let rotationAxis: SIMD3<Float>
         switch axis {
         case "X":
@@ -467,22 +429,16 @@ struct DebugControlsView: View {
         default:
             rotationAxis = [0, 1, 0]
         }
-        
-        // Apply rotation (90 degrees or π/2 radians)
+
         let newRotation = simd_quatf(angle: .pi / 4, axis: rotationAxis)
         entity.transform.rotation = entity.transform.rotation * newRotation
-        
-        // Restore original position
         entity.position = originalPosition
-        
-        // Update model data
         model.rotation = entity.transform.rotation
-        
-        // Force update for multiplayer
+
         if let arViewModel = model.arViewModel {
             arViewModel.sendTransform(for: entity)
         }
-        
+
         lastAction = "Rotated \(model.modelType.rawValue) around \(axis)-axis"
     }
 }

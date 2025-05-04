@@ -63,7 +63,17 @@ final class ModelManager: ObservableObject {
             print("Attempting to load model: \(modelType.rawValue).usdz")
             let model = await Model.load(modelType: modelType, arViewModel: arViewModel)
             let modelEntity = await model.modelEntity // Directly access after await
-            if let entity = modelEntity {
+            
+            guard let entity = try? await Entity.load(named: modelType.rawValue) else{
+                           print("failed to load eneity for----")
+                           return
+                       }
+            
+            configureInteractivity(for: entity)
+            
+            print( "Loaded entity hierarchy for \(modelType.rawValue):")
+            printHierarchy(for: entity)
+            
                 await MainActor.run {
                     self.modelDict[entity] = model
                     self.placedModels.append(model)
@@ -75,7 +85,11 @@ final class ModelManager: ObservableObject {
                     if entity.components[InstanceIDComponent.self] == nil {
                         entity.components.set(InstanceIDComponent())
                     }
-                    let instanceID = entity.components[InstanceIDComponent.self]!.id
+                    guard let idComp = entity.components[InstanceIDComponent.self] else {
+                        print("Error: Missing InstanceIDComponent on entity during model loading.")
+                        return
+                    }
+                    let instanceID = idComp.id
                     
                     // Register with connectivity service
                     if let customService = arViewModel?.customService {
@@ -89,39 +103,43 @@ final class ModelManager: ObservableObject {
                     if let arViewModel = arViewModel, let multipeerSession = arViewModel.multipeerSession {
                         // Determine the transform based on sync mode and parentage
                         let transformToSend: simd_float4x4
-                        let isRelativeToImageAnchor: Bool
-
-                        if arViewModel.currentSyncMode == .imageTarget {
-                            // Assume it should be parented under sharedAnchorEntity
-                            // If not parented yet, calculate hypothetical relative transform
+                        // Determine if the model transform should be relative to the shared anchor (image or object target)
+                        let isRelativeToSharedAnchor: Bool = (arViewModel.currentSyncMode == .imageTarget || arViewModel.currentSyncMode == .objectTarget)
+                        if isRelativeToSharedAnchor {
+                            // If already parented under sharedAnchorEntity, use its local transform; otherwise, calculate world-relative and convert
                             if entity.parent == arViewModel.sharedAnchorEntity {
-                                transformToSend = entity.transform.matrix // Already relative
+                                transformToSend = entity.transform.matrix
                             } else {
-                                // Calculate transform relative to where sharedAnchorEntity *is* or *should be*
-                                // This might be tricky if sharedAnchorEntity isn't placed yet.
-                                // Sending world transform might be safer initially if parent isn't set.
-                                // Let's assume for loadModel, it's placed at the origin of its intended parent.
-                                transformToSend = entity.transform.matrix // Send local transform relative to intended parent origin
-                                print("Warning: Broadcasting addModel for \(modelType.rawValue) in ImageTarget mode, but entity may not be parented yet. Sending local transform.")
+                                // Fallback: send world transform relative to intended parent origin
+                                transformToSend = entity.transform.matrix
+                                print("Warning: Broadcasting addModel for \(modelType.rawValue) in relative mode, but entity may not be parented yet. Sending local transform.")
                             }
-                             isRelativeToImageAnchor = true
                         } else {
-                            // World mode: Assume it's placed relative to a world anchor (e.g., modelAnchor on visionOS, or a new AnchorEntity on iOS)
-                            // Send the world transform.
+                            // World mode: send absolute world transform
                             transformToSend = entity.transformMatrix(relativeTo: nil)
-                            isRelativeToImageAnchor = false
                         }
 
                         let payload = AddModelPayload(
                             instanceID: instanceID,
                             modelType: modelType.rawValue,
                             transform: transformToSend.toArray(),
-                            isRelativeToImageAnchor: isRelativeToImageAnchor
+                            isRelativeToSharedAnchor: isRelativeToSharedAnchor
                         )
                         do {
                             let data = try JSONEncoder().encode(payload)
                             multipeerSession.sendToAllPeers(data, dataType: .addModel)
-                            print("Broadcasted addModel: \(modelType.rawValue) (ID: \(instanceID)), Relative: \(isRelativeToImageAnchor)")
+                            print("Broadcasted addModel: \(modelType.rawValue) (ID: \(instanceID)), Relative: \(isRelativeToSharedAnchor)")
+
+                            // SharePlay: send addModel payload to all group participants
+                            if let messenger = SharePlaySyncController.shared.messenger {
+                                Task {
+                                    do {
+                                        try await messenger.send(payload, to: .all)
+                                    } catch {
+                                        print("SharePlay: failed to send addModel: \(error)")
+                                    }
+                                }
+                            }
                         } catch {
                             print("Error encoding AddModelPayload: \(error)")
                         }
@@ -131,11 +149,39 @@ final class ModelManager: ObservableObject {
                 } // End of MainActor.run
                 
                 print("\(modelType.rawValue) chosen – model loaded and selected")
-            } else {
-                print("Failed to load model entity for \(modelType.rawValue).usdz")
-            }
+            
         }
     }
+    
+    func printHierarchy(for entity: Entity, level: Int = 0) {
+        let indent = String(repeating: "  ", count: level)
+        print("\(indent)- \(entity.name) [\(type(of: entity))]")
+        
+        for child in entity.children {
+            printHierarchy(for: child, level: level + 1)
+        }
+    }
+    
+    
+    func configureInteractivity(for entity: Entity) {
+        for child in entity.children {
+            print("This is the child \(child.name)")
+            configureInteractivity(for: child)
+        }
+        
+
+        if let modelEntity = entity as? ModelEntity {
+            if modelEntity.components[CollisionComponent.self] == nil {
+                // Fallback: use simple box shape to enable interaction
+                let shape = ShapeResource.generateBox(size: [0.1, 0.1, 0.1])
+                modelEntity.components.set(CollisionComponent(shapes: [shape]))
+            }
+
+            modelEntity.components.set(InputTargetComponent(allowedInputTypes: .all))
+            modelEntity.components.set(HoverEffectComponent())
+        }
+    }
+
 
     // MARK: - Remove a Single Model
     @MainActor func removeModel(_ model: Model, broadcast: Bool = true) { // Added broadcast flag
@@ -144,20 +190,7 @@ final class ModelManager: ObservableObject {
         let instanceID = entity.components[InstanceIDComponent.self]?.id ?? entity.id.stringValue
         let modelTypeName = model.modelType.rawValue // Get name before potential removal
         
-        // Broadcast removal *before* removing locally
-        if broadcast, let arViewModel = model.arViewModel, let multipeerSession = arViewModel.multipeerSession {
-            let payload = RemoveModelPayload(instanceID: instanceID)
-            print("Attempting to broadcast removeModel for \(modelTypeName) with InstanceID: \(instanceID)") // Added log
-            do {
-                let data = try JSONEncoder().encode(payload)
-                multipeerSession.sendToAllPeers(data, dataType: .removeModel)
-                print("Successfully broadcasted removeModel: \(modelTypeName) (ID: \(instanceID))")
-            } catch {
-                print("Error encoding RemoveModelPayload for \(modelTypeName) (ID: \(instanceID)): \(error)")
-            }
-        } else if broadcast {
-            print("Could not broadcast removeModel for \(modelTypeName): Missing ARViewModel or MultipeerSession.")
-        }
+
         
         // Clean up entity properly
         // Remove any highlight entities first
@@ -191,7 +224,17 @@ final class ModelManager: ObservableObject {
             selectedModelID = placedModels.first?.modelType
         }
         
-        print("Removed model: \(model.modelType.rawValue)")
+        // [L04] Broadcast removal after local state update to avoid race conditions
+        if broadcast, let arViewModel = model.arViewModel, let multipeerSession = arViewModel.multipeerSession {
+            let payload = RemoveModelPayload(instanceID: instanceID)
+            do {
+                let data = try JSONEncoder().encode(payload)
+                multipeerSession.sendToAllPeers(data, dataType: .removeModel)
+            } catch {
+                print("Error encoding RemoveModelPayload: \(error)")
+            }
+        }
+        print("Removed model: \(modelTypeName)")
     }
     
     @MainActor func reset() {

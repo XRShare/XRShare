@@ -142,8 +142,10 @@ class ARSessionDelegateHandler: NSObject, ARSessionDelegate {
 
                     print("❌ [iOS] Image Target '\(imageName)' anchor removed.")
                     if arViewModel.isImageTracked {
-                        arViewModel.isImageTracked = false // Mark as not detected
-                        // Do not reset isSyncedToImage
+                        arViewModel.isImageTracked = false
+                        // Reset sync so that next re‑detection will re‑align
+                        arViewModel.isSyncedToImage = false
+                        print("🔄 [iOS] Reset image sync flag due to anchor removal.")
                     }
                 } else if let objectAnchor = anchor as? ARObjectAnchor {
                      let objectName = objectAnchor.referenceObject.name ?? "unknown object"
@@ -153,8 +155,8 @@ class ARSessionDelegateHandler: NSObject, ARSessionDelegate {
                      // When anchor is removed, mark as not tracked
                      if arViewModel.isObjectTracked {
                          arViewModel.isObjectTracked = false
-                         // Do not reset isSyncedToObject here, the alignment might still be useful
-                         // if the object reappears quickly. Resetting sync is done via the UI button.
+                         arViewModel.isSyncedToObject = false
+                         print("🔄 [iOS] Reset object sync flag due to anchor removal.")
                      }
                 }
                 // Clean up associated content if needed

@@ -26,18 +26,18 @@ struct ModelType: Hashable, Identifiable {
     // This ensures models with the same rawValue have the same ID
     var id: String { rawValue.lowercased() }
     
-    static let categoryyMap: [String: ModelCategory] = [
+    static let categoryMap: [String: ModelCategory] = [
         "heart": .anatomy,
         "arterieshead": .anatomy,
         "pancakes": .food
         ]
     
     var category: ModelCategory? {
-        ModelType.categoryyMap[rawValue.lowercased()]
+        ModelType.categoryMap[rawValue.lowercased()]
     }
     
     /// Models that should rotate around the Z‑axis (if needed)
-    static let zAxisRotationModels: [String] = ["arteriesHead", "brain", "heart", "heart2K"]
+    static let zAxisRotationModels: [String] = ["arterieshead", "brain", "heart", "heart2k"]
     
     func createModelEntity() -> ModelEntity? {
         let filename = rawValue + ".usdz"

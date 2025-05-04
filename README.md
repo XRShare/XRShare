@@ -76,3 +76,58 @@ The app supports real-time collaboration between multiple users:
 ## 📝 License
 
 This project is available for educational use.
+
+## 📚 Docset Ingestion
+
+You can ingest an Apple .docset (e.g. Apple API Reference) for retrieval or fine-tuning.
+
+1. Install Python dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+2. Configure your docset path:
+   - Copy `docset_config.json.template` to `docset_config.json`
+   - Edit `docset_config.json` and set `docset_path`, `index_path`, and `meta_path`
+3. Generate the FAISS index:
+   ```bash
+   make docset-index
+   ```
+   This will read your `docset_config.json` and produce:
+   - A FAISS index at the configured `index_path` (e.g., `data/docset_index.faiss`)
+   - A metadata file at the configured `meta_path` (e.g., `data/docset_index.faiss.meta.json`)
+
+3. Use the index for retrieval-augmented queries or convert metadata for fine-tuning datasets.
+
+## 🔍 Querying the Docset Index
+
+After ingestion, you can fetch relevant API docs for a query:
+
+### Using config file:
+```bash
+make docset-query QUESTION="How do I create a UIView?"
+```
+
+### Or specifying paths explicitly:
+```bash
+make query-docset INDEX=data/docset_index.faiss \
+                   META=data/docset_index.faiss.meta.json \
+                   QUERY="How do I create a UIView?"
+```
+
+This will return the top matching documentation chunks from the Apple API Reference.
+  
+## 📝 Codex Summary Regeneration
+
+Codex context files (`codex.md` and `CODEBASE_SUMMARY.md`) are auto-generated locally and ignored by Git. To set up automatic updates on each commit via a pre-commit hook, install and enable [pre-commit](https://pre-commit.com/):
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+To regenerate the summaries manually at any time, run:
+
+```bash
+make codex-summary
+```
+ 

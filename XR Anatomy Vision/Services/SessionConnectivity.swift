@@ -52,6 +52,8 @@ class SessionConnectivity: ObservableObject {
     /// Reset all tracking
     func reset() {
         registeredEntities.removeAll()
+        transformCancellables.forEach { $0.cancel() }
+        transformCancellables.removeAll()
     }
     
     func broadcastAnchorCreation(_ anchorEntity: AnchorEntity, modelType: ModelType? = nil) {
@@ -59,7 +61,7 @@ class SessionConnectivity: ObservableObject {
         let modelID = modelType?.rawValue ?? "anchor-\(UUID())"
         _ = AnchorTransformPayload(
             anchorData: Data(),
-            modelID: modelID,
+            anchorID: modelID,
             transform: transformArr,
             modelType: modelType?.rawValue
         )
@@ -89,7 +91,7 @@ class SessionConnectivity: ObservableObject {
             // Update the last known transform component
             entity.components[LastTransformComponent.self] = LastTransformComponent(matrix: currentMatrix)
         }
-        transformCancellables.append(cancellable as! AnyCancellable)
+        transformCancellables.append(AnyCancellable(cancellable))
     }
     
     private var isApplyingRemoteTransform = false
