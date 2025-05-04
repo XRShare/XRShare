@@ -1,6 +1,5 @@
 import SwiftUI
 import RealityKit
-import RealityKitContent
 
 struct SelectedPartInfoScreen: View {
     @Environment(\.openWindow) private var openWindow

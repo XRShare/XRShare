@@ -1,42 +1,7 @@
 import SwiftUI
 import ARKit
 
-// MARK: - App state manager
-class AppState: ObservableObject {
-    // Tracking Providers
-    @Published var imageTrackingProvider: ImageTrackingProvider? = nil
-    @Published var objectTrackingProvider: ObjectTrackingProvider? = nil
-
-    // Tracking Status
-    @Published var alertItem: AlertItem? = nil
-
-    // Auto-start image tracking mode
-    @Published var autoStartImageTracking: Bool = true
-    
-    // This function might be redundant if ARViewModel gets ModelManager directly
-    // func setupModelManager(modelManager: ModelManager, arViewModel: ARViewModel) {
-    //     // Link model manager with view model
-    //     arViewModel.modelManager = modelManager
-    // }
-    
-    // Handle image tracking setup
-    func startImageTracking(provider: ImageTrackingProvider) {
-        imageTrackingProvider = provider
-        objectTrackingProvider = nil // Ensure only one provider is active
-    }
-
-    // Handle object tracking setup
-    func startObjectTracking(provider: ObjectTrackingProvider) {
-        objectTrackingProvider = provider
-        imageTrackingProvider = nil // Ensure only one provider is active
-    }
-
-    // Stop all tracking
-    func stopTracking() {
-        imageTrackingProvider = nil
-        objectTrackingProvider = nil
-    }
-}
+// MARK: - visionOS App entry point
 
 @main
 struct XRAnatomy_visionOSApp: App {

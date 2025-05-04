@@ -62,12 +62,12 @@ final class ModelManager: ObservableObject {
         Task {
             print("Attempting to load model: \(modelType.rawValue).usdz")
             let model = await Model.load(modelType: modelType, arViewModel: arViewModel)
-            let modelEntity = await model.modelEntity // Directly access after await
-            
-            guard let entity = try? await Entity.load(named: modelType.rawValue) else{
-                           print("failed to load eneity for----")
-                           return
-                       }
+
+            // Use the entity that was already loaded inside Model.load.
+            guard let entity = await model.modelEntity else {
+                print("Error: Model entity failed to load for \(modelType.rawValue)")
+                return
+            }
             
             configureInteractivity(for: entity)
             

@@ -7,7 +7,6 @@
 
 import SwiftUI
 import RealityKit
-import RealityKitContent
 
 struct AddModelView: View {
     @Environment(\.openWindow) private var openWindow

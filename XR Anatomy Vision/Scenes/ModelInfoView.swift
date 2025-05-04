@@ -1,6 +1,5 @@
 import SwiftUI
 import RealityKit
-import RealityKitContent
 
 struct ModelInformationView: View {
     @Environment(\.openWindow) private var openWindow
