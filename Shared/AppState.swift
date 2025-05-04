@@ -1,21 +1,28 @@
 import SwiftUI
-import ARKit
 
-/// Application-wide AR tracking state used mainly by the visionOS build.
+// Import ARKit only when it exists (visionOS, iOS 17+)
+#if canImport(ARKit)
+import ARKit
+#endif
+
+/// Application-wide AR / tracking state.
+/// Only visionOS currently uses the tracking providers; on other platforms the
+/// symbols are stubbed so the file compiles under a shared target.
 @MainActor
 class AppState: ObservableObject {
 
-    // Providers
+#if os(visionOS)
+    // MARK: Tracking providers (visionOS only)
     @Published var imageTrackingProvider: ImageTrackingProvider? = nil
     @Published var objectTrackingProvider: ObjectTrackingProvider? = nil
+#endif
 
-    // Alert forwarding
+    // MARK: Shared UI state
     @Published var alertItem: AlertItem? = nil
-
-    // Auto-start flags
     @Published var autoStartImageTracking: Bool = true
 
-    // MARK: Tracking helpers
+#if os(visionOS)
+    // MARK: Tracking helper methods
     func startImageTracking(provider: ImageTrackingProvider) {
         imageTrackingProvider = provider
         objectTrackingProvider = nil
@@ -30,4 +37,10 @@ class AppState: ObservableObject {
         imageTrackingProvider = nil
         objectTrackingProvider = nil
     }
+#else
+    // Stubs for non-visionOS builds; keep signatures but with `Any` parameter
+    func startImageTracking(provider _: Any) {}
+    func startObjectTracking(provider _: Any) {}
+    func stopTracking() {}
+#endif
 }
