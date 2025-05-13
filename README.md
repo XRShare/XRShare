@@ -1,6 +1,6 @@
-# XR Anatomy
+# XRShare
 
-XR Anatomy is a demonstration app for iOS and visionOS that lets you place, inspect and share detailed 3-D anatomical models in augmented or mixed reality.  The project shows how to:
+XRShare is a demonstration app for iOS and visionOS that lets you place, inspect and share detailed 3-D anatomical models in augmented or mixed reality.  The project shows how to:
 
 * load and display USDZ assets with RealityKit
 * apply basic gestures for translation, rotation and scaling
