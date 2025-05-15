@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "0D64C65B2CE003FE00D34085"
-               BuildableName = "XR Anatomy.app"
-               BlueprintName = "XR Anatomy"
-               ReferencedContainer = "container:XR Anatomy.xcodeproj">
+               BuildableName = "XR Share.app"
+               BlueprintName = "XR Share"
+               ReferencedContainer = "container:XR Share.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -45,9 +45,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "0D64C65B2CE003FE00D34085"
-            BuildableName = "XR Anatomy.app"
-            BlueprintName = "XR Anatomy"
-            ReferencedContainer = "container:XR Anatomy.xcodeproj">
+            BuildableName = "XR Share.app"
+            BlueprintName = "XR Share"
+            ReferencedContainer = "container:XR Share.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <EnvironmentVariables>
@@ -69,9 +69,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "0D64C65B2CE003FE00D34085"
-            BuildableName = "XR Anatomy.app"
-            BlueprintName = "XR Anatomy"
-            ReferencedContainer = "container:XR Anatomy.xcodeproj">
+            BuildableName = "XR Share.app"
+            BlueprintName = "XR Share"
+            ReferencedContainer = "container:XR Share.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

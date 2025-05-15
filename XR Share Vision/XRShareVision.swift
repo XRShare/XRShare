@@ -4,7 +4,7 @@ import ARKit
 // MARK: - visionOS App entry point
 
 @main
-struct XRAnatomy_visionOSApp: App {
+struct XRShareVision: App {
     @Environment(\.dismissWindow) var dismiss
     @StateObject private var appModel = AppModel()
     @StateObject private var arViewModel = ARViewModel()

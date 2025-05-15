@@ -7,50 +7,50 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		0D64C65C2CE003FE00D34085 /* XR Anatomy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "XR Anatomy.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		87B974482D09106D00168B98 /* XR Anatomy Vision.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "XR Anatomy Vision.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		0D64C65C2CE003FE00D34085 /* XR Share.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "XR Share.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		87B974482D09106D00168B98 /* XR ShareVision.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "XR ShareVision.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		0DE709142CE1BBE200762D5F /* Exceptions for "XR Anatomy" folder in "XR Anatomy" target */ = {
+		0DE709142CE1BBE200762D5F /* Exceptions for "XR Share" folder in "XR Share" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = 0D64C65B2CE003FE00D34085 /* XR Anatomy */;
+			target = 0D64C65B2CE003FE00D34085 /* XR Share */;
 		};
-		668276E42D9DBD9900FA5E50 /* Exceptions for "Shared" folder in "XR Anatomy Vision" target */ = {
+		668276E42D9DBD9900FA5E50 /* Exceptions for "Shared" folder in "XR Share Vision" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				"models/model-mobile.referenceobject",
 			);
-			target = 87B974472D09106D00168B98 /* XR Anatomy Vision */;
+			target = 87B974472D09106D00168B98 /* XR Share Vision */;
 		};
-		66FCD95C2D9DBDF300579A97 /* Exceptions for "Shared" folder in "XR Anatomy" target */ = {
+		66FCD95C2D9DBDF300579A97 /* Exceptions for "Shared" folder in "XR Share" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				"models/model-mobile.referenceobject",
 			);
-			target = 0D64C65B2CE003FE00D34085 /* XR Anatomy */;
+			target = 0D64C65B2CE003FE00D34085 /* XR Share */;
 		};
-		87B9745A2D09106E00168B98 /* Exceptions for "XR Anatomy Vision" folder in "XR Anatomy Vision" target */ = {
+		6E5046432DD6737400AF9246 /* Exceptions for "XR Share Vision" folder in "XR Share Vision" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = 87B974472D09106D00168B98 /* XR Anatomy Vision */;
+			target = 87B974472D09106D00168B98 /* XR Share Vision */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-		668276E62D9DBDA100FA5E50 /* Exceptions for "Shared" folder in "Copy Bundle Resources" phase from "XR Anatomy Vision" target */ = {
+		668276E62D9DBDA100FA5E50 /* Exceptions for "Shared" folder in "Copy Bundle Resources" phase from "XR Share Vision" target */ = {
 			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
 			buildPhase = 87B974462D09106D00168B98 /* Resources */;
 			membershipExceptions = (
 				"models/model-mobile.referenceobject",
 			);
 		};
-		668276E82D9DBDA600FA5E50 /* Exceptions for "Shared" folder in "Copy Bundle Resources" phase from "XR Anatomy" target */ = {
+		668276E82D9DBDA600FA5E50 /* Exceptions for "Shared" folder in "Copy Bundle Resources" phase from "XR Share" target */ = {
 			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
 			buildPhase = 0D64C65A2CE003FE00D34085 /* Resources */;
 			membershipExceptions = (
@@ -60,29 +60,29 @@
 /* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		0D64C65E2CE003FE00D34085 /* XR Anatomy */ = {
+		0D64C65E2CE003FE00D34085 /* XR Share */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				0DE709142CE1BBE200762D5F /* Exceptions for "XR Anatomy" folder in "XR Anatomy" target */,
+				0DE709142CE1BBE200762D5F /* Exceptions for "XR Share" folder in "XR Share" target */,
 			);
-			path = "XR Anatomy";
+			path = "XR Share";
 			sourceTree = "<group>";
 		};
-		87B974492D09106D00168B98 /* XR Anatomy Vision */ = {
+		87B974492D09106D00168B98 /* XR Share Vision */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				87B9745A2D09106E00168B98 /* Exceptions for "XR Anatomy Vision" folder in "XR Anatomy Vision" target */,
+				6E5046432DD6737400AF9246 /* Exceptions for "XR Share Vision" folder in "XR Share Vision" target */,
 			);
-			path = "XR Anatomy Vision";
+			path = "XR Share Vision";
 			sourceTree = "<group>";
 		};
 		87B9745C2D09107E00168B98 /* Shared */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				66FCD95C2D9DBDF300579A97 /* Exceptions for "Shared" folder in "XR Anatomy" target */,
-				668276E82D9DBDA600FA5E50 /* Exceptions for "Shared" folder in "Copy Bundle Resources" phase from "XR Anatomy" target */,
-				668276E42D9DBD9900FA5E50 /* Exceptions for "Shared" folder in "XR Anatomy Vision" target */,
-				668276E62D9DBDA100FA5E50 /* Exceptions for "Shared" folder in "Copy Bundle Resources" phase from "XR Anatomy Vision" target */,
+				66FCD95C2D9DBDF300579A97 /* Exceptions for "Shared" folder in "XR Share" target */,
+				668276E82D9DBDA600FA5E50 /* Exceptions for "Shared" folder in "Copy Bundle Resources" phase from "XR Share" target */,
+				668276E42D9DBD9900FA5E50 /* Exceptions for "Shared" folder in "XR Share Vision" target */,
+				668276E62D9DBDA100FA5E50 /* Exceptions for "Shared" folder in "Copy Bundle Resources" phase from "XR Share Vision" target */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -94,8 +94,8 @@
 			isa = PBXGroup;
 			children = (
 				87B9745C2D09107E00168B98 /* Shared */,
-				0D64C65E2CE003FE00D34085 /* XR Anatomy */,
-				87B974492D09106D00168B98 /* XR Anatomy Vision */,
+				0D64C65E2CE003FE00D34085 /* XR Share */,
+				87B974492D09106D00168B98 /* XR Share Vision */,
 				0D64C65D2CE003FE00D34085 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -103,8 +103,8 @@
 		0D64C65D2CE003FE00D34085 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				0D64C65C2CE003FE00D34085 /* XR Anatomy.app */,
-				87B974482D09106D00168B98 /* XR Anatomy Vision.app */,
+				0D64C65C2CE003FE00D34085 /* XR Share.app */,
+				87B974482D09106D00168B98 /* XR ShareVision.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -112,9 +112,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		0D64C65B2CE003FE00D34085 /* XR Anatomy */ = {
+		0D64C65B2CE003FE00D34085 /* XR Share */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 0D64C66A2CE003FF00D34085 /* Build configuration list for PBXNativeTarget "XR Anatomy" */;
+			buildConfigurationList = 0D64C66A2CE003FF00D34085 /* Build configuration list for PBXNativeTarget "XR Share" */;
 			buildPhases = (
 				0D64C6582CE003FE00D34085 /* Sources */,
 				0D64C65A2CE003FE00D34085 /* Resources */,
@@ -122,17 +122,17 @@
 			buildRules = (
 			);
 			fileSystemSynchronizedGroups = (
-				0D64C65E2CE003FE00D34085 /* XR Anatomy */,
+				0D64C65E2CE003FE00D34085 /* XR Share */,
 				87B9745C2D09107E00168B98 /* Shared */,
 			);
-			name = "XR Anatomy";
+			name = "XR Share";
 			productName = CollaborativeARApp;
-			productReference = 0D64C65C2CE003FE00D34085 /* XR Anatomy.app */;
+			productReference = 0D64C65C2CE003FE00D34085 /* XR Share.app */;
 			productType = "com.apple.product-type.application";
 		};
-		87B974472D09106D00168B98 /* XR Anatomy Vision */ = {
+		87B974472D09106D00168B98 /* XR Share Vision */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 87B9745B2D09106E00168B98 /* Build configuration list for PBXNativeTarget "XR Anatomy Vision" */;
+			buildConfigurationList = 87B9745B2D09106E00168B98 /* Build configuration list for PBXNativeTarget "XR Share Vision" */;
 			buildPhases = (
 				87B974442D09106D00168B98 /* Sources */,
 				87B974462D09106D00168B98 /* Resources */,
@@ -140,12 +140,12 @@
 			buildRules = (
 			);
 			fileSystemSynchronizedGroups = (
-				87B974492D09106D00168B98 /* XR Anatomy Vision */,
+				87B974492D09106D00168B98 /* XR Share Vision */,
 				87B9745C2D09107E00168B98 /* Shared */,
 			);
-			name = "XR Anatomy Vision";
+			name = "XR Share Vision";
 			productName = "XR Anatomy Vision";
-			productReference = 87B974482D09106D00168B98 /* XR Anatomy Vision.app */;
+			productReference = 87B974482D09106D00168B98 /* XR ShareVision.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -166,7 +166,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 0D64C6572CE003FE00D34085 /* Build configuration list for PBXProject "XR Anatomy" */;
+			buildConfigurationList = 0D64C6572CE003FE00D34085 /* Build configuration list for PBXProject "XR Share" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -180,8 +180,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				0D64C65B2CE003FE00D34085 /* XR Anatomy */,
-				87B974472D09106D00168B98 /* XR Anatomy Vision */,
+				0D64C65B2CE003FE00D34085 /* XR Share */,
+				87B974472D09106D00168B98 /* XR Share Vision */,
 			);
 		};
 /* End PBXProject section */
@@ -213,7 +213,7 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		0D64C6682CE003FF00D34085 /* Debug configuration for PBXProject "XR Anatomy" */ = {
+		0D64C6682CE003FF00D34085 /* Debug configuration for PBXProject "XR Share" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -278,7 +278,7 @@
 			};
 			name = Debug;
 		};
-		0D64C6692CE003FF00D34085 /* Release configuration for PBXProject "XR Anatomy" */ = {
+		0D64C6692CE003FF00D34085 /* Release configuration for PBXProject "XR Share" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -335,21 +335,22 @@
 			};
 			name = Release;
 		};
-		0D64C66B2CE003FF00D34085 /* Debug configuration for PBXNativeTarget "XR Anatomy" */ = {
+		0D64C66B2CE003FF00D34085 /* Debug configuration for PBXNativeTarget "XR Share" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
-				CODE_SIGN_ENTITLEMENTS = "XR Anatomy/XR AnatomyDebug.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"/Users/alikara/Desktop/CPSC 599/XR-Anatomy-App-2 copy 2/XR Anatomy/Assets.xcassets\" \"XR Anatomy/\"";
+				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = G4W979YVJD;
+				EAGER_LINKING = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "XR Anatomy/Info.plist";
+				INFOPLIST_FILE = "XR Share/Info.plist";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "This app requests Bluetooth access to connect with nearby devices for collaborative AR experiences";
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app uses the camera for Augmented Reality experiences.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "This app uses the local network to discover and connect with other devices for collaboration.";
@@ -359,14 +360,16 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				"INSTALL_OWNER[sdk=*]" = "$(USER)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "XR-Anatomy.XR-Anatomy2-Team33";
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "XR Share";
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -376,21 +379,22 @@
 			};
 			name = Debug;
 		};
-		0D64C66C2CE003FF00D34085 /* Release configuration for PBXNativeTarget "XR Anatomy" */ = {
+		0D64C66C2CE003FF00D34085 /* Release configuration for PBXNativeTarget "XR Share" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
-				CODE_SIGN_ENTITLEMENTS = "XR Anatomy/XR Anatomy.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"XR Anatomy/\"";
+				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = G4W979YVJD;
+				EAGER_LINKING = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "XR Anatomy/Info.plist";
+				INFOPLIST_FILE = "XR Share/Info.plist";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "This app requests Bluetooth access to connect with nearby devices for collaborative AR experiences";
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app uses the camera for Augmented Reality experiences.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "This app uses the local network to discover and connect with other devices for collaboration.";
@@ -406,8 +410,9 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = XR.Anatomy.App234;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "XR Share";
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -417,7 +422,7 @@
 			};
 			name = Release;
 		};
-		87B974582D09106E00168B98 /* Debug configuration for PBXNativeTarget "XR Anatomy Vision" */ = {
+		87B974582D09106E00168B98 /* Debug configuration for PBXNativeTarget "XR Share Vision" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -425,20 +430,21 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"XR Anatomy Vision/\"";
-				DEVELOPMENT_TEAM = GB5R6DTC6N;
+				DEVELOPMENT_ASSET_PATHS = "\"XR Share Vision/\"";
+				DEVELOPMENT_TEAM = G4W979YVJD;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "$(TARGET_NAME)/Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
 				INFOPLIST_KEY_NSUserTrackingUsageDescription = "";
+				LD_MAP_FILE_PATH = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "XR-Anatomy.XR-Anatomy-Vision-Team6";
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = "XR-Anatomy.XR-Anatomy-Vision-TeamLab";
+				PRODUCT_NAME = "XR ShareVision";
 				SDKROOT = xros;
 				SUPPORTED_PLATFORMS = "xros xrsimulator";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -448,7 +454,7 @@
 			};
 			name = Debug;
 		};
-		87B974592D09106E00168B98 /* Release configuration for PBXNativeTarget "XR Anatomy Vision" */ = {
+		87B974592D09106E00168B98 /* Release configuration for PBXNativeTarget "XR Share Vision" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -456,8 +462,8 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"XR Anatomy Vision/\"";
-				DEVELOPMENT_TEAM = GB5R6DTC6N;
+				DEVELOPMENT_ASSET_PATHS = "\"XR Share Vision/\"";
+				DEVELOPMENT_TEAM = G4W979YVJD;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "$(TARGET_NAME)/Info.plist";
@@ -468,8 +474,8 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "XR-Anatomy.XR-Anatomy-Vision-Team6";
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = "XR-Anatomy.XR-Anatomy-Vision-TeamLab";
+				PRODUCT_NAME = "XR ShareVision";
 				SDKROOT = xros;
 				SUPPORTED_PLATFORMS = "xros xrsimulator";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -482,27 +488,27 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		0D64C6572CE003FE00D34085 /* Build configuration list for PBXProject "XR Anatomy" */ = {
+		0D64C6572CE003FE00D34085 /* Build configuration list for PBXProject "XR Share" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				0D64C6682CE003FF00D34085 /* Debug configuration for PBXProject "XR Anatomy" */,
-				0D64C6692CE003FF00D34085 /* Release configuration for PBXProject "XR Anatomy" */,
+				0D64C6682CE003FF00D34085 /* Debug configuration for PBXProject "XR Share" */,
+				0D64C6692CE003FF00D34085 /* Release configuration for PBXProject "XR Share" */,
 			);
 			defaultConfigurationName = Debug;
 		};
-		0D64C66A2CE003FF00D34085 /* Build configuration list for PBXNativeTarget "XR Anatomy" */ = {
+		0D64C66A2CE003FF00D34085 /* Build configuration list for PBXNativeTarget "XR Share" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				0D64C66B2CE003FF00D34085 /* Debug configuration for PBXNativeTarget "XR Anatomy" */,
-				0D64C66C2CE003FF00D34085 /* Release configuration for PBXNativeTarget "XR Anatomy" */,
+				0D64C66B2CE003FF00D34085 /* Debug configuration for PBXNativeTarget "XR Share" */,
+				0D64C66C2CE003FF00D34085 /* Release configuration for PBXNativeTarget "XR Share" */,
 			);
 			defaultConfigurationName = Debug;
 		};
-		87B9745B2D09106E00168B98 /* Build configuration list for PBXNativeTarget "XR Anatomy Vision" */ = {
+		87B9745B2D09106E00168B98 /* Build configuration list for PBXNativeTarget "XR Share Vision" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				87B974582D09106E00168B98 /* Debug configuration for PBXNativeTarget "XR Anatomy Vision" */,
-				87B974592D09106E00168B98 /* Release configuration for PBXNativeTarget "XR Anatomy Vision" */,
+				87B974582D09106E00168B98 /* Debug configuration for PBXNativeTarget "XR Share Vision" */,
+				87B974592D09106E00168B98 /* Release configuration for PBXNativeTarget "XR Share Vision" */,
 			);
 			defaultConfigurationName = Debug;
 		};

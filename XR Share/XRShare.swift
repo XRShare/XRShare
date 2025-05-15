@@ -3,7 +3,7 @@
 import SwiftUI
 
 @main
-struct XRAnatomyApp: App {
+struct XRShare: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     // Initialize both ViewModel and ModelManager as StateObjects
     @StateObject private var arViewModel = ARViewModel()
