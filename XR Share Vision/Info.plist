@@ -2,6 +2,22 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleIcons</key>
+	<dict>
+		<key>CFBundlePrimaryIcon</key>
+		<string>AppIcon</string>
+	</dict>
+	<key>CFBundleIcons.CFBundlePrimaryIcon</key>
+	<string>AppIcon</string>
+	<key>CFBundleIconsForVisionOS</key>
+	<dict>
+		<key>CFBundlePrimaryIcon</key>
+		<string>AppIcon</string>
+	</dict>
+	<key>CFBundleIconsForVisionOS.CFBundlePrimaryIcon</key>
+	<string>AppIcon</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_xr-anatomy._tcp</string>

@@ -12,6 +12,11 @@
     {
       "idiom" : "universal",
       "scale" : "3x"
+    },
+    {
+      "filename" : "XRShare 1.png",
+      "idiom" : "vision",
+      "scale" : "2x"
     }
   ],
   "info" : {
