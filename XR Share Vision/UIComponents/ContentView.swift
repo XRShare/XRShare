@@ -59,7 +59,9 @@ extension View {
 // Reusable window opener modifier with proper lifecycle management
 struct WindowOpenerModifier: ViewModifier {
     @Environment(\.openWindow) private var openWindow
-    @State private var observer: NSObjectProtocol? = nil
+    @Environment(\.dismissWindow) private var dismissWindow
+    @State private var openObserver: NSObjectProtocol? = nil
+    @State private var closeObserver: NSObjectProtocol? = nil
     // Store last opened window ID and timestamp
     @State private var lastOpenedWindowId: String? = nil
     @State private var lastOpenedTimestamp: Double = 0.0
@@ -69,8 +71,8 @@ struct WindowOpenerModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .onAppear {
-                if observer == nil {
-                    observer = NotificationCenter.default.addObserver(
+                if openObserver == nil {
+                    openObserver = NotificationCenter.default.addObserver(
                         forName: Notification.Name("openWindow"),
                         object: nil,
                         queue: .main) { notification in
@@ -92,15 +94,33 @@ struct WindowOpenerModifier: ViewModifier {
                             openWindow(id: id)
                         }
                 }
+                
+                // Add close window observer
+                if closeObserver == nil {
+                    closeObserver = NotificationCenter.default.addObserver(
+                        forName: Notification.Name("closeWindow"),
+                        object: nil,
+                        queue: .main) { notification in
+                            guard let id = notification.userInfo?["id"] as? String else {
+                                return
+                            }
+                            print("Closing window: \(id)")
+                            dismissWindow(id: id)
+                        }
+                }
             }
             .onDisappear {
-                if let observer = observer {
-                    NotificationCenter.default.removeObserver(observer)
-                    self.observer = nil
-                    // Reset state on disappear
-                    lastOpenedWindowId = nil
-                    lastOpenedTimestamp = 0.0
+                if let openObserver = openObserver {
+                    NotificationCenter.default.removeObserver(openObserver)
+                    self.openObserver = nil
                 }
+                if let closeObserver = closeObserver {
+                    NotificationCenter.default.removeObserver(closeObserver)
+                    self.closeObserver = nil
+                }
+                // Reset state on disappear
+                lastOpenedWindowId = nil
+                lastOpenedTimestamp = 0.0
             }
     }
 }

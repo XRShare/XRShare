@@ -27,9 +27,11 @@ struct ModelSelectionScreen: View {
                     modelManager.reset()
                     // Reset multipeer services
                     arViewModel.stopMultipeerServices()
-                    // Exit the immersive view
+                    // Exit the immersive view only if it's open
                     Task {
-                        await dismissImmersiveSpace()
+                        if appModel.immersiveSpaceState == .open {
+                            await dismissImmersiveSpace()
+                        }
                     }
                     // Switch the app page back to main
                     appModel.currentPage = .mainMenu
@@ -191,11 +193,15 @@ struct ModelSelectionScreen: View {
             modelManager.loadModelTypes()
         }
         .onDisappear {
-            // Also clear if user navigates away via system or other route
-            modelManager.reset()
-            arViewModel.stopMultipeerServices()
-            Task {
-                await dismissImmersiveSpace()
+            // Only reset when actually leaving the session (going back to main menu)
+            if appModel.currentPage == .mainMenu {
+                modelManager.reset()
+                arViewModel.stopMultipeerServices()
+                Task {
+                    if appModel.immersiveSpaceState == .open {
+                        await dismissImmersiveSpace()
+                    }
+                }
             }
         }
     }

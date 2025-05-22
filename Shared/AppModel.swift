@@ -60,10 +60,14 @@ final class AppModel: ObservableObject {
                 controlPanelVisible = true
                 NotificationCenter.default.post(name: Notification.Name("openWindow"),
                                                 object: nil,
-                                                userInfo: ["id": "controlPanel"])
+                                                userInfo: ["id": "controlPanel", "timestamp": Date.timeIntervalSinceReferenceDate])
             }
         } else {
             controlPanelVisible = false
+            // Post notification to close the debug panel
+            NotificationCenter.default.post(name: Notification.Name("closeWindow"),
+                                            object: nil,
+                                            userInfo: ["id": "controlPanel"])
         }
     }
 

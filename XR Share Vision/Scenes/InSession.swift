@@ -484,11 +484,9 @@ struct InSession: View {
             refreshTimer?.invalidate()
             refreshTimer = nil
             
-            arViewModel.stopMultipeerServices()
-            modelManager.reset()
-            Task {
-                await dismissImmersiveSpace()
-            }
+            // Don't reset here - let the parent view handle cleanup
+            // This view disappears when the immersive space is dismissed,
+            // so trying to dismiss it from here causes the error
         }
     }
 }
