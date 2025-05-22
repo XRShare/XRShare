@@ -30,8 +30,45 @@ struct InSession: View {
     // Passed Properties
     var session: ARKitSession // Receive the ARKitSession instance
     
-    // World-anchored anchor for placing models at a fixed world position
-    let modelAnchor: AnchorEntity = AnchorEntity(world: matrix_identity_float4x4)
+    // World-anchored anchor for placing models at window level
+    @State private var modelAnchor: AnchorEntity = {
+        var transform = matrix_identity_float4x4
+        // Position at typical visionOS window location
+        transform.columns.3.x = 0.0   // Center horizontally
+        transform.columns.3.y = 1.6   // Eye level (typical window height)
+        transform.columns.3.z = -1.5  // Comfortable viewing distance for visionOS
+        return AnchorEntity(world: transform)
+    }()
+    
+    // Track if we've positioned relative to a window
+    @State private var hasPositionedRelativeToWindow = false
+    
+    // Function to update model placement position
+    func updateModelAnchorPosition() {
+        var transform = modelAnchor.transform.matrix
+        
+        // In visionOS, windows typically appear at eye level
+        // We'll place models at the same height and distance
+        if !hasPositionedRelativeToWindow {
+            // Set to typical window position
+            transform.columns.3.y = 1.6  // Eye level
+            transform.columns.3.z = -1.5 // Standard window distance
+            DispatchQueue.main.async {
+                hasPositionedRelativeToWindow = true
+            }
+        }
+        
+        // Horizontally offset based on model count
+        let modelCount = modelManager.placedModels.count
+        if modelCount > 0 {
+            // First model at center, subsequent models spread to the right
+            let spacing: Float = 0.5 // 50cm spacing between models
+            let xOffset = Float(modelCount - 1) * spacing
+            transform.columns.3.x = xOffset * 0.5 // Center the group
+        }
+        
+        modelAnchor.setTransformMatrix(transform, relativeTo: nil)
+    }
     
     // Reference objects only shown in debug mode
     let referenceObjects = [
@@ -132,6 +169,9 @@ struct InSession: View {
             if !content.entities.contains(arViewModel.sharedAnchorEntity) {
                 content.add(arViewModel.sharedAnchorEntity)
             }
+            
+            // Update model anchor position based on number of models
+            updateModelAnchorPosition()
             // Ensure models are correctly parented based on sync mode
             for model in modelManager.placedModels {
                 guard let entity = model.modelEntity else { continue }
@@ -246,8 +286,10 @@ struct InSession: View {
 
                      // Store entity being dragged
                      if draggedEntity == nil {
-                         draggedEntity = value.entity
-                         print("Drag started on: \(value.entity.name)")
+                         DispatchQueue.main.async {
+                             draggedEntity = value.entity
+                             print("Drag started on: \(value.entity.name)")
+                         }
                      }
                      // Ensure we are continuing to drag the same entity
                      guard let currentDraggedEntity = draggedEntity, value.entity == currentDraggedEntity else {
@@ -258,8 +300,10 @@ struct InSession: View {
 
                      // On the first change event for this entity, just store the location
                      guard let previousLocation = previousDragLocation3D else {
-                         previousDragLocation3D = currentDragLocation
-                         print("Drag first update for \(currentDraggedEntity.name) at \(currentDragLocation)")
+                         DispatchQueue.main.async {
+                             previousDragLocation3D = currentDragLocation
+                             print("Drag first update for \(currentDraggedEntity.name) at \(currentDragLocation)")
+                         }
                          return
                      }
 
@@ -270,9 +314,10 @@ struct InSession: View {
         // Pass the raw world-space delta to the ModelManager
         modelManager.handleDragChange(entity: currentDraggedEntity, translation: rawDelta, arViewModel: arViewModel)
     }
-    previousDragLocation3D = currentDragLocation
-
-                     lastGestureEvent = "Dragging \(currentDraggedEntity.name)"
+    DispatchQueue.main.async {
+        previousDragLocation3D = currentDragLocation
+        lastGestureEvent = "Dragging \(currentDraggedEntity.name)"
+    }
                  }
                  .onEnded { value in
                      // Use the stored draggedEntity for ending the gesture
@@ -294,14 +339,16 @@ struct InSession: View {
                              print("Drag ended: Entity \(entityToEnd.name) no longer managed.")
                          }
                      }
-                     lastGestureEvent = "Drag ended for \(entityToEnd.name)"
-
-                     // Reset drag state reliably
-                     draggedEntity = nil
-                     previousDragLocation3D = nil // Reset previous location
-                     // Reset other potentially stale states if they were used
-                     initialDragEntityPosition = nil
-                     gestureStartLocation3D = nil
+                     DispatchQueue.main.async {
+                         lastGestureEvent = "Drag ended for \(entityToEnd.name)"
+                         
+                         // Reset drag state reliably
+                         draggedEntity = nil
+                         previousDragLocation3D = nil // Reset previous location
+                         // Reset other potentially stale states if they were used
+                         initialDragEntityPosition = nil
+                         gestureStartLocation3D = nil
+                     }
                  }
             )
              .simultaneousGesture(MagnifyGesture()
@@ -311,13 +358,17 @@ struct InSession: View {
                      Task { @MainActor in
                          modelManager.handleScaleChange(entity: value.entity, scaleFactor: scaleFactor, arViewModel: arViewModel)
                      }
-                     lastGestureEvent = "Scaling \(value.entity.name) by \(String(format: "%.2f", scaleFactor))"
+                     DispatchQueue.main.async {
+                         lastGestureEvent = "Scaling \(value.entity.name) by \(String(format: "%.2f", scaleFactor))"
+                     }
                  }
                  .onEnded { value in
                       Task { @MainActor in
                           modelManager.handleScaleEnd(entity: value.entity, arViewModel: arViewModel)
                       }
-                      lastGestureEvent = "Scale ended for \(value.entity.name)"
+                      DispatchQueue.main.async {
+                          lastGestureEvent = "Scale ended for \(value.entity.name)"
+                      }
                  }
              )
              // Using RotateGesture3D for potentially more intuitive rotation
@@ -328,13 +379,17 @@ struct InSession: View {
                      Task { @MainActor in
                          modelManager.handleRotationChange(entity: value.entity, rotation: rotation, arViewModel: arViewModel)
                      }
-                     lastGestureEvent = "Rotating \(value.entity.name)"
+                     DispatchQueue.main.async {
+                         lastGestureEvent = "Rotating \(value.entity.name)"
+                     }
                  }
                  .onEnded { value in
                      Task { @MainActor in
                          modelManager.handleRotationEnd(entity: value.entity, arViewModel: arViewModel)
                      }
-                     lastGestureEvent = "Rotation ended for \(value.entity.name)"
+                     DispatchQueue.main.async {
+                         lastGestureEvent = "Rotation ended for \(value.entity.name)"
+                     }
                  }
              )
             

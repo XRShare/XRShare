@@ -111,15 +111,8 @@ final class Model: ObservableObject, @preconcurrency Identifiable {
                 //     entity.model?.materials = [SimpleMaterial(color: .white, isMetallic: false)]
                 // }
                 
-                // Set initial scale based on model type
-                if modelType.rawValue.lowercased() == "pancakes" {
-                    entity.scale = [0.04, 0.04, 0.04] // Further reduced scale for pancakes
-                } else if modelType.rawValue.lowercased() == "heart" ||
-                          modelType.rawValue.lowercased() == "arterieshead" {
-                    entity.scale = [0.2, 0.2, 0.2] // Larger scale for anatomy models
-                } else {
-                    entity.scale = [0.15, 0.15, 0.15] // Default scale
-                }
+                // Normalize model size based on bounds
+                normalizeModelSize(entity: entity)
                 
                 // Add components for synchronization
                 entity.components[ModelTypeComponent.self] = ModelTypeComponent(type: modelType)
@@ -147,6 +140,56 @@ final class Model: ObservableObject, @preconcurrency Identifiable {
     func applyInteractivityRecursively() {
         guard let entity = modelEntity else { return }
         Self.applyComponents(to: entity)
+    }
+    
+    /// Normalizes the model size to fit within a target bounding box
+    private func normalizeModelSize(entity: ModelEntity) {
+        // Define target bounding box dimensions - different for each platform
+        #if os(visionOS)
+        let targetBoundingBox = SIMD3<Float>(0.6, 0.6, 0.6) // 60cm cube for visionOS (larger for distance viewing)
+        #else
+        let targetBoundingBox = SIMD3<Float>(0.25, 0.25, 0.25) // 25cm cube for iOS AR
+        #endif
+        
+        // Get the model's current bounding box
+        let bounds = entity.visualBounds(relativeTo: nil)
+        let extents = bounds.extents
+        
+        // Skip normalization if bounds are invalid
+        guard extents.x > 0 && extents.y > 0 && extents.z > 0 else {
+            print("Warning: Model \(modelType.rawValue) has invalid bounds, using default scale")
+            entity.scale = [0.1, 0.1, 0.1]
+            return
+        }
+        
+        // Calculate scale factors for each dimension to fit within target box
+        let scaleX = targetBoundingBox.x / extents.x
+        let scaleY = targetBoundingBox.y / extents.y
+        let scaleZ = targetBoundingBox.z / extents.z
+        
+        // Use the smallest scale factor to ensure the model fits entirely within the bounding box
+        let uniformScale = min(scaleX, scaleY, scaleZ)
+        
+        // All models now use the same uniform scaling to fit within the target bounding box
+        // No special cases for any models
+        
+        // Apply minimum scale constraint
+        let minScale: Float = 0.01 // Minimum 1cm scale
+        let finalScale = max(uniformScale, minScale)
+        entity.scale = SIMD3<Float>(repeating: finalScale)
+        
+        // Center the model within its bounding box
+        let boundsCenter = bounds.center
+        entity.position = -boundsCenter * finalScale
+        
+        
+        // Log the final bounding box size
+        let finalExtents = extents * finalScale
+        print("Normalized \(modelType.rawValue):")
+        print("  Original bounds: \(extents)")
+        print("  Target box: \(targetBoundingBox)")
+        print("  Scale factor: \(finalScale)")
+        print("  Final bounds: \(finalExtents)")
     }
 
     private static func applyComponents(to entity: Entity) {
