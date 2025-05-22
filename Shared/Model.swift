@@ -68,9 +68,7 @@ final class Model: ObservableObject, @preconcurrency Identifiable {
         // Skip if we're already loaded or loading
         guard case .notStarted = loadingState else { return }
         
-        await MainActor.run {
-            loadingState = .loading
-        }
+        loadingState = .loading
         
         let filename = "\(modelType.rawValue).usdz"
         do {
@@ -138,15 +136,11 @@ final class Model: ObservableObject, @preconcurrency Identifiable {
                 }
             }
             
-            await MainActor.run {
-                self.loadingState = .loaded
-            }
+            self.loadingState = .loaded
             print("Successfully loaded \(filename)")
         } catch {
             print("Error loading model \(filename): \(error)")
-            await MainActor.run {
-                self.loadingState = .failed(error)
-            }
+            self.loadingState = .failed(error)
         }
     }
     
@@ -195,8 +189,7 @@ final class Model: ObservableObject, @preconcurrency Identifiable {
             // Broadcast the transform change
             #if os(iOS)
             if let arViewModel = self.arViewModel {
-                // We'll implement broadcastTransform in ARViewModel
-                arViewModel.broadcastModelTransform(entity: entity, modelType: modelType)
+                arViewModel.sendTransform(for: entity)
             }
             #endif
         }
@@ -252,3 +245,6 @@ struct LastTransformComponent: Component {
 
 // Component to mark a model as currently selected
 struct SelectionComponent: Component {}
+
+// Component to mark a model as owned by the local peer (for viewer-created entities)
+struct LocallyOwnedComponent: Component {}

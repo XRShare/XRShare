@@ -73,7 +73,7 @@ struct MainMenu: View {
                     
                     
                 } else {
-                    ForEach(["Host session", "Join session", "Open session"], id: \.self) { title in
+                    ForEach(["Host session", "Join session", "Local session"], id: \.self) { title in
                         Button {
                             switch title {
                             case "Host session":
@@ -82,11 +82,11 @@ struct MainMenu: View {
                                 arViewModel.userRole = .viewer
                                 arViewModel.startMultipeerServices()
                                 isJoiningSession = true
-                            case "Open session":
-                                arViewModel.userRole = .openSession
-                                arViewModel.sessionName = "OpenSession"
+                            case "Local session":
+                                arViewModel.userRole = .localSession
+                                arViewModel.sessionName = "LocalSession"
                                 arViewModel.sessionID = UUID().uuidString
-                                arViewModel.startMultipeerServices()
+                                // Don't start multipeer services for local mode
                                 moveToInSession()
                             default:
                                 break

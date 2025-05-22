@@ -31,7 +31,7 @@ final class AppModel: ObservableObject {
     // Session identity
     var sessionID: String = ""
     var sessionName: String = ""
-    var userRole: UserRole = .openSession
+//    var userRole: UserRole = .openSession
 
     // IDs used by visionOS windows / spaces
     let immersiveSpaceID = "ImmersiveSpace"

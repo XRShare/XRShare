@@ -25,7 +25,6 @@ struct InSession: View {
     @Environment(\.dismissWindow) private var dismissWindow
     
     @ObservedObject var modelManager: ModelManager
-    @StateObject private var sessionConnectivity = SessionConnectivity()
     @StateObject private var entityModel = EntityModel()
     
     // Passed Properties
@@ -123,15 +122,6 @@ struct InSession: View {
 
                 print("Ensured both world and shared anchors are in RealityView content.")
 
-                // (Removed separate headAnchor; models use modelAnchor attached to head)
-
-                // Pass the anchors to the connectivity service if needed (though it might get them from ARViewModel now)
-                // sessionConnectivity.addAnchorsIfNeeded(
-                //     headAnchor: headAnchor,
-                //     modelAnchor: modelAnchor,
-                //     content: content
-                // )
-
                 print("Scene initialized with reference objects and anchors")
         } update: { content in
 
@@ -149,27 +139,20 @@ struct InSession: View {
                     // Determine the INTENDED parent based on the current sync mode
                     let intendedParent: Entity?
                     let intendedParentName: String
-                    // Choose parent based on sync mode and tracking state
-                    switch arViewModel.currentSyncMode {
-                    case .imageTarget:
-                        if arViewModel.isSyncedToImage {
-                            intendedParent = arViewModel.sharedAnchorEntity
-                            intendedParentName = "sharedAnchorEntity (Image Target Sync)"
-                        } else {
-                            intendedParent = modelAnchor
-                            intendedParentName = "modelAnchor (World)"
-                        }
-                    case .objectTarget:
-                        if arViewModel.isSyncedToObject {
-                            intendedParent = arViewModel.sharedAnchorEntity
-                            intendedParentName = "sharedAnchorEntity (Object Target Sync)"
-                        } else {
-                            intendedParent = modelAnchor
-                            intendedParentName = "modelAnchor (World)"
-                        }
-                    case .world:
+                    
+                    // Check if this is a local session
+                    if arViewModel.userRole == .localSession {
+                        // Local mode: always use world anchor
                         intendedParent = modelAnchor
-                        intendedParentName = "modelAnchor (World)"
+                        intendedParentName = "modelAnchor (Local Session)"
+                    } else if arViewModel.isSyncedToImage {
+                        // Network mode with image sync
+                        intendedParent = arViewModel.sharedAnchorEntity
+                        intendedParentName = "sharedAnchorEntity (Image Target Sync)"
+                    } else {
+                        // Network mode awaiting image detection
+                        intendedParent = modelAnchor
+                        intendedParentName = "modelAnchor (Awaiting Image Sync)"
                     }
                     
                     // Skip models already parented for this sync mode
@@ -190,10 +173,6 @@ struct InSession: View {
                         // Preserve world transform during reparenting to avoid visual jumps
                         entity.setParent(validIntendedParent, preservingWorldTransform: true)
                         print("Successfully reparented \(entity.name) to \(intendedParentName).")
-                        // On initial world-mode reparent, shift entity forward 0.5m
-                        if arViewModel.currentSyncMode == .world {
-                            entity.position = [0, 0, -0.5]
-                        }
                         // Mark entity as parented for this sync mode
                         entity.components.set(ParentSyncComponent(intendedParentName: intendedParentName))
 
@@ -452,7 +431,6 @@ struct InSession: View {
             
             arViewModel.stopMultipeerServices()
             modelManager.reset()
-            sessionConnectivity.reset()
             Task {
                 await dismissImmersiveSpace()
             }

@@ -102,26 +102,7 @@ struct SettingsView: View {
                  .foregroundColor(.secondary)
             #endif
 
-            // Sync Mode Picker (Example - Adapt as needed for iOS UI)
-            Picker("Sync Mode", selection: $arViewModel.currentSyncMode) {
-                ForEach(SyncMode.allCases, id: \.self) { mode in
-                    Text(mode.rawValue).tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
-            .onChange(of: arViewModel.currentSyncMode) { _, newMode in
-                print("iOS Sync Mode changed to: \(newMode.rawValue)")
-                // Trigger session reconfiguration when the mode changes
-                Task { @MainActor in
-                    arViewModel.reconfigureARSession()
-                }
-                // Reset sync state immediately (reconfigureARSession also does this, but good for immediate UI feedback)
-                arViewModel.isSyncedToImage = false
-                arViewModel.isImageTracked = false
-            }
-
             // Image Sync Status and Button
-            if arViewModel.currentSyncMode == .imageTarget {
                 HStack {
                     Circle()
                         .fill(arViewModel.isImageTracked ? Color.green : (arViewModel.isSyncedToImage ? Color.blue : Color.red))
@@ -140,92 +121,7 @@ struct SettingsView: View {
                     arViewModel.triggerSync()
                 }
                 .buttonStyle(.bordered)
-                .disabled(arViewModel.currentSyncMode != .imageTarget)
                 .padding(.top, 5)
-            }
-            // Object Sync Status and Button
-            else if arViewModel.currentSyncMode == .objectTarget {
-                 HStack {
-                     Circle()
-                         .fill(arViewModel.isObjectTracked ? Color.green : (arViewModel.isSyncedToObject ? Color.blue : Color.red))
-                         .frame(width: 10, height: 10)
-
-                     if arViewModel.isSyncedToObject {
-                         Text(arViewModel.isObjectTracked ? "Object Detected (Synced)" : "Synced via Object (Not Detected)")
-                             .font(.caption)
-                     } else {
-                         Text(arViewModel.isObjectTracked ? "Object Detected (Syncing...)" : "Awaiting Object Sync...")
-                             .font(.caption)
-                             .foregroundColor(.orange)
-                     }
-                 }
-                 Button("Re-Sync Object") {
-                     arViewModel.triggerSync() // Reusing triggerSync for both modes
-                 }
-                 .buttonStyle(.bordered)
-                 .disabled(arViewModel.currentSyncMode != .objectTarget)
-                 .padding(.top, 5)
-
-                 // Debug button to load the reference object's model
-                 Button("Load Reference Model") {
-                     // Define the model type for the reference object model
-                     let referenceModelType = ModelType(rawValue: "model-mobile") // Ensure this USDZ exists
-
-                     // Load the model locally without broadcasting
-                     Task { @MainActor in
-                         guard let modelManager = arViewModel.modelManager,
-                               let customService = arViewModel.customService,
-                               let arView = arViewModel.arView else {
-                             print("Error: ModelManager, CustomService, or ARView not available for reference model loading.")
-                             return
-                         }
-                         // Load the model template
-                         let modelTemplate = await Model.load(modelType: referenceModelType, arViewModel: arViewModel)
-
-                         if let entityTemplate = modelTemplate.modelEntity {
-                             // Clone the entity for placement
-                             let clonedEntity = entityTemplate.clone(recursive: true)
-                             clonedEntity.name = "ReferenceObjectModel_Debug" // Give it a specific name
-                             clonedEntity.transform = Transform() // Align at origin of the shared anchor
-
-                             // Assign a unique instance ID if needed
-                             if clonedEntity.components[InstanceIDComponent.self] == nil {
-                                 clonedEntity.components.set(InstanceIDComponent())
-                             }
-                             let instanceID = clonedEntity.components[InstanceIDComponent.self]!.id
-
-                             // Add to the shared anchor (which tracks the physical object)
-                             // Ensure shared anchor is in the scene first
-                             if arViewModel.sharedAnchorEntity.scene == nil {
-                                 arView.scene.addAnchor(arViewModel.sharedAnchorEntity)
-                                 print("[iOS] Added sharedAnchorEntity to scene before adding reference model.")
-                             }
-                             arViewModel.sharedAnchorEntity.addChild(clonedEntity)
-
-                             // Create a new Model instance specifically for this placed debug entity
-                             let placedDebugModel = Model(modelType: referenceModelType, arViewModel: arViewModel)
-                             placedDebugModel.modelEntity = clonedEntity // Assign the cloned entity
-                             placedDebugModel.loadingState = .loaded // Mark as loaded
-
-                             // Register with ModelManager for gesture handling
-                             modelManager.modelDict[clonedEntity] = placedDebugModel
-                             modelManager.placedModels.append(placedDebugModel) // Add to placed models list
-
-                             // Register with ConnectivityService as locally owned, DO NOT BROADCAST ADD
-                             customService.registerEntity(clonedEntity, modelType: referenceModelType, ownedByLocalPeer: true)
-
-                             print("[iOS] Loaded and registered interactive reference model 'model-mobile.usdz' (InstanceID: \(instanceID)) onto tracked object.")
-
-                         } else {
-                             arViewModel.alertItem = AlertItem(title: "Load Failed", message: "Could not load 'model-mobile.usdz'.")
-                         }
-                     }
-                 }
-                 .buttonStyle(.bordered)
-                 .tint(.purple)
-                 .disabled(!arViewModel.isSyncedToObject) // Only enable after initial sync
-                 .padding(.top, 5)
-            }
 
 
             Spacer()

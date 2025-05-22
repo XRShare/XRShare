@@ -14,7 +14,6 @@ class AppState: ObservableObject {
 #if os(visionOS)
     // MARK: Tracking providers (visionOS only)
     @Published var imageTrackingProvider: ImageTrackingProvider? = nil
-    @Published var objectTrackingProvider: ObjectTrackingProvider? = nil
 #endif
 
     // MARK: Shared UI state
@@ -25,22 +24,15 @@ class AppState: ObservableObject {
     // MARK: Tracking helper methods
     func startImageTracking(provider: ImageTrackingProvider) {
         imageTrackingProvider = provider
-        objectTrackingProvider = nil
     }
 
-    func startObjectTracking(provider: ObjectTrackingProvider) {
-        objectTrackingProvider = provider
-        imageTrackingProvider = nil
-    }
 
     func stopTracking() {
         imageTrackingProvider = nil
-        objectTrackingProvider = nil
     }
 #else
     // Stubs for non-visionOS builds; keep signatures but with `Any` parameter
     func startImageTracking(provider _: Any) {}
-    func startObjectTracking(provider _: Any) {}
     func stopTracking() {}
 #endif
 }

@@ -62,8 +62,8 @@ struct StartupMenuView: View {
                     .padding()
                     
                 } else {
-                    // Updated to include "Open session"
-                    ForEach(["Host session", "Join session", "Open session"], id: \.self) { title in
+                    // Updated to include "Local session"
+                    ForEach(["Host session", "Join session", "Local session"], id: \.self) { title in
                         Button(action: {
                             switch title {
                             case "Host session":
@@ -72,12 +72,12 @@ struct StartupMenuView: View {
                                 arViewModel.userRole = .viewer
                                 arViewModel.startMultipeerServices()
                                 isJoiningSession = true
-                            case "Open session":
-                                // "Open" means we broadcast publicly with some default session name
-                                arViewModel.userRole = .openSession
-                                arViewModel.sessionName = "OpenSession"
+                            case "Local session":
+                                // Local session without networking
+                                arViewModel.userRole = .localSession
+                                arViewModel.sessionName = "LocalSession"
                                 arViewModel.sessionID = UUID().uuidString
-                                arViewModel.startMultipeerServices()
+                                // Don't start multipeer services for local mode
                                 hasSelectedMode = true
                             default:
                                 break

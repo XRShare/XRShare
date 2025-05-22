@@ -10,6 +10,30 @@ import Foundation
 import SwiftUI
 import UIKit
 
+// MARK: - Logging Configuration
+struct Logger {
+    #if DEBUG
+    static let isEnabled = true
+    #else
+    static let isEnabled = false
+    #endif
+    
+    static func log(_ message: String, category: LogCategory = .general) {
+        guard isEnabled else { return }
+        print("[\(category.rawValue)] \(message)")
+    }
+    
+    enum LogCategory: String {
+        case general = "General"
+        case networking = "Network"
+        case ar = "AR"
+        case model = "Model"
+        case sync = "Sync"
+        case gesture = "Gesture"
+        case debug = "Debug"
+    }
+}
+
 /// Utility functions for app functionality
 class Utilities {
     // UserDefaults keys

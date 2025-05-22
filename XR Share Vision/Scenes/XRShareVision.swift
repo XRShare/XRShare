@@ -28,14 +28,8 @@ struct XRShareVision: App {
                     // Initialize models and state (setupModelManager might be redundant now)
                     // appState.setupModelManager(modelManager: modelManager, arViewModel: arViewModel)
                     
-                    // Check which environment we're running in
-                    #if targetEnvironment(simulator)
-                    print("Running in simulator - using World sync mode by default")
-                    arViewModel.currentSyncMode = .world
-                    #else
-                    print("Running on device - using Image Target sync mode by default")
-                    arViewModel.currentSyncMode = .imageTarget
-                    #endif
+                    // Image target sync is the only supported mode
+                    print("Using Image Target sync mode")
                     
                     print("Starting with sync mode: \(arViewModel.currentSyncMode.rawValue)")
                 }
@@ -151,6 +145,35 @@ struct XRShareVision: App {
     // Function to configure ARKitSession based on current sync mode
     @MainActor
     func configureARSession() async {
+        // Check if this is a local session
+        if arViewModel.userRole == .localSession {
+            print("Configuring ARKitSession for Local mode (no sync)...")
+            
+            // For local sessions, only use world tracking
+            var providers: [any DataProvider] = [
+                WorldTrackingProvider()
+            ]
+            
+            // Add plane detection only if not running on simulator
+            #if !targetEnvironment(simulator)
+            providers.append(PlaneDetectionProvider(alignments: [.horizontal, .vertical]))
+            print("PlaneDetectionProvider added for device.")
+            #else
+            print("PlaneDetectionProvider skipped for simulator.")
+            #endif
+            
+            do {
+                // Stop session before running with new providers
+                session.stop()
+                try await session.run(providers)
+                print("ARKitSession running in Local mode with providers: \(providers.map { type(of: $0) })")
+            } catch {
+                print("Error running ARKitSession in Local mode: \(error)")
+                appState.alertItem = AlertItem(title: "AR Error", message: "Failed to start AR Session: \(error.localizedDescription)")
+            }
+            return
+        }
+        
         let currentMode = arViewModel.currentSyncMode
         print("Configuring ARKitSession for mode: \(currentMode.rawValue)...")
         
@@ -165,12 +188,10 @@ struct XRShareVision: App {
         print("PlaneDetectionProvider added for device.")
         #else
         print("PlaneDetectionProvider skipped for simulator.")
-        // Force world mode on simulator
+        // Image tracking not supported in simulator
         if currentMode == .imageTarget {
-            print("Image tracking not supported in simulator, switching to world mode")
-            arViewModel.currentSyncMode = .world
-            // Call self recursively - now with world mode
-            await configureARSession()
+            print("Error: Image tracking not supported in simulator")
+            appState.alertItem = AlertItem(title: "Error", message: "Image tracking is not supported in simulator.")
             return
         }
         #endif
@@ -178,16 +199,13 @@ struct XRShareVision: App {
         // Clear existing provider references
         appState.stopTracking()
         arViewModel.isSyncedToImage = false // Reset sync flags
-        arViewModel.isSyncedToObject = false
 
         if currentMode == .imageTarget {
             // --- Image Target Mode ---
             let referenceImages = ReferenceImage.loadReferenceImages(inGroupNamed: "SharedAnchors")
             if referenceImages.isEmpty {
                 print("Error: Failed to load any reference images from group 'SharedAnchors'")
-                appState.alertItem = AlertItem(title: "Error", message: "Could not load Image Target resources. Switching back to World Sync.")
-                arViewModel.currentSyncMode = .world
-                await configureARSession() // Reconfigure for world mode
+                appState.alertItem = AlertItem(title: "Error", message: "Could not load Image Target resources.")
                 return
             }
             print("Loaded \(referenceImages.count) reference images for Image Target mode.")
@@ -195,114 +213,24 @@ struct XRShareVision: App {
             providers.append(imageProvider)
             appState.startImageTracking(provider: imageProvider) // Use updated AppState method
 
-        } else if currentMode == .objectTarget {
-            // --- Object Target Mode ---
-            var referenceObject: ReferenceObject?
-            var loadedURL: URL?
-            
-            // Add diagnostic logging to check bundle contents
-            print("[visionOS] Diagnosing reference object issue:")
-            let resourceURLs = Bundle.main.urls(forResourcesWithExtension: "referenceobject", subdirectory: nil) ?? []
-            print("[visionOS] Found \(resourceURLs.count) .referenceobject files in bundle: \(resourceURLs.map { $0.lastPathComponent })")
-            
-            // Try different approaches to locate the reference object
-            
-            // Approach 1: Models subdirectory using url(forResource:)
-            if let objectURL = Bundle.main.url(forResource: "model-mobile", withExtension: "referenceobject", subdirectory: "models") {
-                print("[visionOS] Found reference object at: \(objectURL)")
-                do {
-                    referenceObject = try await ReferenceObject(from: objectURL)
-                    loadedURL = objectURL
-                    print("[visionOS] Successfully loaded reference object from models subdirectory.")
-                } catch {
-                    print("[visionOS] Info: Failed to load reference object from models subdirectory: \(error.localizedDescription). Trying main bundle.")
-                    referenceObject = nil // Ensure it's nil if loading failed
-                }
-            } else {
-                print("[visionOS] Reference object not found in models subdirectory")
-            }
-
-            // Approach 2: Main bundle using url(forResource:)
-            if referenceObject == nil, let objectURL = Bundle.main.url(forResource: "model-mobile", withExtension: "referenceobject") {
-                print("[visionOS] Found reference object in main bundle at: \(objectURL)")
-                do {
-                    referenceObject = try await ReferenceObject(from: objectURL)
-                    loadedURL = objectURL
-                    print("[visionOS] Successfully loaded reference object from main bundle.")
-                } catch {
-                    print("[visionOS] Error: Failed to load reference object from main bundle: \(error.localizedDescription)")
-                    referenceObject = nil // Ensure it's nil if loading failed
-                }
-            } else if referenceObject == nil {
-                print("[visionOS] Reference object not found in main bundle")
-            }
-            
-            // Approach 3: Try using path(forResource:) which might handle spaces differently
-            if referenceObject == nil, let objectPath = Bundle.main.path(forResource: "model-mobile", ofType: "referenceobject", inDirectory: "models") {
-                let objectURL = URL(fileURLWithPath: objectPath)
-                print("[visionOS] Found reference object using path API at: \(objectURL)")
-                do {
-                    referenceObject = try await ReferenceObject(from: objectURL)
-                    loadedURL = objectURL
-                    print("[visionOS] Successfully loaded reference object using path API.")
-                } catch {
-                    print("[visionOS] Error: Failed to load reference object using path API: \(error.localizedDescription)")
-                    referenceObject = nil
-                }
-            } else if referenceObject == nil {
-                print("[visionOS] Reference object not found using path API")
-            }
-            
-            // Approach 4: Try searching for any reference object if the exact name fails
-            if referenceObject == nil, let firstObjectURL = resourceURLs.first {
-                print("[visionOS] Attempting to load alternative reference object: \(firstObjectURL.lastPathComponent)")
-                do {
-                    referenceObject = try await ReferenceObject(from: firstObjectURL)
-                    loadedURL = firstObjectURL
-                    print("[visionOS] Successfully loaded alternative reference object.")
-                } catch {
-                    print("[visionOS] Error: Failed to load alternative reference object: \(error.localizedDescription)")
-                    referenceObject = nil
-                }
-            }
-
-            // Check if loading ultimately failed
-            guard let finalReferenceObject = referenceObject else {
-                print("[visionOS] Error: Failed to load reference object 'model-mobile.referenceobject' from any location.")
-                print("[visionOS] Bundle path: \(Bundle.main.bundlePath)")
-                appState.alertItem = AlertItem(title: "Error", message: "Could not load Object Target resources. Switching back to World Sync.")
-                arViewModel.currentSyncMode = .world
-                await configureARSession() // Reconfigure for world mode
-                return
-            }
-
-            print("Loaded reference object: \(finalReferenceObject.name) from \(loadedURL?.path ?? "Unknown Path")")
-
-            let objectProvider = ObjectTrackingProvider(referenceObjects: [finalReferenceObject])
-            providers.append(objectProvider)
-            appState.startObjectTracking(provider: objectProvider) // Use updated AppState method
         }
-        // Else: World mode needs no extra provider beyond WorldTrackingProvider
 
         do {
             // Stop session before running with new providers
             session.stop()
             try await session.run(providers)
             print("ARKitSession running with providers: \(providers.map { type(of: $0) })")
-            // Start monitoring based on the current mode AFTER session starts
+            // Start monitoring for image target mode AFTER session starts
             if currentMode == .imageTarget {
                 await startImageMonitoring()
-            } else if currentMode == .objectTarget {
-                await startObjectMonitoring() // Start object monitoring
             }
         } catch {
             print("Error running ARKitSession: \(error)")
             appState.alertItem = AlertItem(title: "AR Error", message: "Failed to start AR Session: \(error.localizedDescription)")
 
-            // Fallback to world mode if image/object tracking fails
-            if arViewModel.currentSyncMode == .imageTarget || arViewModel.currentSyncMode == .objectTarget {
-                arViewModel.currentSyncMode = .world
-                await configureARSession()
+            // Image tracking failed
+            if arViewModel.currentSyncMode == .imageTarget {
+                print("Failed to start Image Target tracking")
             }
         }
     }
@@ -392,80 +320,4 @@ struct XRShareVision: App {
         }
     }
 
-    // MARK: - Object Anchor Monitoring
-    @MainActor
-    func startObjectMonitoring() async {
-        let currentMode = arViewModel.currentSyncMode
-        let provider = appState.objectTrackingProvider // Get object provider from AppState
-
-        guard currentMode == .objectTarget, let objectProvider = provider else {
-            print("Not starting object monitoring (Mode: \(currentMode.rawValue), Provider: \(provider == nil ? "nil" : "exists"))")
-            arViewModel.isObjectTracked = false // Ensure state is false if not monitoring
-            return
-        }
-
-        print("Starting Object Anchor monitoring...")
-
-        Task {
-            do {
-                try Task.checkCancellation()
-
-                for await anchorUpdate in objectProvider.anchorUpdates {
-                    // Check mode again in case it changed
-                    if arViewModel.currentSyncMode != .objectTarget {
-                        print("Object Anchor Task: Exiting, mode changed during anchor update.")
-                        break // Exit loop
-                    }
-
-                    let objectAnchor = anchorUpdate.anchor
-                    let event = anchorUpdate.event
-                    let objectName = objectAnchor.referenceObject.name
-
-                    switch event {
-                    case .added, .updated:
-                        if objectAnchor.isTracked {
-                            // Object is currently tracked
-                            if !arViewModel.isSyncedToObject {
-                                // Perform the one-time sync alignment
-                                let newWorldTransform = objectAnchor.originFromAnchorTransform
-                                arViewModel.sharedAnchorEntity.setTransformMatrix(newWorldTransform, relativeTo: nil)
-                                arViewModel.isSyncedToObject = true // Mark as synced
-                                arViewModel.isObjectTracked = true // Mark as detected
-                                print("Object Target '\(objectName)' detected. Synced sharedAnchorEntity transform.")
-                            } else {
-                                // Already synced, just update detection status
-                                if !arViewModel.isObjectTracked {
-                                    arViewModel.isObjectTracked = true
-                                    print("👀 Object Target '\(objectName)' re-detected (already synced).")
-                                }
-                            }
-                        } else {
-                            // Object is lost
-                            if arViewModel.isObjectTracked {
-                                print("Object Target '\(objectName)' lost tracking.")
-                                arViewModel.isObjectTracked = false
-                                // DO NOT reset isSyncedToObject here - alignment persists
-                            }
-                        }
-                    case .removed:
-                        if arViewModel.isObjectTracked || arViewModel.isSyncedToObject { // Check both flags
-                            print("Object Target '\(objectName)' anchor removed.")
-                            arViewModel.isObjectTracked = false
-                            // DO NOT reset isSyncedToObject here
-                        }
-                    @unknown default:
-                        print("Unhandled object anchor event: \(event)")
-                    }
-                } // End loop (anchorUpdates)
-            } catch {
-                print("Error occurred during object anchor monitoring: \(error)")
-            }
-
-            // Ensure detection state is false if task finishes or exits loop
-            if arViewModel.isObjectTracked {
-                print("Object monitoring loop finished/exited, resetting detection state.")
-                arViewModel.isObjectTracked = false
-            }
-        }
-    }
 }

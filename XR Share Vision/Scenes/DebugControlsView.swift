@@ -207,30 +207,8 @@ struct DebugControlsView: View {
     @ViewBuilder
     private var syncSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Sync Mode:").font(.headline)
-            Picker("Sync Mode", selection: $arViewModel.currentSyncMode) {
-                ForEach(SyncMode.allCases, id: \.self) {
-                    Text($0.rawValue).tag($0)
-                }
-            }
-            .pickerStyle(.segmented)
-            .onChange(of: arViewModel.currentSyncMode) { _, new in
-                NotificationCenter.default.post(
-                    name: Notification.Name("syncModeChanged"),
-                    object: nil
-                )
-                lastAction = "Switched to \(new.rawValue)"
-                arViewModel.isSyncedToImage = false
-                arViewModel.isImageTracked = false
-                arViewModel.isSyncedToObject = false
-                arViewModel.isObjectTracked = false
-            }
-
-            if arViewModel.currentSyncMode == .imageTarget {
-                imageSyncStatus
-            } else if arViewModel.currentSyncMode == .objectTarget {
-                objectSyncStatus
-            }
+            Text("Image Target Sync:").font(.headline)
+            imageSyncStatus
         }
         .padding(.vertical, 8)
         .background(Color.secondary.opacity(0.1))
@@ -273,48 +251,6 @@ struct DebugControlsView: View {
         }
     }
 
-    @ViewBuilder
-    private var objectSyncStatus: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Circle()
-                    .fill(arViewModel.isObjectTracked ? Color.green : Color.red)
-                    .frame(width: 10, height: 10)
-                Text(
-                    arViewModel.isObjectTracked
-                        ? "Object Target Detected"
-                        : "Searching for Object Target..."
-                )
-                    .font(.caption)
-                    .foregroundColor(arViewModel.isObjectTracked ? .primary : .secondary)
-            }
-            if arViewModel.isSyncedToObject {
-                HStack {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                    Text("Synced via Object").font(.caption)
-                    Spacer()
-                    Button("Re-Sync") {
-                        arViewModel.triggerSync()
-                        lastAction = "Triggered Object Re-Sync"
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                }
-                Button("Load Reference Model") {
-                    loadReferenceModel()
-                }
-                .buttonStyle(.bordered)
-                .tint(.purple)
-                .disabled(!arViewModel.isSyncedToObject)
-            } else {
-                Text("Awaiting Object Sync...")
-                    .font(.caption)
-                    .foregroundColor(.orange)
-            }
-        }
-
-    }
 
     @ViewBuilder
     private var testMessageSection: some View {
@@ -329,49 +265,6 @@ struct DebugControlsView: View {
         .cornerRadius(8)
     }
 
-    private func loadReferenceModel() {
-        let referenceModelType = ModelType(rawValue: "model-mobile")
-        Task { @MainActor in
-            guard let modelMgr = arViewModel.modelManager,
-                  let svc = arViewModel.customService else {
-                print("Error: ModelManager or CustomService not available for reference model loading.")
-                lastAction = "Error loading ref model"
-                return
-            }
-            let template = await Model.load(modelType: referenceModelType, arViewModel: arViewModel)
-            guard let entityTmpl = template.modelEntity else {
-                arViewModel.alertItem = AlertItem(
-                    title: "Load Failed",
-                    message: "Could not load 'model-mobile.usdz'."
-                )
-                lastAction = "Failed to load ref model"
-                return
-            }
-
-            let cloned = entityTmpl.clone(recursive: true)
-            cloned.name = "ReferenceObjectModel_Debug"
-            cloned.transform = Transform()
-            if cloned.components[InstanceIDComponent.self] == nil {
-                cloned.components.set(InstanceIDComponent())
-            }
-            arViewModel.sharedAnchorEntity.addChild(cloned)
-
-            let placed = Model(modelType: referenceModelType, arViewModel: arViewModel)
-            placed.modelEntity = cloned
-            placed.loadingState = .loaded
-
-            modelMgr.modelDict[cloned] = placed
-            modelMgr.placedModels.append(placed)
-            svc.registerEntity(
-                cloned,
-                modelType: referenceModelType,
-                ownedByLocalPeer: true
-            )
-
-            print("Loaded and registered interactive reference model 'model-mobile.usdz'.")
-            lastAction = "Loaded interactive ref model"
-        }
-    }
 
     func getSelectedModel() -> Model? {
         if let selectedModelID = modelManager.selectedModelID {

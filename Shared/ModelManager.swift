@@ -5,7 +5,7 @@ import UIKit
 /// Manages placed models, gestures, and related logic
 final class ModelManager: ObservableObject {
     @Published var placedModels: [Model] = []
-    @Published var modelDict: [Entity: Model] = [:]
+    @Published var modelDict: [Entity: Model] = [:] // TODO: Consider removing in favor of connectivity service tracking
     @Published var entityInitialRotations: [Entity: simd_quatf] = [:]
     @Published var modelTypes: [ModelType] = []
     @Published var selectedModelID: ModelType? = nil
@@ -13,7 +13,6 @@ final class ModelManager: ObservableObject {
     @Published var selectedPartInfo: String? = nil
     @Published var isInfoModeActive = false 
 
-    var transformCache = TransformCache()
     
     init() {
         loadModelTypes()
@@ -101,45 +100,26 @@ final class ModelManager: ObservableObject {
 
                     // Broadcast the addition of this model instance
                     if let arViewModel = arViewModel, let multipeerSession = arViewModel.multipeerSession {
-                        // Determine the transform based on sync mode and parentage
+                        // Always send transform relative to shared anchor
                         let transformToSend: simd_float4x4
-                        // Determine if the model transform should be relative to the shared anchor (image or object target)
-                        let isRelativeToSharedAnchor: Bool = (arViewModel.currentSyncMode == .imageTarget || arViewModel.currentSyncMode == .objectTarget)
-                        if isRelativeToSharedAnchor {
-                            // If already parented under sharedAnchorEntity, use its local transform; otherwise, calculate world-relative and convert
-                            if entity.parent == arViewModel.sharedAnchorEntity {
-                                transformToSend = entity.transform.matrix
-                            } else {
-                                // Fallback: send world transform relative to intended parent origin
-                                transformToSend = entity.transform.matrix
-                                print("Warning: Broadcasting addModel for \(modelType.rawValue) in relative mode, but entity may not be parented yet. Sending local transform.")
-                            }
+                        if entity.parent == arViewModel.sharedAnchorEntity {
+                            transformToSend = entity.transform.matrix
                         } else {
-                            // World mode: send absolute world transform
-                            transformToSend = entity.transformMatrix(relativeTo: nil)
+                            // Calculate transform relative to shared anchor
+                            transformToSend = entity.transformMatrix(relativeTo: arViewModel.sharedAnchorEntity)
+                            print("Broadcasting addModel for \(modelType.rawValue) with calculated relative transform.")
                         }
 
                         let payload = AddModelPayload(
                             instanceID: instanceID,
                             modelType: modelType.rawValue,
                             transform: transformToSend.toArray(),
-                            isRelativeToSharedAnchor: isRelativeToSharedAnchor
+                            isRelativeToSharedAnchor: true // Always relative to image anchor
                         )
                         do {
                             let data = try JSONEncoder().encode(payload)
                             multipeerSession.sendToAllPeers(data, dataType: .addModel)
-                            print("Broadcasted addModel: \(modelType.rawValue) (ID: \(instanceID)), Relative: \(isRelativeToSharedAnchor)")
-
-                            // SharePlay: send addModel payload to all group participants
-                            if let messenger = SharePlaySyncController.shared.messenger {
-                                Task {
-                                    do {
-                                        try await messenger.send(payload, to: .all)
-                                    } catch {
-                                        print("SharePlay: failed to send addModel: \(error)")
-                                    }
-                                }
-                            }
+                            print("Broadcasted addModel: \(modelType.rawValue) (ID: \(instanceID))")
                         } catch {
                             print("Error encoding AddModelPayload: \(error)")
                         }
@@ -216,9 +196,7 @@ final class ModelManager: ObservableObject {
         // Update collections
         placedModels.removeAll { $0.id == model.id }
         modelDict = modelDict.filter { $0.value.id != model.id }
-        // Also remove from transform cache to prevent ghost references
-        transformCache.lastTransforms.removeValue(forKey: entity.id)
-        
+       
         // If we removed the selected model, select another model if available
         if selectedModelID == model.modelType {
             selectedModelID = placedModels.first?.modelType
@@ -265,7 +243,6 @@ final class ModelManager: ObservableObject {
         placedModels.removeAll()
         modelDict.removeAll()
         entityInitialRotations.removeAll()
-        transformCache.lastTransforms.removeAll()
         selectedModelID = nil
         print("Reset ModelManager state.")
     }
@@ -357,15 +334,18 @@ final class ModelManager: ObservableObject {
                  currentMatrix = entity.transform.matrix
             }
 
-            let entityID = entity.id
-            if let lastMatrix = transformCache.lastTransforms[entityID],
-               !simd_almost_equal_elements(currentMatrix, lastMatrix, 0.0001) { // Use helper for comparison
-                // Transform changed, broadcast it
-                arViewModel.sendTransform(for: entity) // Use ARViewModel's method which handles sync mode
-                self.transformCache.lastTransforms[entityID] = currentMatrix // Update cache
-            } else if transformCache.lastTransforms[entityID] == nil {
-                // First time seeing this entity, cache its transform
-                self.transformCache.lastTransforms[entityID] = currentMatrix
+            // Use LastTransformComponent for consistency
+            if let lastTransformComp = entity.components[LastTransformComponent.self] {
+                let lastMatrix = lastTransformComp.matrix
+                if !simd_almost_equal_elements(currentMatrix, lastMatrix, 0.0001) {
+                    // Transform changed, broadcast it
+                    arViewModel.sendTransform(for: entity)
+                    // Update the component
+                    entity.components[LastTransformComponent.self] = LastTransformComponent(matrix: currentMatrix)
+                }
+            } else {
+                // First time seeing this entity, add the component
+                entity.components[LastTransformComponent.self] = LastTransformComponent(matrix: currentMatrix)
             }
         }
     }

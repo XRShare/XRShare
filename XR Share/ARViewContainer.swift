@@ -12,7 +12,10 @@ struct ARViewContainer: UIViewRepresentable {
         arView.environment.sceneUnderstanding.options.insert(.occlusion)
         print("[iOS] ARView Scene Understanding Occlusion Enabled.")
 
-        arViewModel.setupARView(arView)
+        // Defer setup to avoid publishing changes during view updates
+        DispatchQueue.main.async {
+            arViewModel.setupARView(arView)
+        }
         // Optionally add an ARCoachingOverlayView if desired:
         let coachingOverlay = ARCoachingOverlayView()
         coachingOverlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]

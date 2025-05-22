@@ -49,23 +49,6 @@ class ARSessionDelegateHandler: NSObject, ARSessionDelegate {
                             // Do not reset isSyncedToImage
                         }
                     }
-                } else if let objectAnchor = anchor as? ARObjectAnchor {
-                     // Handle Object Anchors
-                     let objectName = objectAnchor.referenceObject.name ?? "unknown object"
-                     guard arViewModel.currentSyncMode == .objectTarget else { continue }
-
-                     // Object anchor added means it's detected. Sync if not already synced.
-                     if !arViewModel.isSyncedToObject {
-                         // Perform one-time sync
-                         arViewModel.sharedAnchorEntity.setTransformMatrix(objectAnchor.transform, relativeTo: nil)
-                         arViewModel.isSyncedToObject = true
-                         print("✅ [iOS] Object Target '\(objectName)' detected (added). Synced sharedAnchorEntity.")
-                     }
-                     // Mark as tracked whenever it's added
-                     if !arViewModel.isObjectTracked {
-                         arViewModel.isObjectTracked = true
-                         print("👀 [iOS] Object Target '\(objectName)' tracking started (added).")
-                     }
                 }
             }
         }
@@ -104,26 +87,6 @@ class ARSessionDelegateHandler: NSObject, ARSessionDelegate {
                             // Do not reset isSyncedToImage
                         }
                     }
-                } else if let objectAnchor = anchor as? ARObjectAnchor {
-                    // Handle Object Anchors
-                    let objectName = objectAnchor.referenceObject.name ?? "unknown object"
-                    guard arViewModel.currentSyncMode == .objectTarget else { continue }
-
-                    // Object anchor updated means it's still being tracked. Sync if needed.
-                    if !arViewModel.isSyncedToObject {
-                        // Perform one-time sync if detected during update
-                        arViewModel.sharedAnchorEntity.setTransformMatrix(objectAnchor.transform, relativeTo: nil)
-                        arViewModel.isSyncedToObject = true
-                        print("✅ [iOS] Object Target '\(objectName)' detected (updated). Synced sharedAnchorEntity.")
-                    }
-                    // Mark as tracked whenever it's updated
-                    if !arViewModel.isObjectTracked {
-                        arViewModel.isObjectTracked = true
-                        print("👀 [iOS] Object Target '\(objectName)' tracking continued (updated).")
-                    }
-                    // Optional: Update sharedAnchorEntity transform continuously if needed,
-                    // but usually only the initial sync is required.
-                    // arViewModel.sharedAnchorEntity.setTransformMatrix(objectAnchor.transform, relativeTo: nil)
                 }
             }
         }
@@ -147,17 +110,6 @@ class ARSessionDelegateHandler: NSObject, ARSessionDelegate {
                         arViewModel.isSyncedToImage = false
                         print("🔄 [iOS] Reset image sync flag due to anchor removal.")
                     }
-                } else if let objectAnchor = anchor as? ARObjectAnchor {
-                     let objectName = objectAnchor.referenceObject.name ?? "unknown object"
-                     guard arViewModel.currentSyncMode == .objectTarget else { continue }
-
-                     print("❌ [iOS] Object Target '\(objectName)' anchor removed.")
-                     // When anchor is removed, mark as not tracked
-                     if arViewModel.isObjectTracked {
-                         arViewModel.isObjectTracked = false
-                         arViewModel.isSyncedToObject = false
-                         print("🔄 [iOS] Reset object sync flag due to anchor removal.")
-                     }
                 }
                 // Clean up associated content if needed
                 arViewModel.processedAnchorIDs.remove(anchor.identifier)

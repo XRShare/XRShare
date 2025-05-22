@@ -7,19 +7,23 @@ class ARSessionManager {
     static let shared = ARSessionManager()
     private init() { }
 
-    /// Configures the AR session based on the selected sync mode, with an optional initial world map.
+    /// Configures the AR session based on the selected sync mode or local mode.
     /// - Parameters:
     ///   - arView: The ARView whose session needs configuration.
-    ///   - syncMode: The desired synchronization mode (.world, .imageTarget, or .objectTarget).
+    ///   - syncMode: The desired synchronization mode (.imageTarget) or nil for local mode.
     ///   - referenceImages: The set of reference images to detect (only used if syncMode is .imageTarget).
-    ///   - referenceObjects: The set of reference objects to detect (only used if syncMode is .objectTarget).
-    ///   - initialWorldMap: An optional ARWorldMap to restore the session for late joiners.
+    ///   - referenceObjects: The set of reference objects to detect (not used anymore).
+    ///   - initialWorldMap: An optional ARWorldMap to restore the session.
     func configureSession(for arView: ARView,
-                          syncMode: SyncMode,
+                          syncMode: SyncMode? = nil,
                           referenceImages: Set<ARReferenceImage> = Set(),
                           referenceObjects: Set<ARReferenceObject> = Set(),
                           initialWorldMap: ARWorldMap? = nil) {
-        print("[iOS] Configuring ARSession for mode: \(syncMode.rawValue)")
+        if let syncMode = syncMode {
+            print("[iOS] Configuring ARSession for mode: \(syncMode.rawValue)")
+        } else {
+            print("[iOS] Configuring ARSession for local mode (no sync)")
+        }
         // Use ARWorldTrackingConfiguration as it supports world tracking, image detection, and object detection.
         let config = ARWorldTrackingConfiguration()
 
@@ -52,38 +56,25 @@ class ARSessionManager {
         }
 
 
-        // Configure for Image Target mode
-        if syncMode == .imageTarget {
+        // Configure based on mode
+        if syncMode != nil {
+            // Image Target mode
             if referenceImages.isEmpty {
-                print("[iOS] Warning: Image Target mode selected, but no reference images provided.")
-                // Proceed with world tracking only, or handle error as needed
-                config.detectionImages = Set() // Ensure it's empty
+                print("[iOS] Warning: No reference images provided for Image Target mode.")
+                config.detectionImages = Set()
             } else {
                 config.detectionImages = referenceImages
-                // Set the maximum number of tracked images if needed (default is 1)
-                config.maximumNumberOfTrackedImages = 1 // Adjust if you need to track multiple images simultaneously
+                config.maximumNumberOfTrackedImages = 1
                 print("[iOS] Configured ARWorldTrackingConfiguration with \(referenceImages.count) detection images.")
             }
         } else {
-            // Ensure detectionImages is empty for world mode
+            // Local mode - no image detection needed
             config.detectionImages = Set()
-            print("[iOS] Configured ARWorldTrackingConfiguration for World Space Sync.")
+            print("[iOS] Local mode - no image detection configured.")
         }
-
-        // Configure for Object Target mode
-        if syncMode == .objectTarget {
-            if referenceObjects.isEmpty {
-                 print("[iOS] Warning: Object Target mode selected, but no reference objects provided.")
-                 config.detectionObjects = Set() // Ensure it's empty
-            } else {
-                 config.detectionObjects = referenceObjects
-                 print("[iOS] Configured ARWorldTrackingConfiguration with \(referenceObjects.count) detection objects.")
-            }
-            // Ensure detectionImages is empty for object mode
-            config.detectionImages = Set()
-        } else if syncMode != .imageTarget { // Ensure detectionObjects is empty if not in object mode
-             config.detectionObjects = Set()
-        }
+        
+        // Always clear detection objects since we only support image tracking
+        config.detectionObjects = Set()
 
 
         // Run the session with the new configuration
