@@ -2,6 +2,7 @@ import SwiftUI
 import RealityKit
 import UIKit
 
+
 /// Manages placed models, gestures, and related logic
 final class ModelManager: ObservableObject {
     @Published var placedModels: [Model] = []
@@ -11,7 +12,14 @@ final class ModelManager: ObservableObject {
     @Published var selectedModelID: ModelType? = nil
     @Published var selectedModelInfo: String? = nil 
     @Published var selectedPartInfo: String? = nil
-    @Published var isInfoModeActive = false 
+    @Published var isInfoModeActive = false
+    
+    @Published var showingPopover = false
+    @Published var showingModelPopover = false
+    @Published var modelInfoSelected = false
+    
+    @Published var addedOrSelectedModel: Model? = nil
+
 
     var transformCache = TransformCache()
     
@@ -67,14 +75,18 @@ final class ModelManager: ObservableObject {
             guard let entity = await model.modelEntity else {
                 print("Error: Model entity failed to load for \(modelType.rawValue)")
                 return
-            }
             
+            }
             configureInteractivity(for: entity)
             
             print( "Loaded entity hierarchy for \(modelType.rawValue):")
             printHierarchy(for: entity)
             
                 await MainActor.run {
+                    
+                    self.addedOrSelectedModel = nil
+                    
+                    
                     self.modelDict[entity] = model
                     self.placedModels.append(model)
                     
@@ -146,9 +158,13 @@ final class ModelManager: ObservableObject {
                     } else {
                          print("Warning: ARViewModel or MultipeerSession not available, cannot broadcast addModel for \(modelType.rawValue).")
                     }
+                    
+                    self.addedOrSelectedModel = model
+                    
                 } // End of MainActor.run
                 
                 print("\(modelType.rawValue) chosen – model loaded and selected")
+                
             
         }
     }

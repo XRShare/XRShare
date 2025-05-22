@@ -13,7 +13,7 @@ struct XRShareVision: App {
     @State var session = ARKitSession()
     
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(id: "MainMenu") {
             ContentView(modelManager: modelManager)
                 .environmentObject(appModel)
                 .environmentObject(arViewModel)
@@ -40,7 +40,8 @@ struct XRShareVision: App {
                     print("Starting with sync mode: \(arViewModel.currentSyncMode.rawValue)")
                 }
         }
-        .windowStyle(.plain)
+        .windowStyle(.automatic)
+        .defaultSize(width: 600, height: 450)
         .windowResizability(.automatic)
         
         
@@ -69,7 +70,7 @@ struct XRShareVision: App {
             
         }
         .windowStyle(.automatic)
-        .defaultSize(width: 400, height: 600)
+        .defaultSize(width: 400, height: 700)
         .windowResizability(.automatic)
         
         
@@ -91,10 +92,12 @@ struct XRShareVision: App {
                 .environmentObject(appModel)
                 .environmentObject(appState)
                 .onAppear {
-                    dismiss(id: "MainMenuView")
+                    dismiss(id: "MainMenu")
                 }
             
         }
+        .windowStyle(.automatic)
+        .defaultSize(width: 700, height: 850)
         
         
         WindowGroup(id: "ModelInfoWindow"){
@@ -120,6 +123,17 @@ struct XRShareVision: App {
             .defaultSize(width: 325, height: 325)
             .windowResizability(.automatic)
         
+        
+        
+        WindowGroup(id: "ModelMenuBar"){
+            ModelMenuBar(modelManager: modelManager)
+                .environmentObject(arViewModel)
+                .environmentObject(appModel)
+                .environmentObject(appState)
+        }
+        .windowStyle(.automatic)
+        .defaultSize(width: 600, height: 100)
+        .windowResizability(.automatic)
         
 
 

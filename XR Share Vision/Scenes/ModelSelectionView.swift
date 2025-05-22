@@ -1,6 +1,8 @@
 import SwiftUI
 import RealityKit
 
+
+
 struct ModelSelectionScreen: View {
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismissWindow) private var dismissWindow
@@ -11,17 +13,18 @@ struct ModelSelectionScreen: View {
     @Environment(\.openImmersiveSpace) private var openImmersiveSpace
     @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
     
-    @State private var showingPopover = false
+ 
     @State var modelList: [String] = ["Anatomy Models", "Car Models", "Airplane Models", "Bird Models", "Food Models"]
 
     var body: some View {
         VStack(spacing: 20) {
             
             HStack{
-                Button("Back to Main") {
+                Button(action: {
                     
                     dismissWindow(id: "AddModelWindow")
                     dismissWindow(id: "InSessionView")
+                    openWindow(id: "MainMenu")
                     
                     // Clear models
                     modelManager.reset()
@@ -33,8 +36,9 @@ struct ModelSelectionScreen: View {
                     }
                     // Switch the app page back to main
                     appModel.currentPage = .mainMenu
-                }
-                .background(RoundedRectangle(cornerRadius:30).fill(Color.white.opacity(0.3)))
+                    }) {
+                        Image(systemName: "chevron.left")
+                    }
                 
                 Spacer()
                 
@@ -45,109 +49,116 @@ struct ModelSelectionScreen: View {
                 
                 VStack(alignment: .trailing, spacing: 0){
                 
-                Button("Add a model"){
+                    Button(action: {
                     print("add a model selected")
                     dismissWindow(id: "AddModelWindow")
-                    showingPopover = true
-                }
-                .background(RoundedRectangle(cornerRadius:30).fill(Color.white.opacity(0.6)))
-                .sheet(isPresented: $showingPopover){
-                    VStack{
-                        Text("Select Type of Model:")
-                            .padding()
-                            .padding(.top, 10)
-                            .font(.headline)
-                            .bold()
-                        
-                        ForEach(modelList, id: \.self){ item in
-                            Button(action:{
-                                switch item{
-                                case "Anatomy Models":
-                                    appModel.selectedCategory = .anatomy
-                                    openWindow(id: "AddModelWindow")
-                                case "Food Models":
-                                    appModel.selectedCategory = .food
-                                    openWindow(id: "AddModelWindow")
-                                default:
-                                    break
+                    modelManager.showingPopover = true
+                    }) {
+                        Image(systemName: "plus")
+                    }
+                    
+                    .sheet(isPresented: $modelManager.showingPopover){
+                        VStack{
+                            
+                            HStack{
+                                Button(action: {
+                                    modelManager.showingPopover = false
+                                }){
+                                    Image(systemName: "xmark")
                                 }
                                 
-                                showingPopover = false
-                                
-                            }){
-                                Text(item)
+                                Text("Select Type of Model:")
+                                    .padding()
+                                    .padding(.top, 10)
+                                    .font(.headline)
+                                    .bold()
                             }
-                            .buttonStyle(PlainButtonStyle())
+                            .padding()
                             
-                            
+                            ForEach(modelList, id: \.self){ item in
+                                Button(action:{
+                                    switch item{
+                                    case "Anatomy Models":
+                                        appModel.selectedCategory = .anatomy
+                                        modelManager.showingPopover = false
+                                        modelManager.showingModelPopover = true
+                                    case "Food Models":
+                                        appModel.selectedCategory = .food
+                                        modelManager.showingPopover = false
+                                        modelManager.showingModelPopover = true
+                                    default:
+                                        break
+                                    }
+                                    
+                                }){
+                                    Text(item)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                                
+                                
+                            }
+                            .padding()
                         }
-                        .padding()
-                        
                     }
-                }
+                    
+                    .sheet(isPresented: $modelManager.showingModelPopover){
+                        AddModelView(modelManager: modelManager)
+                    }
             }
                 
         }
-            .padding(35)
-        
-
-            Text("Loaded Models: \(modelManager.placedModels.count)")
+            .padding(.horizontal,24)
+            .padding(.top, 24)
+            .padding(.bottom, 24)
+            
+            
+            
+            
+            
+            VStack{
+                Text("Current Session Name")
+                    .font(.title)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.horizontal)
+                
+                
+                
+                Text("Number of people in session: 0 ")
+                    .font(.subheadline)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.horizontal)
+            }
+            .padding()
+            .background(.ultraThinMaterial)
+            
+            
+            Spacer()
+            
+            VStack{
+                
+                
+                Text("Loaded Models: \(modelManager.placedModels.count)")
+                    .font(.title)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal)
+            }
+            
+            
                     
                     // Use the unique instanceUUID for the ForEach identifier
-                ForEach(modelManager.placedModels, id: \.instanceUUID) { mod in
-                        HStack(spacing: 12) {
-                            
-                            Text(mod.modelType.rawValue)
-                                .padding(.horizontal, 16)
-                                .frame(height: 44)
-                                .foregroundColor(.white)
-                            
-                            Spacer()
-                        
-                            // Users can select to get brief description of the model
-                            HStack(spacing: 12){
-                                Button(action: {
-                                    print("Info Selected")
-                                    modelManager.isInfoModeActive.toggle()
-                                }) {
-                                    Image(systemName: "hand.tap")
-                                        .foregroundColor(.white)
-                                }
-                                .buttonStyle(.plain)
-                                
-                                
-                                // After selecting, users can select part of model to get more information about it
-                                Button(action: {
-                                    print("more info Selected")
-                                    dismissWindow(id: "ModelInfoWindow")
-                                    modelManager.selectedModelInfo = mod.modelType.rawValue
-                                    openWindow(id: "ModelInfoWindow" )
-                                }) {
-                                    Image(systemName: "info.circle")
-                                        .foregroundColor(.white)
-                                }
-                                .buttonStyle(.plain)
-                                
-                                
-                                Button(action: {
-                                    print("trash Selected")
-                                    modelManager.removeModel(mod)
-                                }) {
-                                    Image(systemName: "trash")
-                                        .foregroundColor(.white)
-                                }
-                                .buttonStyle(.plain)
-                                
-                            }
-                            .padding(.horizontal, 20)
-                            .frame(height:44)
-                            
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    ForEach(ModelCategory.allCases) { category in
+                        let modelsInCategory = models(for: category)
+
+                        if !modelsInCategory.isEmpty {
+                            modelRow(for: category, models: modelsInCategory)
                         }
-                        .frame(height:50)
-                        .background(RoundedRectangle(cornerRadius: 13).fill(Color.white.opacity(0.3)))
-                        .padding(.horizontal)
-                        
                     }
+                }
+                .padding(.top)
+            }
+
             
             // Add tag to help identify the list causing the warning if it persists
             .id("PlacedModelsList")
@@ -198,6 +209,93 @@ struct ModelSelectionScreen: View {
                 await dismissImmersiveSpace()
             }
         }
+        
+    
+        
+        
+    }
+    
+    
+    func models(for category: ModelCategory) -> [Model] {
+        modelManager.placedModels.filter {
+            $0.modelType.category == category
+        }
+    }
+    
+    func modelRow(for category: ModelCategory, models: [Model]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(category.displayName)
+                .font(.headline)
+                .foregroundColor(.white)
+                .padding(.horizontal)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 16) {
+                    ForEach(models, id: \.instanceUUID) { mod in
+                        modelCard(for: mod)
+                    }
+                }
+                .padding(.horizontal)
+            }
+        }
+    }
+    
+    
+    func modelCard(for mod: Model) -> some View {
+        VStack(spacing: 0) {
+            Image("Heart") // Optionally replace with mod-specific thumbnail
+                .resizable()
+                .scaledToFit()
+                .frame(height: 120)
+                .frame(maxWidth: .infinity)
+                .clipped()
+
+            HStack {
+                Text(mod.modelType.rawValue)
+                    .font(.subheadline)
+                    .foregroundColor(.white)
+                    .truncationMode(.tail)
+
+                Spacer()
+
+                Button(action: {
+                    modelManager.removeModel(mod)
+                    dismissWindow(id: "ModelMenuBar")
+                }) {
+                    Image(systemName: "trash")
+                        .foregroundColor(.white)
+                }
+                .buttonStyle(.plain)
+
+                Button(action: {
+                    openWindow(id: "ModelMenuBar")
+                }) {
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        .foregroundColor(.white)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(Color.black.opacity(0.3))
+        }
+        .frame(width: 280, height: 160)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    
+}
+
+
+
+extension ModelCategory {
+    var displayName: String {
+        self.rawValue.capitalized + " Models"
     }
 }
+
+
+
+
         

@@ -19,13 +19,10 @@ struct MainMenu: View {
         ZStack {
             
             VStack(spacing: 20) {
-                Image("Image")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(height: 360)
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
-                    .padding(.top, 40)
-                    .padding(.bottom, 30)
+               
+                Text("XRShare")
+                    .padding()
+                    .font(.largeTitle)
                 
             
                 if isJoiningSession {
@@ -96,10 +93,8 @@ struct MainMenu: View {
                                 .font(.title2)
                                 .fontWeight(.bold)
                                 .frame(maxWidth: 400, minHeight: 25)
-                                .foregroundColor(.black)
                                 .padding()
                         }
-                        .background(RoundedRectangle(cornerRadius:30).fill(Color.white.opacity(0.3)))
                     }
                 }
             }
