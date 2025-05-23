@@ -15,6 +15,7 @@ struct ModelControlPanelView: View {
     @ObservedObject var arViewModel: ARViewModel
     @EnvironmentObject var appModel: AppModel
     @EnvironmentObject var appState: AppState
+    @Environment(\.dismissWindow) private var dismissWindow
     @Environment(\.openWindow) private var openWindow
     
     @State private var lastAction = "Debug panel opened"
@@ -23,6 +24,9 @@ struct ModelControlPanelView: View {
     @State private var rotationX: Float = 0
     @State private var rotationY: Float = 0
     @State private var rotationZ: Float = 0
+    @State private var isModelPartSelectionOn = false
+    @State private var isSlicedViewOn = false
+    @State private var isOn = false
     
     var body: some View {
         
@@ -30,10 +34,25 @@ struct ModelControlPanelView: View {
             VStack(spacing: 12) {
                 headerSection
                 Divider()
+                
+                Text("Gestures")
+                    .bold()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.bottom, 20)
+                
                 transformSection
+                
+                Text("Interactions")
+                    .bold()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.bottom, 20)
+                
+                modelViews
+                
                 
                 Spacer()
                 
+                Divider()
                 modelControlButtons
             }
             .padding()
@@ -46,12 +65,23 @@ struct ModelControlPanelView: View {
     private var headerSection: some View {
         if !modelManager.placedModels.isEmpty {
             HStack {
-                Text("Current Model: ").font(.subheadline)
+                
+                Button(action:{
+                    dismissWindow(id: "ModelControlPanel")
+                }){
+                    Image(systemName: "xmark")
+                }
+                
+                Spacer()
+                
+                Text("Current Model:")
                 if let selected = getSelectedModel() {
                     Text(selected.modelType.rawValue).bold()
                 } else {
                     Text("None selected").foregroundColor(.secondary)
                 }
+                
+                Spacer()
             }
             .padding()
         }
@@ -68,9 +98,9 @@ struct ModelControlPanelView: View {
             } label: {
                 HStack {
                     Image(systemName: "arrow.counterclockwise").font(.title3)
-                    Text("Reset").font(.caption)
+                    Text("Reset").font(.subheadline)
                 }
-                .frame(width: 60, height: 50)
+                .frame(width: 100, height: 50)
             }
             .buttonStyle(.plain)
 
@@ -80,9 +110,13 @@ struct ModelControlPanelView: View {
     
     @ViewBuilder
     private var transformSection: some View {
-        VStack(spacing: 8) {
-            Text("Scale").font(.subheadline)
+        VStack(spacing: 20) {
+
             HStack {
+                Text("Scale")
+                    .font(.subheadline)
+                    .frame(width: 60, alignment: .leading)
+                
                 Text("0.05").font(.caption)
                 Slider(
                     value: Binding(
@@ -95,9 +129,15 @@ struct ModelControlPanelView: View {
                 )
                 Text("1.0").font(.caption)
             }
+            .padding(.leading, 8)
+            .padding(.bottom)
 
-            Text("Rotation").font(.subheadline).padding(.top, 4)
+        
             HStack(spacing: 12) {
+                Text("Rotate")
+                    .font(.subheadline)
+                    .frame(width: 60, alignment: .leading)
+                
                 ForEach(["X", "Y", "Z"], id: \.self) { axis in
                     Button {
                         if let m = getSelectedModel() { rotateModel(m, axis: axis) }
@@ -107,11 +147,131 @@ struct ModelControlPanelView: View {
                             .padding(.vertical, 8)
                     }
                     .buttonStyle(.bordered)
-                    .tint(axis == "X" ? .red : (axis == "Y" ? .green : .blue))
                 }
+                .padding(.horizontal, 15)
             }
+            .padding(.leading, 8)
+        }
+        .padding(.bottom)
+    }
+    
+    @ViewBuilder
+    private var modelViews: some View {
+        
+        VStack(spacing: 20){
+            Button(action: {
+                isModelPartSelectionOn.toggle()
+            }){
+                HStack{
+                    Text("Model-Part Selection")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.white)
+                    Spacer()
+                    
+                    Image(systemName: isModelPartSelectionOn ? "checkmark.circle.fill" : "circle")
+                        .padding(.horizontal, 4)
+                    
+                    
+                }
+                .padding(.top)
+                .padding(.bottom)
+                .padding(.leading, 8)
+                .background(
+                    
+                    Group{
+                        
+                        if isModelPartSelectionOn {
+                            RoundedRectangle(cornerRadius: 12).fill(.ultraThinMaterial)
+                        }
+                        
+                        else {
+                            RoundedRectangle(cornerRadius: 12).fill(Color.clear)
+                        }
+                            
+                        })
+                
+            }
+            .buttonStyle(.plain)
+            
+            Divider()
+            
+            
+            Button(action: {
+                isSlicedViewOn.toggle()
+            }){
+                HStack{
+                    Text("Sliced Model")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.white)
+                    
+                    Spacer()
+                    
+                    Image(systemName: isSlicedViewOn ? "checkmark.circle.fill" : "circle")
+                        .padding(.horizontal, 4)
+                    
+                    
+                }
+                .padding(.top)
+                .padding(.bottom)
+                .padding(.leading, 8)
+                .background(
+                    
+                    Group{
+                        
+                        if isSlicedViewOn {
+                            RoundedRectangle(cornerRadius: 12).fill(.ultraThinMaterial)
+                        }
+                        
+                        else {
+                            RoundedRectangle(cornerRadius: 12).fill(Color.clear)
+                        }
+                            
+                        })
+                        
+                    }
+                
+            .buttonStyle(.plain)
+            
+            Divider()
+            
+            Button(action: {
+                isOn.toggle()
+            }){
+                HStack{
+                    Text("Isolate Model Part")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.white)
+                    
+                    Spacer()
+                    
+                    Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
+                        .padding(.horizontal, 4)
+                    
+                    
+                }
+                .padding(.top)
+                .padding(.bottom)
+                .padding(.leading, 8)
+                .background(
+                    
+                    Group{
+                        
+                        if isOn {
+                            RoundedRectangle(cornerRadius: 12).fill(.ultraThinMaterial)
+                        }
+                        
+                        else {
+                            RoundedRectangle(cornerRadius: 12).fill(Color.clear)
+                        }
+                            
+                        })
+                
+            }
+            .buttonStyle(.plain)
+            
         }
     }
+    
     
     func getSelectedModel() -> Model? {
         if let selectedModelID = modelManager.selectedModelID {

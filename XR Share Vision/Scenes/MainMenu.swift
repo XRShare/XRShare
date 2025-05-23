@@ -73,6 +73,7 @@ struct MainMenu: View {
                     
                     
                 } else {
+                    
                     ForEach(["Host session", "Join session", "Local session"], id: \.self) { title in
                         Button {
                             switch title {
@@ -91,19 +92,26 @@ struct MainMenu: View {
                             default:
                                 break
                             }
-                        } label: {
+                        }
+                        
+                        label: {
                             Text(title)
                                 .font(.title2)
                                 .fontWeight(.bold)
                                 .frame(maxWidth: 200, maxHeight: 20)
+                                .padding(.horizontal, 40)
                             
                             
                         }
                         
                         Text(description(for: title))
-                            .font(.caption)
+                            .font(.subheadline)
                         
-                        Divider()
+                        if title != "Local session" {
+                            Divider()
+                                .padding(6)
+                        }
+                        
                     }
                 }
             }
@@ -146,6 +154,6 @@ struct MainMenu: View {
         }
     }
 
-    
 }
+
 

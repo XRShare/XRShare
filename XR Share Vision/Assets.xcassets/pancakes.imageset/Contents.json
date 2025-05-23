@@ -1,17 +1,17 @@
 {
   "images" : [
     {
-      "filename" : "Heart.jpg",
+      "filename" : "Pancakes.jpg",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
-      "filename" : "Heart 1.jpg",
+      "filename" : "Pancakes 1.jpg",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
-      "filename" : "Heart 2.jpg",
+      "filename" : "Pancakes 2.jpg",
       "idiom" : "universal",
       "scale" : "3x"
     }

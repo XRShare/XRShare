@@ -1,17 +1,17 @@
 {
   "images" : [
     {
-      "filename" : "Heart.jpg",
+      "filename" : "ArteriesHead.jpg",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
-      "filename" : "Heart 1.jpg",
+      "filename" : "ArteriesHead 2.jpg",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
-      "filename" : "Heart 2.jpg",
+      "filename" : "ArteriesHead 1.jpg",
       "idiom" : "universal",
       "scale" : "3x"
     }

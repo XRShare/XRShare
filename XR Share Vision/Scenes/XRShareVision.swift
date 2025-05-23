@@ -35,7 +35,7 @@ struct XRShareVision: App {
                 }
         }
         .windowStyle(.automatic)
-        .defaultSize(width: 600, height: 480)
+        .defaultSize(width: 600, height: 850)
         .windowResizability(.automatic)
         
         
@@ -136,7 +136,7 @@ struct XRShareVision: App {
                 .environmentObject(appState)
         }
         .windowStyle(.automatic)
-        .defaultSize(width: 400, height: 600)
+        .defaultSize(width: 450, height: 600)
         .windowResizability(.automatic)
 
 

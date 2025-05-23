@@ -24,6 +24,8 @@ struct ModelSelectionScreen: View {
                     
                     dismissWindow(id: "AddModelWindow")
                     dismissWindow(id: "InSessionView")
+                    dismissWindow(id: "ModelMenuBar")
+                    dismissWindow(id: "ModelControlPanel")
                     openWindow(id: "MainMenu")
                     
                     // Clear models
@@ -160,14 +162,14 @@ struct ModelSelectionScreen: View {
             }
 
             
-            // Add tag to help identify the list causing the warning if it persists
+            
             .id("PlacedModelsList")
 
             HStack {
                 
                 Spacer()
                 
-                // Debug mode toggle with manual action to handle MainActor requirements
+    
                 Button(action: {
                     // Debounce to prevent multiple toggles
                     guard !appModel.controlPanelVisible || !appModel.debugModeEnabled else { 
@@ -175,7 +177,7 @@ struct ModelSelectionScreen: View {
                         return 
                     }
                     
-                    // Toggle debug mode with UI update
+                    
                     appModel.toggleDebugModeUI()
                 }) {
                     Label(
@@ -202,7 +204,7 @@ struct ModelSelectionScreen: View {
             modelManager.loadModelTypes()
         }
         .onDisappear {
-            // Also clear if user navigates away via system or other route
+            
             modelManager.reset()
             arViewModel.stopMultipeerServices()
             Task {
@@ -242,46 +244,54 @@ struct ModelSelectionScreen: View {
     
     
     func modelCard(for mod: Model) -> some View {
-        VStack(spacing: 0) {
-            Image("Heart") // Optionally replace with mod-specific thumbnail
+        
+        ZStack {
+            Image(mod.modelType.rawValue)
                 .resizable()
                 .scaledToFit()
-                .frame(height: 120)
-                .frame(maxWidth: .infinity)
                 .clipped()
-
-            HStack {
-                Text(mod.modelType.rawValue)
-                    .font(.subheadline)
-                    .foregroundColor(.white)
-                    .truncationMode(.tail)
-
+            
+            VStack{
+                
                 Spacer()
 
-                Button(action: {
-                    modelManager.removeModel(mod)
-                    dismissWindow(id: "ModelMenuBar")
-                }) {
-                    Image(systemName: "trash")
+                HStack {
+                    Text(mod.modelType.rawValue)
+                        .font(.subheadline)
                         .foregroundColor(.white)
-                }
-                .buttonStyle(.plain)
+                        .truncationMode(.tail)
 
-                Button(action: {
-                    openWindow(id: "ModelMenuBar")
-                }) {
-                    Image(systemName: "arrow.up.left.and.arrow.down.right")
-                        .foregroundColor(.white)
+                    Spacer()
+
+                    Button(action: {
+                        modelManager.removeModel(mod)
+                        dismissWindow(id: "ModelMenuBar")
+                        dismissWindow(id: "ModelControlPanel")
+                    }) {
+                        Image(systemName: "trash")
+                            .foregroundColor(.white)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal,8)
+
+                    Button(action: {
+                        openWindow(id: "ModelMenuBar")
+                    }) {
+                        Image(systemName: "arrow.up.left.and.arrow.down.right")
+                            .foregroundColor(.white)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(Color.black.opacity(0.4))
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(Color.black.opacity(0.3))
+            .frame(width: 240, height: 160)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
         }
-        .frame(width: 280, height: 160)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .cornerRadius(20)
+        .frame(width: 240, height: 160)
+    
     }
 
     

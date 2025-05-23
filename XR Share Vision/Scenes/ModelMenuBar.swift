@@ -104,46 +104,20 @@ struct ModelMenuBar: View {
                             .foregroundColor(.white)
                     }
                     .buttonStyle(.plain)
-                    .frame(width: 80, height: 50)
+                    .frame(width: 70, height: 50)
                     .padding([.top, .bottom])
                     
-                    
-                    
-                    Button(action: {
-                        print("Info Selected")
-                        modelManager.isInfoModeActive.toggle()
-                    }) {
-                        Image(systemName: "hand.tap")
-                            .foregroundColor(.white)
-                    }
-                    .buttonStyle(.plain)
-                    .frame(width: 80, height: 50)
-                    .padding([.top, .bottom])
                     
                     
                     
                     Button(action: {
                         print("Speak selected")
-                        openWindow(id: "controlPanel")
                     }) {
                         Image(systemName: "speaker.wave.3")
                             .foregroundColor(.white)
                     }
                     .buttonStyle(.plain)
-                    .frame(width: 80, height: 50)
-                    .padding([.top, .bottom])
-                    
-                    
-                    Button(action: {
-                        print("trash Selected")
-                        modelManager.removeModel(mod)
-                        dismissWindow(id: "ModelMenuBar")
-                    }) {
-                        Image(systemName: "trash")
-                            .foregroundColor(.white)
-                    }
-                    .buttonStyle(.plain)
-                    .frame(width: 80, height: 50)
+                    .frame(width: 70, height: 50)
                     .padding([.top, .bottom])
                     
                     
@@ -155,8 +129,24 @@ struct ModelMenuBar: View {
                             .foregroundColor(.white)
                     }
                     .buttonStyle(.plain)
-                    .frame(width: 80, height: 50)
+                    .frame(width: 70, height: 50)
                     .padding([.top, .bottom])
+                    
+                    
+                    Button(action: {
+                        print("trash Selected")
+                        modelManager.removeModel(mod)
+                        dismissWindow(id: "ModelMenuBar")
+                        dismissWindow(id: "ModelControlPanel")
+                    }) {
+                        Image(systemName: "trash")
+                            .foregroundColor(.white)
+                    }
+                    .buttonStyle(.plain)
+                    .frame(width: 70, height: 50)
+                    .padding([.top, .bottom])
+                    
+                    
                     
                 }
                 .labelStyle(.iconOnly)
