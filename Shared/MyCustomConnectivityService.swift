@@ -421,7 +421,7 @@ class MyCustomConnectivityService: NSObject {
     private func handleTestMessage(_ data: Data, from peerID: MCPeerID) {
         do {
             let payload = try JSONDecoder().decode(TestMessagePayload.self, from: data)
-            print("✅ Received Test Message from \(payload.senderName): \"\(payload.message)\"")
+            print("Received Test Message from \(payload.senderName): \"\(payload.message)\"")
                 // Optionally, display an alert or update UI via ARViewModel
             DispatchQueue.main.async { [weak self] in
                 self?.arViewModel?.alertItem = AlertItem(title: "Test Message Received", message: "From \(payload.senderName): \(payload.message)")

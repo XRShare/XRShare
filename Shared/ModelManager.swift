@@ -380,9 +380,9 @@ final class ModelManager: ObservableObject {
             self.selectedModelID = model.modelType
             entity.isEnabled = true
             if let parent = entity.parent { parent.isEnabled = true }
-            print("🎯 SELECT: Tapped \(name) - now selected")
+            print("SELECT: Tapped \(name) - now selected")
         } else {
-            print("ℹ️ Tapped non-model entity: \(name)")
+            print("Tapped non-model entity: \(name)")
         }
     }
 
@@ -395,13 +395,23 @@ final class ModelManager: ObservableObject {
             return
         }
 
-        // Apply sensitivity adjustment to the raw world-space delta received from the gesture
-        // This factor needs tuning for visionOS `value.location3D` delta. Start small.
-        let sensitivity: Float = 0.002 // Significantly reduce sensitivity for visionOS world delta
-        let scaledDelta = translation * sensitivity
-
-        // Optional: Clamp the scaled delta per frame to prevent huge jumps
-        let maxDeltaPerFrame: Float = 0.02 // Max 2cm move per frame update
+        // Apply platform-specific sensitivity adjustment
+        let scaledDelta: SIMD3<Float>
+        let maxDeltaPerFrame: Float
+        
+        #if os(visionOS)
+        // visionOS uses world-space deltas that need significant reduction
+        let sensitivity: Float = 0.002
+        scaledDelta = translation * sensitivity
+        maxDeltaPerFrame = 0.02 // Max 2cm move per frame update
+        #else
+        // iOS gestures now handle sensitivity in ARViewModel, so use translation directly
+        // This path is primarily for legacy compatibility
+        scaledDelta = translation
+        maxDeltaPerFrame = 0.1 // Allow larger movements for iOS gestures
+        #endif
+        
+        // Clamp the scaled delta per frame to prevent huge jumps
         let clampedDelta = SIMD3<Float>(
             min(max(scaledDelta.x, -maxDeltaPerFrame), maxDeltaPerFrame),
             min(max(scaledDelta.y, -maxDeltaPerFrame), maxDeltaPerFrame),
@@ -434,7 +444,7 @@ final class ModelManager: ObservableObject {
         // Send transform update (now happens within handleDragChange)
         arViewModel.sendTransform(for: entity)
 
-        // print("🔵 DRAG: \(name) by delta \(clampedDelta), new world pos \(newWorldPosition)")
+        // print("DRAG: \(name) by delta \(clampedDelta), new world pos \(newWorldPosition)")
     }
 
     @MainActor func handleDragEnd(entity: Entity, arViewModel: ARViewModel) {
@@ -445,7 +455,7 @@ final class ModelManager: ObservableObject {
         model.position = entity.position // Final update to local model state
         self.selectedModelID = model.modelType
         arViewModel.sendTransform(for: entity) // Send final update
-        print("✅ Drag gesture ended for \(entity.name)")
+        print("Drag gesture ended for \(entity.name)")
     }
 
     @MainActor func handleScaleChange(entity: Entity, scaleFactor: Float, arViewModel: ARViewModel) {
@@ -487,7 +497,7 @@ final class ModelManager: ObservableObject {
         model.updateCollisionBox() // Update collision after scaling
         self.selectedModelID = model.modelType
         arViewModel.sendTransform(for: entity)
-        print("✅ Scale gesture ended for \(entity.name) at \(entity.scale)")
+        print("Scale gesture ended for \(entity.name) at \(entity.scale)")
     }
 
     @MainActor func handleRotationChange(entity: Entity, rotation: simd_quatf, arViewModel: ARViewModel) {
@@ -532,7 +542,7 @@ final class ModelManager: ObservableObject {
 
         // Clean up initial rotation cache if used
         self.entityInitialRotations.removeValue(forKey: entity)
-        print("✅ Rotation gesture ended for \(entity.name)")
+        print("Rotation gesture ended for \(entity.name)")
     }
     
     // Gestures are now handled directly in the platform-specific views (ARViewContainer for iOS, InSession for visionOS)

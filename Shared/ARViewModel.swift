@@ -440,6 +440,9 @@ class ARViewModel: NSObject, ObservableObject {
                 self.alertItem = AlertItem(title: "Placement Error", message: "Could not load the selected model.")
                 return
             }
+            
+            // Debug: Check if cloned entity preserved the scale
+            print("Cloned \(modelToPlace.modelType.rawValue) entity scale: \(modelEntity.scale)")
 
             // Assign a unique instance ID if it doesn't have one
             if modelEntity.components[InstanceIDComponent.self] == nil {
@@ -670,13 +673,26 @@ class ARViewModel: NSObject, ObservableObject {
                 let currentWorldPosition = entity.position(relativeTo: nil)
                 let translationDelta = desiredWorldPosition - currentWorldPosition
                 
-                // 5. Apply the delta using the ModelManager's handler (which might apply smoothing/clamping).
-                //    Note: handleDragChange expects a *delta*, not an absolute position.
-                modelManager.handleDragChange(entity: entity, translation: translationDelta, arViewModel: self)
+                // 5. Apply the delta directly without additional sensitivity (it's already the right magnitude)
+                //    Clamp the delta to prevent excessive jumps
+                let maxDelta: Float = 0.1 // Allow up to 10cm movement per gesture update
+                let clampedDelta = SIMD3<Float>(
+                    min(max(translationDelta.x, -maxDelta), maxDelta),
+                    min(max(translationDelta.y, -maxDelta), maxDelta),
+                    min(max(translationDelta.z, -maxDelta), maxDelta)
+                )
+                
+                // Apply position directly (bypass ModelManager sensitivity for raycast path)
+                entity.setPosition(entity.position(relativeTo: nil) + clampedDelta, relativeTo: nil)
+                
+                // Update model state and send transform
+                if let model = modelManager.modelDict[entity] {
+                    modelManager.selectedModelID = model.modelType
+                    self.sendTransform(for: entity)
+                }
                 
             } else {
-                // Fallback: If raycast fails (e.g., pointing off into space), maybe use the old approximate method or do nothing.
-                print("Pan raycast failed, using approximate translation.")
+                // Fallback: If raycast fails, use camera-relative translation with proper sensitivity
                 let translation = sender.translation(in: arView)
                 
                 // Validate translation values to prevent NaN
@@ -685,8 +701,10 @@ class ARViewModel: NSObject, ObservableObject {
                     return
                 }
                 
+                // Apply reasonable sensitivity for iOS touch gestures
+                let sensitivity: Float = 0.001 // Increased from 0.002 for better responsiveness
                 let cameraTransform = arView.cameraTransform
-                var worldTranslation = SIMD3<Float>(Float(translation.x), -Float(translation.y), 0) * 0.002 // Adjust sensitivity
+                var worldTranslation = SIMD3<Float>(Float(translation.x), -Float(translation.y), 0) * sensitivity
                 worldTranslation = cameraTransform.rotation.act(worldTranslation) // Rotate translation to world space
                 
                 // Validate final translation
@@ -695,8 +713,16 @@ class ARViewModel: NSObject, ObservableObject {
                     return
                 }
                 
-                modelManager.handleDragChange(entity: entity, translation: worldTranslation, arViewModel: self)
-                sender.setTranslation(.zero, in: arView) // Reset translation only for fallback
+                // Apply position directly without ModelManager sensitivity (since we already applied it)
+                entity.setPosition(entity.position(relativeTo: nil) + worldTranslation, relativeTo: nil)
+                
+                // Update model state and send transform
+                if let model = modelManager.modelDict[entity] {
+                    modelManager.selectedModelID = model.modelType
+                    self.sendTransform(for: entity)
+                }
+                
+                sender.setTranslation(.zero, in: arView) // Reset translation for cumulative updates
             }
             // --- End Improved Pan ---
             

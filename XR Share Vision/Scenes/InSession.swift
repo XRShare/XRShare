@@ -236,7 +236,7 @@ struct InSession: View {
             // --- visionOS Gestures ---
                 .gesture(SpatialTapGesture().targetedToAnyEntity().onEnded ({ value in
                     
-                    print("🎯 Tapped entity: \(value.entity.name)")
+                    print("Tapped entity: \(value.entity.name)")
                     
                     let entity = value.entity
                     let name = entity.name

@@ -299,7 +299,7 @@ struct XRShareVision: App {
                                 // Already synced, just update detection status if it wasn't already tracked
                             if !arViewModel.isImageTracked {
                                      arViewModel.isImageTracked = true
-                                     print("👀 Image Target '\(imageName)' re-detected (already synced).")
+                                     print("Image Target '\(imageName)' re-detected (already synced).")
                             }
                             }
                         } else {

@@ -33,19 +33,19 @@ class ARSessionDelegateHandler: NSObject, ARSessionDelegate {
                             arViewModel.sharedAnchorEntity.setTransformMatrix(imageAnchor.transform, relativeTo: nil)
                             arViewModel.isSyncedToImage = true
                             arViewModel.isImageTracked = true
-                            print("✅ [iOS] Image Target '\(imageName)' detected. Synced sharedAnchorEntity.")
+                            print("[iOS] Image Target '\(imageName)' detected. Synced sharedAnchorEntity.")
                         } else {
                             // Already synced, just update detection status
                             if !arViewModel.isImageTracked {
                                 arViewModel.isImageTracked = true
-                                print("👀 [iOS] Image Target '\(imageName)' re-detected (already synced).")
+                                print("[iOS] Image Target '\(imageName)' re-detected (already synced).")
                             }
                         }
                     } else {
                         // Image lost tracking (but might still exist as an anchor)
                         if arViewModel.isImageTracked {
                             arViewModel.isImageTracked = false
-                            print("⚠️ [iOS] Image Target '\(imageName)' lost tracking.")
+                            print("[iOS] Image Target '\(imageName)' lost tracking.")
                             // Do not reset isSyncedToImage
                         }
                     }

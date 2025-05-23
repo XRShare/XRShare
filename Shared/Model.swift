@@ -101,6 +101,9 @@ final class Model: ObservableObject, @preconcurrency Identifiable {
                 // Name the entity meaningfully for better identification
                 entity.name = "Model_\(modelType.rawValue)"
                 
+                // Debug: Log model hierarchy
+                print("Model \(modelType.rawValue) loaded successfully")
+                
                 // Apply Z-axis rotation correction if needed
                 if modelType.shouldRotateAroundZAxis {
                     // Rotate to correct initial orientation
@@ -145,6 +148,8 @@ final class Model: ObservableObject, @preconcurrency Identifiable {
     
     /// Normalizes the model size to fit within a target bounding box
     private func normalizeModelSize(entity: ModelEntity) {
+        print("Normalizing model: \(modelType.rawValue)")
+        
         // Define target bounding box dimensions - different for each platform
         #if os(visionOS)
         let targetBoundingBox = SIMD3<Float>(0.6, 0.6, 0.6) // 60cm cube for visionOS (larger for distance viewing)
@@ -155,12 +160,24 @@ final class Model: ObservableObject, @preconcurrency Identifiable {
         // Get the model's current bounding box
         let bounds = entity.visualBounds(relativeTo: nil)
         let extents = bounds.extents
+        let center = bounds.center
+        
+        print("Model \(modelType.rawValue) original bounds:")
+        print("  Extents: (\(extents.x), \(extents.y), \(extents.z))")
+        print("  Center: (\(center.x), \(center.y), \(center.z))")
+        print("  Target box: (\(targetBoundingBox.x), \(targetBoundingBox.y), \(targetBoundingBox.z))")
         
         // Skip normalization if bounds are invalid
         guard extents.x > 0 && extents.y > 0 && extents.z > 0 else {
             print("Warning: Model \(modelType.rawValue) has invalid bounds, using default scale")
             entity.scale = [0.1, 0.1, 0.1]
             return
+        }
+        
+        // Check for unusually large models
+        let maxDimension = max(extents.x, extents.y, extents.z)
+        if maxDimension > 10.0 { // More than 10 meters
+            print("Warning: Model \(modelType.rawValue) has unusually large dimension: \(maxDimension)m")
         }
         
         // Calculate scale factors for each dimension to fit within target box
@@ -171,26 +188,25 @@ final class Model: ObservableObject, @preconcurrency Identifiable {
         // Use the smallest scale factor to ensure the model fits entirely within the bounding box
         let uniformScale = min(scaleX, scaleY, scaleZ)
         
-        // All models now use the same uniform scaling to fit within the target bounding box
-        // No special cases for any models
-        
         // Apply minimum scale constraint
         let minScale: Float = 0.01 // Minimum 1cm scale
         let finalScale = max(uniformScale, minScale)
+        
+        // Apply uniform scaling to all models
         entity.scale = SIMD3<Float>(repeating: finalScale)
         
         // Center the model within its bounding box
         let boundsCenter = bounds.center
         entity.position = -boundsCenter * finalScale
         
-        
         // Log the final bounding box size
         let finalExtents = extents * finalScale
         print("Normalized \(modelType.rawValue):")
-        print("  Original bounds: \(extents)")
-        print("  Target box: \(targetBoundingBox)")
-        print("  Scale factor: \(finalScale)")
-        print("  Final bounds: \(finalExtents)")
+        print("  Scale factors: X=\(scaleX), Y=\(scaleY), Z=\(scaleZ)")
+        print("  Chosen scale: \(finalScale) (min of scale factors, clamped to \(minScale))")
+        print("  Final bounds: (\(finalExtents.x), \(finalExtents.y), \(finalExtents.z))")
+        print("  Applied scale: \(entity.scale)")
+        print("  New position: \(entity.position)")
     }
 
     private static func applyComponents(to entity: Entity) {
