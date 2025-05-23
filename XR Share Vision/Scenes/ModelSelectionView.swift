@@ -171,18 +171,14 @@ struct ModelSelectionScreen: View {
                 
     
                 Button(action: {
-                    // Debounce to prevent multiple toggles
-                    guard !appModel.controlPanelVisible || !appModel.debugModeEnabled else { 
-                        print("Debug panel already visible")
-                        return 
-                    }
+                    // Debounce to prevent multiple toggle
+                        
+                    openWindow(id: "controlPanel")
                     
                     
                     appModel.toggleDebugModeUI()
                 }) {
-                    Label(
-                        appModel.debugModeEnabled ? "Debug Console: Open" : "Debug Console: Closed", 
-                        systemImage: "ladybug"
+                    Label("Sync", systemImage: "arrow.triangle.2.circlepath"
                     )
                     .padding(.horizontal, 4)
                 }
@@ -275,9 +271,9 @@ struct ModelSelectionScreen: View {
                     .padding(.horizontal,8)
 
                     Button(action: {
-                        openWindow(id: "ModelMenuBar")
+                        modelManager.selectedModelID = mod.id
                     }) {
-                        Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        Image(systemName: "arrow.right")
                             .foregroundColor(.white)
                     }
                     .buttonStyle(.plain)

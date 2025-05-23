@@ -22,7 +22,7 @@ struct MainMenu: View {
                 Image("Image")
                     .resizable()
                     .scaledToFit()
-                    .frame(height: 360)
+                    .frame(height: 340)
                     .clipShape(RoundedRectangle(cornerRadius: 20))
                     .padding(.top, 40)
                     .padding(.bottom, 30)
@@ -35,7 +35,6 @@ struct MainMenu: View {
                         
                         Text("Available Sessions:")
                             .font(.title2)
-                            .foregroundColor(.black)
                             .padding()
                             
                         
@@ -44,6 +43,7 @@ struct MainMenu: View {
                             Button {
                                 arViewModel.invitePeer(session)
                                 isJoiningSession = false
+                                openModelMenuBar()
                                 moveToInSession()
                             } label: {
                                 Text(session.sessionName)
@@ -60,7 +60,6 @@ struct MainMenu: View {
                         Button("Cancel") {
                             isJoiningSession = false
                         }
-                        .foregroundColor(.red)
                         .padding()
                         
                     }
@@ -88,6 +87,7 @@ struct MainMenu: View {
                                 arViewModel.sessionName = "LocalSession"
                                 arViewModel.sessionID = UUID().uuidString
                                 // Don't start multipeer services for local mode
+                                openModelMenuBar()
                                 moveToInSession()
                             default:
                                 break
@@ -129,6 +129,7 @@ struct MainMenu: View {
                     arViewModel.startMultipeerServices()
                     
                     Task { @MainActor in
+                        openModelMenuBar()
                         moveToInSession()
                     }
                 }
@@ -139,6 +140,10 @@ struct MainMenu: View {
     
     private func moveToInSession() {
         appModel.currentPage = .modelSelection
+    }
+    
+    private func openModelMenuBar(){
+        openWindow(id: "ModelMenuBar")
     }
     
     func description(for title: String) -> String {

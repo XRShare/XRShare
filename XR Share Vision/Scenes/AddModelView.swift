@@ -59,28 +59,29 @@ struct AddModelView: View {
                                 modelManager.loadModel(for: modelType, arViewModel: arViewModel)
                                 modelManager.showingPopover = false
                                 modelManager.showingModelPopover = false
-                                dismissWindow(id: "ModelMenuBar")
-                                openWindow(id: "ModelMenuBar")
                             }) {
                                 VStack(spacing: 8) {
-                                    
-                                    Image(systemName: "cube")
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(height: 100)
-                                        .padding()
-                                        .cornerRadius(12)
 
-                                    Text(modelType.rawValue)
-                                        .font(.caption)
-                                        .foregroundColor(.primary)
-                                        .multilineTextAlignment(.center)
-                                }
-                                .padding()
-                                .background(Color(.systemBackground))
-                                .cornerRadius(16)
-                                .shadow(radius: 4)
+                                 
+                                    Image(modelType.rawValue)
+                                       .resizable()
+                                       .scaledToFit()
+                                       .frame(height: 100)
+                                       .cornerRadius(50)
+                                       .padding()
+                                      
+
+                                   Text(modelType.rawValue)
+                                       .font(.headline)
+                                       .fontWeight(.bold)
+                                       .foregroundColor(.primary)
+                                       .multilineTextAlignment(.center)
+                               }
+                               .padding()
+                               .background(Color(.systemBackground))
+                               .cornerRadius(35)
                             }
+                            .buttonStyle(.plain)
                         }
                     }
                     .padding()

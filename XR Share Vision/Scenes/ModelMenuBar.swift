@@ -42,7 +42,7 @@ struct ModelMenuBar: View {
         
         VStack{
         
-            if let mod = mostRecentlyPlacedModel {
+            if let mod = getSelectedModel() {
                 HStack(spacing: 12) {
                     
                     VStack{
@@ -90,7 +90,7 @@ struct ModelMenuBar: View {
             contentAlignment: .center
         ){
             
-            if let mod = mostRecentlyPlacedModel {
+            if let mod = getSelectedModel() {
                 
                 HStack(spacing: 5){
                     
@@ -158,6 +158,14 @@ struct ModelMenuBar: View {
             
         }
         }
+    
+    func getSelectedModel() -> Model? {
+        if let selectedModelID = modelManager.selectedModelID {
+            return modelManager.placedModels.first(where: { $0.modelType == selectedModelID })
+        }
+        return modelManager.placedModels.first
+    }
+    
         
     }
 

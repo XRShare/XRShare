@@ -35,22 +35,33 @@ struct ModelControlPanelView: View {
                 headerSection
                 Divider()
                 
-                Text("Gestures")
+                Text("Position")
+                    .font(.headline)
                     .bold()
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.bottom, 20)
+                    .padding(.bottom, 10)
+                
+                positionSection
+                    
+                
+                
+                Text("Gestures")
+                    .font(.headline)
+                    .bold()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.bottom, 10)
                 
                 transformSection
+                   
                 
                 Text("Interactions")
+                    .font(.headline)
                     .bold()
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.bottom, 20)
+                    .padding(.bottom, 10)
                 
                 modelViews
-                
-                
-                Spacer()
+
                 
                 Divider()
                 modelControlButtons
@@ -60,6 +71,108 @@ struct ModelControlPanelView: View {
         
         
     }
+    
+    @ViewBuilder
+    private var positionSection: some View{
+        if let model = getSelectedModel(), let entity = model.modelEntity{
+            
+                HStack {
+                    Text("X: \(String(format: "%.2f", entity.position.x))")
+                        .font(.subheadline)
+                        .frame(width: 60, alignment: .leading)
+                    Spacer()
+                    Button("-0.05") {
+                        entity.position.x -= 0.05
+                        model.position = entity.position
+                        // Force model update
+                        if let arViewModel = model.arViewModel {
+                            arViewModel.sendTransform(for: entity)
+                        }
+                        lastAction = "Moved \(model.modelType.rawValue) left"
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
+                    
+                    Button("+0.05") {
+                        entity.position.x += 0.05
+                        model.position = entity.position
+                        // Force model update
+                        if let arViewModel = model.arViewModel {
+                            arViewModel.sendTransform(for: entity)
+                        }
+                        lastAction = "Moved \(model.modelType.rawValue) right"
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
+                }
+                .padding(.leading, 8)
+                .padding(.bottom, 5)
+                
+                HStack {
+                    Text("Y: \(String(format: "%.2f", entity.position.y))")
+                        .font(.subheadline)
+                        .frame(width: 60, alignment: .leading)
+                    Spacer()
+                    Button("-0.05") {
+                        entity.position.y -= 0.05
+                        model.position = entity.position
+                        // Force model update
+                        if let arViewModel = model.arViewModel {
+                            arViewModel.sendTransform(for: entity)
+                        }
+                        lastAction = "Moved \(model.modelType.rawValue) down"
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
+                    
+                    Button("+0.05") {
+                        entity.position.y += 0.05
+                        model.position = entity.position
+                        // Force model update
+                        if let arViewModel = model.arViewModel {
+                            arViewModel.sendTransform(for: entity)
+                        }
+                        lastAction = "Moved \(model.modelType.rawValue) up"
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
+                }
+                .padding(.leading, 8)
+                .padding(.bottom, 5)
+                
+                HStack {
+                    Text("Z: \(String(format: "%.2f", entity.position.z))")
+                        .font(.subheadline)
+                        .frame(width: 60, alignment: .leading)
+                    Spacer()
+                    Button("-0.05") {
+                        entity.position.z -= 0.05
+                        model.position = entity.position
+                        // Force model update
+                        if let arViewModel = model.arViewModel {
+                            arViewModel.sendTransform(for: entity)
+                        }
+                        lastAction = "Moved \(model.modelType.rawValue) closer"
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
+                    
+                    Button("+0.05") {
+                        entity.position.z += 0.05
+                        model.position = entity.position
+                        // Force model update
+                        if let arViewModel = model.arViewModel {
+                            arViewModel.sendTransform(for: entity)
+                        }
+                        lastAction = "Moved \(model.modelType.rawValue) away"
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
+                }
+                .padding(.leading, 8)
+            }
+            
+        }
     
     @ViewBuilder
     private var headerSection: some View {
@@ -75,8 +188,10 @@ struct ModelControlPanelView: View {
                 Spacer()
                 
                 Text("Current Model:")
+                    .font(.headline)
+                    .fontWeight(.bold)
                 if let selected = getSelectedModel() {
-                    Text(selected.modelType.rawValue).bold()
+                    Text(selected.modelType.rawValue).font(.headline).fontWeight(.bold)
                 } else {
                     Text("None selected").foregroundColor(.secondary)
                 }
@@ -232,42 +347,6 @@ struct ModelControlPanelView: View {
                 
             .buttonStyle(.plain)
             
-            Divider()
-            
-            Button(action: {
-                isOn.toggle()
-            }){
-                HStack{
-                    Text("Isolate Model Part")
-                        .font(.subheadline)
-                        .foregroundStyle(Color.white)
-                    
-                    Spacer()
-                    
-                    Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
-                        .padding(.horizontal, 4)
-                    
-                    
-                }
-                .padding(.top)
-                .padding(.bottom)
-                .padding(.leading, 8)
-                .background(
-                    
-                    Group{
-                        
-                        if isOn {
-                            RoundedRectangle(cornerRadius: 12).fill(.ultraThinMaterial)
-                        }
-                        
-                        else {
-                            RoundedRectangle(cornerRadius: 12).fill(Color.clear)
-                        }
-                            
-                        })
-                
-            }
-            .buttonStyle(.plain)
             
         }
     }

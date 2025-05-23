@@ -19,10 +19,7 @@ struct DebugControlsView: View {
         NavigationStack {
             VStack(spacing: 12) {
                 headerSection
-                modelControlButtons
-                transformSection
                 Divider()
-                if showModelList { modelListsSection }
                 currentModelSection
                 syncSection
                 testMessageSection
@@ -44,7 +41,7 @@ struct DebugControlsView: View {
 
     @ViewBuilder
     private var headerSection: some View {
-        Text("XR Anatomy Debug Controls")
+        Text("Sync")
             .panelHeader()
     }
 
