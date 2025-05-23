@@ -88,70 +88,34 @@ struct ModelMenuBar: View {
             visibility: .visible,
             attachmentAnchor: .scene(.bottom),
             contentAlignment: .center
-        ){
-            
+        ) {
             if let mod = mostRecentlyPlacedModel {
-                
-                HStack(spacing: 5){
-                    
-                    
-                    Button(action: {
-                        print("more info Selected")
-                        modelManager.selectedModelInfo = mod.modelType.rawValue
-                        modelManager.modelInfoSelected.toggle()
-                    }) {
-                        Image(systemName: "info.circle")
-                            .foregroundColor(.white)
-                    }
-                    .buttonStyle(.plain)
-                    .frame(width: 80, height: 50)
-                    .padding([.top, .bottom])
-                    
-                    
-                    
-                    Button(action: {
-                        print("Info Selected")
-                        modelManager.isInfoModeActive.toggle()
-                    }) {
-                        Image(systemName: "hand.tap")
-                            .foregroundColor(.white)
-                    }
-                    .buttonStyle(.plain)
-                    .frame(width: 80, height: 50)
-                    .padding([.top, .bottom])
-                    
-                    
-                    Button(action: {
-                        print("trash Selected")
-                        modelManager.removeModel(mod)
-                        dismissWindow(id: "ModelMenuBar")
-                    }) {
-                        Image(systemName: "trash")
-                            .foregroundColor(.white)
-                    }
-                    .buttonStyle(.plain)
-                    .frame(width: 80, height: 50)
-                    .padding([.top, .bottom])
-                    
-                    
-                    Button(action: {
-                        print("Speak selected")
-                    }) {
-                        Image(systemName: "speaker.wave.3")
-                            .foregroundColor(.white)
-                    }
-                    .buttonStyle(.plain)
-                    .frame(width: 80, height: 50)
-                    .padding([.top, .bottom])
-                    
-                }
-                .labelStyle(.iconOnly)
-                .padding(.horizontal)
-                .glassBackgroundEffect()
-                
-                
+                EnhancedModelOrnament(
+                    model: mod,
+                    onInfo: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            modelManager.selectedModelInfo = mod.modelType.rawValue
+                            modelManager.modelInfoSelected.toggle()
+                        }
+                    },
+                    onInteractionMode: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            modelManager.isInfoModeActive.toggle()
+                        }
+                    },
+                    onRemove: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            modelManager.removeModel(mod)
+                            dismissWindow(id: "ModelMenuBar")
+                        }
+                    },
+                    onSpeak: {
+                        // Future implementation for text-to-speech
+                        print("Speak functionality - to be implemented")
+                    },
+                    isInfoModeActive: modelManager.isInfoModeActive
+                )
             }
-            
         }
         }
         

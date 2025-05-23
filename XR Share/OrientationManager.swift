@@ -16,8 +16,8 @@ class OrientationManager {
 
     func lock(to orientation: UIInterfaceOrientationMask) {
         orientationLock = orientation
-        // This forces the device to use the given orientation.
-        UIDevice.current.setValue(orientation == .portrait ? UIInterfaceOrientation.portrait.rawValue : UIInterfaceOrientation.unknown.rawValue, forKey: "orientation")
+        // Note: UIDevice.setValue for orientation is deprecated
+        // The actual orientation locking is handled in the AppDelegate's supportedInterfaceOrientations
     }
 
     func unlock() {

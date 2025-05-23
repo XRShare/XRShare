@@ -286,10 +286,8 @@ struct InSession: View {
 
                      // Store entity being dragged
                      if draggedEntity == nil {
-                         DispatchQueue.main.async {
-                             draggedEntity = value.entity
-                             print("Drag started on: \(value.entity.name)")
-                         }
+                         draggedEntity = value.entity
+                         print("Drag started on: \(value.entity.name)")
                      }
                      // Ensure we are continuing to drag the same entity
                      guard let currentDraggedEntity = draggedEntity, value.entity == currentDraggedEntity else {
@@ -339,16 +337,14 @@ struct InSession: View {
                              print("Drag ended: Entity \(entityToEnd.name) no longer managed.")
                          }
                      }
-                     DispatchQueue.main.async {
-                         lastGestureEvent = "Drag ended for \(entityToEnd.name)"
-                         
-                         // Reset drag state reliably
-                         draggedEntity = nil
-                         previousDragLocation3D = nil // Reset previous location
-                         // Reset other potentially stale states if they were used
-                         initialDragEntityPosition = nil
-                         gestureStartLocation3D = nil
-                     }
+                     lastGestureEvent = "Drag ended for \(entityToEnd.name)"
+                     
+                     // Reset drag state reliably
+                     draggedEntity = nil
+                     previousDragLocation3D = nil // Reset previous location
+                     // Reset other potentially stale states if they were used
+                     initialDragEntityPosition = nil
+                     gestureStartLocation3D = nil
                  }
             )
              .simultaneousGesture(MagnifyGesture()
@@ -358,9 +354,7 @@ struct InSession: View {
                      Task { @MainActor in
                          modelManager.handleScaleChange(entity: value.entity, scaleFactor: scaleFactor, arViewModel: arViewModel)
                      }
-                     DispatchQueue.main.async {
-                         lastGestureEvent = "Scaling \(value.entity.name) by \(String(format: "%.2f", scaleFactor))"
-                     }
+                     lastGestureEvent = "Scaling \(value.entity.name) by \(String(format: "%.2f", scaleFactor))"
                  }
                  .onEnded { value in
                       Task { @MainActor in
@@ -379,9 +373,7 @@ struct InSession: View {
                      Task { @MainActor in
                          modelManager.handleRotationChange(entity: value.entity, rotation: rotation, arViewModel: arViewModel)
                      }
-                     DispatchQueue.main.async {
-                         lastGestureEvent = "Rotating \(value.entity.name)"
-                     }
+                     lastGestureEvent = "Rotating \(value.entity.name)"
                  }
                  .onEnded { value in
                      Task { @MainActor in

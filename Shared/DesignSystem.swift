@@ -4,12 +4,12 @@ import SwiftUI
 /// Shared design system for consistent styling across iOS and visionOS
 struct DesignSystem {
     
-    // MARK: - Colors
+    // MARK: - Colors (visionOS-Aligned 2025)
     struct Colors {
-        // Primary brand colors
-        static let primary = Color.blue
-        static let primaryDark = Color.blue.opacity(0.8)
-        static let accent = Color.cyan
+        // Spatial computing inspired - subtle, glass-like colors
+        static let primary = Color.white
+        static let primarySubtle = Color.white.opacity(0.8)
+        static let accent = Color.white.opacity(0.6)
         
         // Semantic colors that adapt to light/dark mode
         static let background = Color(.systemBackground)
@@ -20,23 +20,34 @@ struct DesignSystem {
         static let secondaryLabel = Color(.secondaryLabel)
         static let tertiaryLabel = Color(.tertiaryLabel)
         
-        // Status colors
-        static let success = Color.green
-        static let warning = Color.orange
-        static let error = Color.red
+        // Subtle status colors - more muted for spatial design
+        static let success = Color.green.opacity(0.8)
+        static let warning = Color.orange.opacity(0.8)
+        static let error = Color.red.opacity(0.8)
         
-        // Glass and overlay colors
-        static let glassTint = Color.white.opacity(0.1)
-        static let overlayBackground = Color.black.opacity(0.3)
+        // Glass materials - core to visionOS design
+        static let glassBackground = Color.white.opacity(0.1)
+        static let glassBorder = Color.white.opacity(0.2)
+        static let glassHighlight = Color.white.opacity(0.3)
         
-        // Platform-specific colors
-        #if os(iOS)
-        static let controlBackground = Color(.systemFill)
-        static let controlBorder = Color(.separator)
-        #else
-        static let controlBackground = Color.clear
-        static let controlBorder = Color.clear
-        #endif
+        // Spatial overlay colors
+        static let spatialOverlay = Color.black.opacity(0.2)
+        static let spatialBlur = Color.clear
+        
+        // Control colors - glass-first approach
+        static let controlBackground = Color.white.opacity(0.15)
+        static let controlBorder = Color.white.opacity(0.25)
+        static let controlActive = Color.white.opacity(0.3)
+        
+        // Icon tints - subtle and refined
+        static let iconPrimary = Color.white
+        static let iconSecondary = Color.white.opacity(0.7)
+        static let iconTertiary = Color.white.opacity(0.5)
+        
+        // Contextual colors for different actions
+        static let destructive = Color.red.opacity(0.7)
+        static let constructive = Color.green.opacity(0.7)
+        static let neutral = Color.gray.opacity(0.7)
     }
     
     // MARK: - Typography
@@ -93,47 +104,59 @@ struct DesignSystem {
     // MARK: - Shadows and Effects
     struct Effects {
         static let cardShadow = Color.black.opacity(0.1)
-        static let cardShadowRadius: CGFloat = 10
-        static let cardShadowOffset: CGSize = CGSize(width: 0, height: 4)
+        // Spatial computing shadows - softer and more realistic
+        static let spatialShadowRadius: CGFloat = 24
+        static let spatialShadowOffset: CGSize = CGSize(width: 0, height: 12)
         
-        static let buttonShadow = Color.black.opacity(0.2)
-        static let buttonShadowRadius: CGFloat = 8
-        static let buttonShadowOffset: CGSize = CGSize(width: 0, height: 2)
+        static let buttonShadow = Color.black.opacity(0.1)
+        static let buttonShadowRadius: CGFloat = 16
+        static let buttonShadowOffset: CGSize = CGSize(width: 0, height: 8)
+        
+        // Glass effects
+        static let glassShadow = Color.black.opacity(0.05)
+        static let glassShadowRadius: CGFloat = 32
     }
 }
 
 // MARK: - Custom View Modifiers
 
-struct CardStyle: ViewModifier {
+struct SpatialCardStyle: ViewModifier {
     let padding: CGFloat
+    let material: Material
     
-    init(padding: CGFloat = DesignSystem.Sizing.cardPadding) {
+    init(padding: CGFloat = DesignSystem.Sizing.cardPadding, material: Material = .regularMaterial) {
         self.padding = padding
+        self.material = material
     }
     
     func body(content: Content) -> some View {
         content
             .padding(padding)
             .background {
-                #if os(iOS)
-                RoundedRectangle(cornerRadius: DesignSystem.Sizing.cornerRadius)
-                    .fill(.regularMaterial)
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(material)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(DesignSystem.Colors.glassBackground)
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(
+                                DesignSystem.Colors.glassBorder,
+                                lineWidth: 1
+                            )
+                    }
                     .shadow(
-                        color: DesignSystem.Effects.cardShadow,
-                        radius: DesignSystem.Effects.cardShadowRadius,
-                        x: DesignSystem.Effects.cardShadowOffset.width,
-                        y: DesignSystem.Effects.cardShadowOffset.height
+                        color: Color.black.opacity(0.08),
+                        radius: 24,
+                        x: 0,
+                        y: 12
                     )
-                #else
-                RoundedRectangle(cornerRadius: DesignSystem.Sizing.cornerRadius)
-                    .fill(.regularMaterial)
-                    .glassBackgroundEffect()
-                #endif
             }
     }
 }
 
-struct PrimaryButtonStyle: ButtonStyle {
+struct SpatialPrimaryButtonStyle: ButtonStyle {
     let isDestructive: Bool
     
     init(isDestructive: Bool = false) {
@@ -147,72 +170,135 @@ struct PrimaryButtonStyle: ButtonStyle {
             .frame(height: DesignSystem.Sizing.buttonHeight)
             .frame(maxWidth: .infinity)
             .background {
-                RoundedRectangle(cornerRadius: DesignSystem.Sizing.cornerRadius)
-                    .fill(
-                        LinearGradient(
-                            colors: isDestructive 
-                                ? [DesignSystem.Colors.error, DesignSystem.Colors.error.opacity(0.8)]
-                                : [DesignSystem.Colors.primary, DesignSystem.Colors.primaryDark],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.regularMaterial)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(
+                                (isDestructive ? DesignSystem.Colors.destructive : DesignSystem.Colors.controlActive)
+                                    .opacity(configuration.isPressed ? 0.4 : 0.3)
+                            )
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(
+                                (isDestructive ? DesignSystem.Colors.destructive : DesignSystem.Colors.glassBorder)
+                                    .opacity(0.5),
+                                lineWidth: 1.5
+                            )
+                    }
                     .shadow(
-                        color: DesignSystem.Effects.buttonShadow,
-                        radius: configuration.isPressed ? 4 : DesignSystem.Effects.buttonShadowRadius,
+                        color: Color.black.opacity(0.1),
+                        radius: configuration.isPressed ? 8 : 16,
                         x: 0,
-                        y: configuration.isPressed ? 1 : DesignSystem.Effects.buttonShadowOffset.height
+                        y: configuration.isPressed ? 2 : 8
                     )
             }
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+            .animation(.easeInOut(duration: 0.15), value: configuration.isPressed)
     }
 }
 
-struct SecondaryButtonStyle: ButtonStyle {
+struct SpatialSecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(DesignSystem.Typography.headline)
-            .foregroundColor(DesignSystem.Colors.primary)
+            .foregroundColor(DesignSystem.Colors.label)
             .frame(height: DesignSystem.Sizing.buttonHeight)
             .frame(maxWidth: .infinity)
             .background {
-                RoundedRectangle(cornerRadius: DesignSystem.Sizing.cornerRadius)
-                    .fill(.regularMaterial)
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.thinMaterial)
                     .overlay {
-                        RoundedRectangle(cornerRadius: DesignSystem.Sizing.cornerRadius)
-                            .stroke(DesignSystem.Colors.primary, lineWidth: 2)
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(
+                                DesignSystem.Colors.glassBackground
+                                    .opacity(configuration.isPressed ? 0.2 : 0.1)
+                            )
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(
+                                DesignSystem.Colors.glassBorder,
+                                lineWidth: 1
+                            )
                     }
             }
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+            .animation(.easeInOut(duration: 0.15), value: configuration.isPressed)
     }
 }
 
-struct FloatingButtonStyle: ButtonStyle {
-    let backgroundColor: Color
+struct SpatialFloatingButtonStyle: ButtonStyle {
+    let iconTint: Color
+    let context: ButtonContext
     
-    init(backgroundColor: Color = DesignSystem.Colors.primary) {
-        self.backgroundColor = backgroundColor
+    enum ButtonContext {
+        case primary, secondary, destructive, constructive, neutral
+        
+        var backgroundOpacity: Double {
+            switch self {
+            case .primary: return 0.2
+            case .secondary: return 0.15
+            case .destructive: return 0.1
+            case .constructive: return 0.1
+            case .neutral: return 0.12
+            }
+        }
+        
+        var borderOpacity: Double {
+            switch self {
+            case .primary: return 0.4
+            case .secondary: return 0.3
+            case .destructive: return 0.3
+            case .constructive: return 0.3
+            case .neutral: return 0.25
+            }
+        }
+        
+        var accentColor: Color {
+            switch self {
+            case .primary, .secondary: return .white
+            case .destructive: return .red
+            case .constructive: return .green
+            case .neutral: return .gray
+            }
+        }
+    }
+    
+    init(iconTint: Color = DesignSystem.Colors.iconPrimary, context: ButtonContext = .primary) {
+        self.iconTint = iconTint
+        self.context = context
     }
     
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: DesignSystem.Sizing.iconSize, weight: .semibold))
-            .foregroundColor(.white)
+            .font(.system(size: DesignSystem.Sizing.iconSize, weight: .medium))
+            .foregroundColor(iconTint)
             .frame(width: 56, height: 56)
             .background {
                 Circle()
-                    .fill(backgroundColor)
+                    .fill(.regularMaterial)
+                    .overlay {
+                        Circle()
+                            .fill(context.accentColor.opacity(context.backgroundOpacity))
+                    }
+                    .overlay {
+                        Circle()
+                            .stroke(
+                                context.accentColor.opacity(context.borderOpacity),
+                                lineWidth: 1
+                            )
+                    }
                     .shadow(
-                        color: DesignSystem.Effects.buttonShadow,
-                        radius: configuration.isPressed ? 4 : 12,
+                        color: Color.black.opacity(0.1),
+                        radius: configuration.isPressed ? 6 : 16,
                         x: 0,
-                        y: configuration.isPressed ? 2 : 6
+                        y: configuration.isPressed ? 2 : 8
                     )
             }
-            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .animation(.easeInOut(duration: 0.15), value: configuration.isPressed)
     }
 }
 
@@ -267,12 +353,38 @@ struct StatusIndicatorStyle: ViewModifier {
 
 // MARK: - View Extensions
 
+// MARK: - Material Extensions for Spatial Design
+enum SpatialMaterial {
+    case thin, regular, thick, ultraThin
+    
+    var material: Material {
+        switch self {
+        case .thin: return .thinMaterial
+        case .regular: return .regularMaterial
+        case .thick: return .thickMaterial
+        case .ultraThin: return .ultraThinMaterial
+        }
+    }
+}
+
 extension View {
-    func cardStyle(padding: CGFloat = DesignSystem.Sizing.cardPadding) -> some View {
-        modifier(CardStyle(padding: padding))
+    func spatialCard(padding: CGFloat = DesignSystem.Sizing.cardPadding, material: SpatialMaterial = .regular) -> some View {
+        modifier(SpatialCardStyle(padding: padding, material: material.material))
     }
     
     func statusIndicator(_ status: StatusIndicatorStyle.ConnectionStatus) -> some View {
         modifier(StatusIndicatorStyle(status: status))
+    }
+    
+    // Spatial computing helper for glass effect
+    func glassEffect(opacity: Double = 0.1) -> some View {
+        self.background {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    Rectangle()
+                        .fill(Color.white.opacity(opacity))
+                }
+        }
     }
 }

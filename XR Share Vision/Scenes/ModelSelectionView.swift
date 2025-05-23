@@ -171,14 +171,19 @@ struct ModelSelectionScreen: View {
                 
                 // Debug mode toggle with manual action to handle MainActor requirements
                 Button(action: {
-                    // Debounce to prevent multiple toggles
-                    guard !appModel.controlPanelVisible || !appModel.debugModeEnabled else { 
-                        print("Debug panel already visible")
-                        return 
-                    }
+                    // Toggle debug mode
+                    appModel.debugModeEnabled.toggle()
+                    print("Debug mode \(appModel.debugModeEnabled ? "enabled" : "disabled")")
                     
-                    // Toggle debug mode with UI update
-                    appModel.toggleDebugModeUI()
+                    if appModel.debugModeEnabled {
+                        // Open debug window directly
+                        openWindow(id: "controlPanel")
+                        appModel.controlPanelVisible = true
+                    } else {
+                        // Close debug window
+                        dismissWindow(id: "controlPanel")
+                        appModel.controlPanelVisible = false
+                    }
                 }) {
                     Label(
                         appModel.debugModeEnabled ? "Debug Console: Open" : "Debug Console: Closed", 
@@ -239,6 +244,7 @@ struct ModelSelectionScreen: View {
                 HStack(spacing: 16) {
                     ForEach(models, id: \.instanceUUID) { mod in
                         modelCard(for: mod)
+                            .animation(.easeInOut(duration: 0.3), value: models.count)
                     }
                 }
                 .padding(.horizontal)
@@ -249,45 +255,85 @@ struct ModelSelectionScreen: View {
     
     func modelCard(for mod: Model) -> some View {
         VStack(spacing: 0) {
-            Image("Heart") // Optionally replace with mod-specific thumbnail
-                .resizable()
-                .scaledToFit()
-                .frame(height: 120)
-                .frame(maxWidth: .infinity)
-                .clipped()
+            // Enhanced model preview with 3D capability
+            ZStack {
+                // Background with glass effect
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(.regularMaterial)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(.white.opacity(0.1))
+                    }
+                
+                // Model preview - try 3D first, fallback to 2D
+                Group {
+                    if let entity = mod.modelEntity {
+                        // Use Model3D for live 3D preview
+                        Model3DPreviewView(modelEntity: entity)
+                    } else {
+                        // Fallback to 2D preview
+                        ModelPreviewView(
+                            modelType: mod.modelType,
+                            size: CGSize(width: 100, height: 100)
+                        )
+                    }
+                }
+            }
+            .frame(height: 120)
+            .frame(maxWidth: .infinity)
+            .clipped()
 
+            // Enhanced control bar with spatial design
             HStack {
                 Text(mod.modelType.rawValue)
                     .font(.subheadline)
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                     .truncationMode(.tail)
 
                 Spacer()
 
-                Button(action: {
-                    modelManager.removeModel(mod)
-                    dismissWindow(id: "ModelMenuBar")
-                }) {
-                    Image(systemName: "trash")
-                        .foregroundColor(.white)
-                }
-                .buttonStyle(.plain)
+                HStack(spacing: 8) {
+                    Button(action: {
+                        modelManager.removeModel(mod)
+                        dismissWindow(id: "ModelMenuBar")
+                    }) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.red.opacity(0.8))
+                            .frame(width: 24, height: 24)
+                            .background(.ultraThinMaterial)
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .hoverEffect(.highlight)
 
-                Button(action: {
-                    openWindow(id: "ModelMenuBar")
-                }) {
-                    Image(systemName: "arrow.up.left.and.arrow.down.right")
-                        .foregroundColor(.white)
+                    Button(action: {
+                        openWindow(id: "ModelMenuBar")
+                    }) {
+                        Image(systemName: "arrow.up.left.and.arrow.down.right")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.primary)
+                            .frame(width: 24, height: 24)
+                            .background(.ultraThinMaterial)
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .hoverEffect(.highlight)
                 }
-                .buttonStyle(.plain)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(Color.black.opacity(0.3))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(.thinMaterial)
         }
-        .frame(width: 280, height: 160)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .frame(width: 300, height: 180) // Slightly larger for better proportions
+        .background(.regularMaterial)
+        .overlay {
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(.white.opacity(0.2), lineWidth: 1)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+        .hoverEffect(.lift)
     }
 
     

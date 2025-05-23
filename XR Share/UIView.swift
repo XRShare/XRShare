@@ -40,7 +40,7 @@ struct XRAnatomyView: View {
                     
                     // Top status bar
                     VStack {
-                        ModernConnectionStatusView()
+                        SpatialConnectionStatusView()
                             .environmentObject(arViewModel)
                             .padding(.top, DesignSystem.Spacing.sm)
                         Spacer()
@@ -49,7 +49,7 @@ struct XRAnatomyView: View {
                     // Bottom control bar
                     VStack {
                         Spacer()
-                        ModernControlBar(
+                        SpatialControlBar(
                             onBack: handleBackButtonTap,
                             onModelSelect: { showModelMenu = true },
                             onReset: { showResetConfirmation = true },
@@ -76,7 +76,8 @@ struct XRAnatomyView: View {
                                     showModelMenu = false
                                     modelManager.selectedModelID = modelType
                                     
-                                    if let model = arViewModel.models.first(where: { $0.modelType == modelType }) {
+                                    if !arViewModel.models.isEmpty,
+                                       let model = arViewModel.models.first(where: { $0.modelType == modelType }) {
                                         arViewModel.selectedModel = model
                                     }
                                     
@@ -93,8 +94,8 @@ struct XRAnatomyView: View {
                             }
                         )
                         .transition(.asymmetric(
-                            insertion: .move(edge: .bottom).combined(with: .opacity),
-                            removal: .move(edge: .bottom).combined(with: .opacity)
+                            insertion: AnyTransition.move(edge: .bottom).combined(with: .opacity),
+                            removal: AnyTransition.move(edge: .bottom).combined(with: .opacity)
                         ))
                     }
                     
@@ -105,8 +106,8 @@ struct XRAnatomyView: View {
                             arViewModel: arViewModel
                         )
                         .transition(.asymmetric(
-                            insertion: .move(edge: .bottom).combined(with: .opacity),
-                            removal: .move(edge: .bottom).combined(with: .opacity)
+                            insertion: AnyTransition.move(edge: .bottom).combined(with: .opacity),
+                            removal: AnyTransition.move(edge: .bottom).combined(with: .opacity)
                         ))
                     }
                 }
@@ -199,7 +200,7 @@ struct XRAnatomyView: View {
 
 // MARK: - Modern AR Interface Components
 
-struct ModernConnectionStatusView: View {
+struct SpatialConnectionStatusView: View {
     @EnvironmentObject var arViewModel: ARViewModel
     
     private var connectionStatus: StatusIndicatorStyle.ConnectionStatus {
@@ -209,6 +210,15 @@ struct ModernConnectionStatusView: View {
             return .searching
         } else {
             return .connected
+        }
+    }
+    
+    private var statusColor: Color {
+        switch connectionStatus {
+        case .connected: return DesignSystem.Colors.constructive
+        case .searching: return DesignSystem.Colors.neutral
+        case .disconnected: return DesignSystem.Colors.iconSecondary
+        case .connecting: return DesignSystem.Colors.neutral
         }
     }
     
@@ -234,14 +244,46 @@ struct ModernConnectionStatusView: View {
     var body: some View {
         HStack {
             Spacer()
-            Text(statusText)
-                .statusIndicator(connectionStatus)
+            
+            HStack(spacing: DesignSystem.Spacing.sm) {
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 8, height: 8)
+                    .overlay {
+                        if connectionStatus == .searching {
+                            Circle()
+                                .stroke(statusColor, lineWidth: 1)
+                                .scaleEffect(1.5)
+                                .opacity(0.6)
+                                .animation(.easeInOut(duration: 1).repeatForever(autoreverses: true), value: true)
+                        }
+                    }
+                
+                Text(statusText)
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundColor(DesignSystem.Colors.label)
+            }
+            .padding(.horizontal, DesignSystem.Spacing.md)
+            .padding(.vertical, DesignSystem.Spacing.sm)
+            .background {
+                Capsule()
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        Capsule()
+                            .fill(DesignSystem.Colors.glassBackground)
+                    }
+                    .overlay {
+                        Capsule()
+                            .stroke(DesignSystem.Colors.glassBorder, lineWidth: 1)
+                    }
+            }
+            
             Spacer()
         }
     }
 }
 
-struct ModernControlBar: View {
+struct SpatialControlBar: View {
     let onBack: () -> Void
     let onModelSelect: () -> Void
     let onReset: () -> Void
@@ -260,7 +302,7 @@ struct ModernControlBar: View {
                 Image(systemName: "arrow.left")
                     .font(.system(size: DesignSystem.Sizing.iconSize, weight: .semibold))
             }
-            .buttonStyle(FloatingButtonStyle(backgroundColor: DesignSystem.Colors.error))
+            .buttonStyle(SpatialFloatingButtonStyle(context: .destructive))
             
             Spacer()
             
@@ -271,7 +313,7 @@ struct ModernControlBar: View {
                         Image(systemName: "plus.circle.fill")
                             .font(.system(size: DesignSystem.Sizing.iconSize, weight: .semibold))
                     }
-                    .buttonStyle(FloatingButtonStyle())
+                    .buttonStyle(SpatialFloatingButtonStyle())
                 }
                 
                 if showReset {
@@ -279,7 +321,7 @@ struct ModernControlBar: View {
                         Image(systemName: "trash.fill")
                             .font(.system(size: DesignSystem.Sizing.iconSize, weight: .semibold))
                     }
-                    .buttonStyle(FloatingButtonStyle(backgroundColor: DesignSystem.Colors.warning))
+                    .buttonStyle(SpatialFloatingButtonStyle(context: .destructive))
                 }
                 
                 if showPermissionToggle {
@@ -287,8 +329,8 @@ struct ModernControlBar: View {
                         Image(systemName: isPermissionGranted ? "lock.open.fill" : "lock.fill")
                             .font(.system(size: DesignSystem.Sizing.iconSize, weight: .semibold))
                     }
-                    .buttonStyle(FloatingButtonStyle(
-                        backgroundColor: isPermissionGranted ? DesignSystem.Colors.success : DesignSystem.Colors.warning
+                    .buttonStyle(SpatialFloatingButtonStyle(
+                        context: isPermissionGranted ? .constructive : .destructive
                     ))
                 }
                 
@@ -296,7 +338,7 @@ struct ModernControlBar: View {
                     Image(systemName: "gear")
                         .font(.system(size: DesignSystem.Sizing.iconSize, weight: .semibold))
                 }
-                .buttonStyle(FloatingButtonStyle(backgroundColor: DesignSystem.Colors.secondaryBackground))
+                .buttonStyle(SpatialFloatingButtonStyle(context: .secondary))
             }
         }
     }
@@ -354,7 +396,7 @@ struct ModernModelSelectionView: View {
                         }
                     }
                 }
-                .cardStyle()
+                .spatialCard()
                 .frame(maxHeight: UIScreen.main.bounds.height * 0.6)
                 .padding(DesignSystem.Spacing.lg)
             }
@@ -367,38 +409,34 @@ struct ModelSelectionCard: View {
     let isSelected: Bool
     let action: () -> Void
     
-    private var modelIcon: String {
-        // Map model types to appropriate SF Symbols
-        switch modelType.rawValue.lowercased() {
-        case let name where name.contains("heart"):
-            return "heart.fill"
-        case let name where name.contains("brain"):
-            return "brain.head.profile"
-        case let name where name.contains("pancake"):
-            return "circle.stack.fill"
-        default:
-            return "cube.fill"
-        }
-    }
-    
     var body: some View {
         Button(action: action) {
             VStack(spacing: DesignSystem.Spacing.sm) {
-                // Icon
-                RoundedRectangle(cornerRadius: DesignSystem.Sizing.cornerRadius)
-                    .fill(isSelected ? DesignSystem.Colors.primary.opacity(0.2) : DesignSystem.Colors.tertiaryBackground)
-                    .frame(height: 80)
-                    .overlay {
-                        Image(systemName: modelIcon)
-                            .font(.system(size: 32, weight: .semibold))
-                            .foregroundColor(isSelected ? DesignSystem.Colors.primary : DesignSystem.Colors.secondaryLabel)
-                    }
-                    .overlay {
-                        if isSelected {
+                // Model Preview
+                ZStack {
+                    RoundedRectangle(cornerRadius: DesignSystem.Sizing.cornerRadius)
+                        .fill(.regularMaterial)
+                        .overlay {
                             RoundedRectangle(cornerRadius: DesignSystem.Sizing.cornerRadius)
-                                .stroke(DesignSystem.Colors.primary, lineWidth: 2)
+                                .fill(isSelected ? DesignSystem.Colors.glassHighlight : DesignSystem.Colors.glassBackground)
                         }
+                        .frame(height: 80)
+                    
+                    UnifiedModelPreview(
+                        modelType: modelType,
+                        size: CGSize(width: 70, height: 70),
+                        showBackground: false
+                    )
+                }
+                .overlay {
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: DesignSystem.Sizing.cornerRadius)
+                            .stroke(DesignSystem.Colors.primary, lineWidth: 2)
+                    } else {
+                        RoundedRectangle(cornerRadius: DesignSystem.Sizing.cornerRadius)
+                            .stroke(DesignSystem.Colors.glassBorder, lineWidth: 1)
                     }
+                }
                 
                 // Label
                 Text(modelType.rawValue.capitalized)
@@ -522,13 +560,13 @@ struct ModernSettingsPanel: View {
                                 Button("Re-Sync Image") {
                                     arViewModel.triggerSync()
                                 }
-                                .buttonStyle(SecondaryButtonStyle())
+                                .buttonStyle(SpatialSecondaryButtonStyle())
                             }
                         }
                     }
                     .frame(maxHeight: UIScreen.main.bounds.height * 0.5)
                 }
-                .cardStyle()
+                .spatialCard()
                 .padding(DesignSystem.Spacing.lg)
             }
         }
@@ -579,7 +617,9 @@ struct SettingsToggle: View {
             
             Toggle("", isOn: $isOn)
                 .toggleStyle(SwitchToggleStyle(tint: DesignSystem.Colors.primary))
-                .onChange(of: isOn, perform: onChange)
+                .onChange(of: isOn) { newValue in
+                    onChange(newValue)
+                }
         }
         .padding(DesignSystem.Spacing.sm)
         .background(DesignSystem.Colors.tertiaryBackground)
@@ -713,14 +753,14 @@ struct ModernAlert: View {
                                 secondaryAction.action()
                             }
                         }
-                        .buttonStyle(SecondaryButtonStyle())
+                        .buttonStyle(SpatialSecondaryButtonStyle())
                         
                         Button(primaryAction.title) {
                             withAnimation(.spring()) {
                                 primaryAction.action()
                             }
                         }
-                        .buttonStyle(PrimaryButtonStyle(isDestructive: primaryAction.isDestructive))
+                        .buttonStyle(SpatialPrimaryButtonStyle(isDestructive: primaryAction.isDestructive))
                     }
                 } else {
                     // Single button layout
@@ -729,7 +769,7 @@ struct ModernAlert: View {
                             primaryAction.action()
                         }
                     }
-                    .buttonStyle(PrimaryButtonStyle(isDestructive: primaryAction.isDestructive))
+                    .buttonStyle(SpatialPrimaryButtonStyle(isDestructive: primaryAction.isDestructive))
                 }
             }
             .padding(DesignSystem.Spacing.xl)

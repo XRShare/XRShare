@@ -122,9 +122,13 @@ final class Model: ObservableObject, @preconcurrency Identifiable {
                 entity.components[ModelTypeComponent.self] = ModelTypeComponent(type: modelType)
                 entity.components[LastTransformComponent.self] = LastTransformComponent(matrix: entity.transform.matrix)
                 
-                // Add collision component for interaction
+                // Add collision component for interaction (invisible)
                 if entity.collision == nil {
-                    entity.collision = CollisionComponent(shapes: [.generateBox(size: entity.visualBounds(relativeTo: nil).extents)])
+                    entity.collision = CollisionComponent(
+                        shapes: [.generateBox(size: entity.visualBounds(relativeTo: nil).extents)],
+                        isStatic: false,
+                        filter: .default
+                    )
                 }
                 
                 // Add InstanceID component

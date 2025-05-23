@@ -17,6 +17,21 @@ enum ModelCategory: String, CaseIterable, Identifiable {
     case car
     case airplane
     case bird
+    
+    var localizedName: String {
+        switch self {
+        case .anatomy:
+            return "Anatomy"
+        case .food:
+            return "Food"
+        case .car:
+            return "Car"
+        case .airplane:
+            return "Airplane"
+        case .bird:
+            return "Bird"
+        }
+    }
 }
 
 struct ModelType: Hashable, Identifiable {
@@ -83,6 +98,8 @@ struct ModelType: Hashable, Identifiable {
         
         if modelTypes.isEmpty {
             print("WARNING: No 3D models found. Please add .usdz files to the 'models' folder.")
+            // Return a default placeholder to prevent crashes
+            return [ModelType(rawValue: "placeholder")]
         }
         
         return modelTypes

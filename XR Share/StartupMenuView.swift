@@ -135,7 +135,7 @@ struct StartupMenuView: View {
                             )
                         }
                     }
-                    .cardStyle()
+                    .spatialCard(material: .thick)
                     .padding(.horizontal, DesignSystem.Spacing.lg)
                     .opacity(showingAnimation ? 1.0 : 0.0)
                     .offset(y: showingAnimation ? 0 : 50)
@@ -149,9 +149,9 @@ struct StartupMenuView: View {
                 }
             }
             
-            // Modern session name input overlay
+            // Spatial session name input overlay
             if isEnteringSessionName {
-                ModernSessionNameInput(
+                SpatialSessionNameInput(
                     isPresented: $isEnteringSessionName,
                     sessionName: $sessionNameInput
                 ) {
@@ -188,9 +188,9 @@ struct MainMenuView: View {
     let onLocalSession: () -> Void
     
     private let menuItems = [
-        MenuItemData(title: "Host Session", subtitle: "Start a new collaborative AR session", icon: "person.3.fill", color: DesignSystem.Colors.primary),
-        MenuItemData(title: "Join Session", subtitle: "Connect to an existing session", icon: "link", color: DesignSystem.Colors.accent),
-        MenuItemData(title: "Local Session", subtitle: "Practice offline without networking", icon: "iphone", color: DesignSystem.Colors.success)
+        MenuItemData(title: "Host Session", subtitle: "Start a new collaborative AR session", icon: "person.3", color: DesignSystem.Colors.constructive),
+        MenuItemData(title: "Join Session", subtitle: "Connect to an existing session", icon: "link", color: DesignSystem.Colors.neutral),
+        MenuItemData(title: "Local Session", subtitle: "Practice offline without networking", icon: "iphone", color: DesignSystem.Colors.iconSecondary)
     ]
     
     var body: some View {
@@ -233,14 +233,22 @@ struct MenuItemCard: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: DesignSystem.Spacing.md) {
-                // Icon container
+                // Icon container - spatial glass design
                 RoundedRectangle(cornerRadius: DesignSystem.Sizing.smallCornerRadius)
-                    .fill(item.color.opacity(0.1))
+                    .fill(.regularMaterial)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: DesignSystem.Sizing.smallCornerRadius)
+                            .fill(DesignSystem.Colors.glassBackground)
+                    }
                     .frame(width: 50, height: 50)
                     .overlay {
                         Image(systemName: item.icon)
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundColor(item.color)
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundColor(DesignSystem.Colors.iconPrimary)
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: DesignSystem.Sizing.smallCornerRadius)
+                            .stroke(DesignSystem.Colors.glassBorder, lineWidth: 1)
                     }
                 
                 // Text content
@@ -268,7 +276,7 @@ struct MenuItemCard: View {
                     .fill(.regularMaterial)
                     .overlay {
                         RoundedRectangle(cornerRadius: DesignSystem.Sizing.cornerRadius)
-                            .stroke(item.color.opacity(0.3), lineWidth: 1)
+                            .stroke(DesignSystem.Colors.glassBorder, lineWidth: 1)
                     }
             }
         }
@@ -302,7 +310,7 @@ struct SessionDiscoveryView: View {
                 // Animated searching indicator
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
-                        .foregroundColor(DesignSystem.Colors.accent)
+                        .foregroundColor(DesignSystem.Colors.iconSecondary)
                         .symbolEffect(.pulse, options: .repeating)
                     
                     Text("Searching...")
@@ -343,7 +351,7 @@ struct SessionDiscoveryView: View {
             Button("Cancel") {
                 onCancel()
             }
-            .buttonStyle(SecondaryButtonStyle())
+            .buttonStyle(SpatialSecondaryButtonStyle())
         }
     }
 }
@@ -357,11 +365,11 @@ struct SessionCard: View {
             HStack(spacing: DesignSystem.Spacing.md) {
                 // Session icon
                 Circle()
-                    .fill(DesignSystem.Colors.accent.opacity(0.1))
+                    .fill(DesignSystem.Colors.glassBackground)
                     .frame(width: 40, height: 40)
                     .overlay {
-                        Image(systemName: "person.2.fill")
-                            .foregroundColor(DesignSystem.Colors.accent)
+                        Image(systemName: "person.2")
+                            .foregroundColor(DesignSystem.Colors.iconSecondary)
                     }
                 
                 // Session info
@@ -377,8 +385,8 @@ struct SessionCard: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 
-                Image(systemName: "arrow.right.circle.fill")
-                    .foregroundColor(DesignSystem.Colors.accent)
+                Image(systemName: "arrow.right.circle")
+                    .foregroundColor(DesignSystem.Colors.iconSecondary)
                     .font(.title2)
             }
             .padding(DesignSystem.Spacing.md)
@@ -387,7 +395,7 @@ struct SessionCard: View {
                     .fill(.regularMaterial)
                     .overlay {
                         RoundedRectangle(cornerRadius: DesignSystem.Sizing.cornerRadius)
-                            .stroke(DesignSystem.Colors.accent.opacity(0.3), lineWidth: 1)
+                            .stroke(DesignSystem.Colors.glassBorder, lineWidth: 1)
                     }
             }
         }
@@ -397,7 +405,7 @@ struct SessionCard: View {
 
 // MARK: - Modern Session Name Input
 
-struct ModernSessionNameInput: View {
+struct SpatialSessionNameInput: View {
     @Binding var isPresented: Bool
     @Binding var sessionName: String
     let onContinue: () -> Void
@@ -465,7 +473,7 @@ struct ModernSessionNameInput: View {
                             isPresented = false
                         }
                     }
-                    .buttonStyle(SecondaryButtonStyle())
+                    .buttonStyle(SpatialSecondaryButtonStyle())
                     
                     Button("Start Session") {
                         withAnimation(.spring()) {
@@ -473,7 +481,7 @@ struct ModernSessionNameInput: View {
                             onContinue()
                         }
                     }
-                    .buttonStyle(PrimaryButtonStyle())
+                    .buttonStyle(SpatialPrimaryButtonStyle())
                     .disabled(sessionName.isEmpty)
                 }
             }
