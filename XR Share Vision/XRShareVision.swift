@@ -41,7 +41,7 @@ struct XRShareVision: App {
                 }
         }
         .windowStyle(.automatic)
-        .defaultSize(width: 600, height: 450)
+        .defaultSize(width: 600, height: 480)
         .windowResizability(.automatic)
         
         
@@ -135,6 +135,15 @@ struct XRShareVision: App {
         .defaultSize(width: 600, height: 100)
         .windowResizability(.automatic)
         
+        
+        WindowGroup(id: "ModelControlPanel"){
+            ModelControlPanelView(modelManager: modelManager, arViewModel: arViewModel)
+                .environmentObject(appModel)
+                .environmentObject(appState)
+        }
+        .windowStyle(.automatic)
+        .defaultSize(width: 400, height: 600)
+        .windowResizability(.automatic)
 
 
         ImmersiveSpace(id: appModel.immersiveSpaceID) {

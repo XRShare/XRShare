@@ -19,10 +19,13 @@ struct MainMenu: View {
         ZStack {
             
             VStack(spacing: 20) {
-               
+                
+                    
                 Text("XRShare")
-                    .padding()
-                    .font(.largeTitle)
+                    .padding(.top, 50)
+                    .font(.extraLargeTitle)
+                
+                Divider()
                 
             
                 if isJoiningSession {
@@ -70,7 +73,7 @@ struct MainMenu: View {
                     
                     
                 } else {
-                    ForEach(["Host session", "Join session", "Open session"], id: \.self) { title in
+                    ForEach(["Host session", "Join session", "Local session"], id: \.self) { title in
                         Button {
                             switch title {
                             case "Host session":
@@ -79,7 +82,7 @@ struct MainMenu: View {
                                 arViewModel.userRole = .viewer
                                 arViewModel.startMultipeerServices()
                                 isJoiningSession = true
-                            case "Open session":
+                            case "Local session":
                                 arViewModel.userRole = .openSession
                                 arViewModel.sessionName = "OpenSession"
                                 arViewModel.sessionID = UUID().uuidString
@@ -92,9 +95,15 @@ struct MainMenu: View {
                             Text(title)
                                 .font(.title2)
                                 .fontWeight(.bold)
-                                .frame(maxWidth: 400, minHeight: 25)
-                                .padding()
+                                .frame(maxWidth: 200, maxHeight: 20)
+                            
+                            
                         }
+                        
+                        Text(description(for: title))
+                            .font(.caption)
+                        
+                        Divider()
                     }
                 }
             }
@@ -123,12 +132,20 @@ struct MainMenu: View {
     private func moveToInSession() {
         appModel.currentPage = .modelSelection
     }
+    
+    func description(for title: String) -> String {
+        switch title {
+        case "Host session":
+            return "Start a session for others to join"
+        case "Join session":
+            return "Join a nearby hosted session"
+        case "Local session":
+            return "Try it out without network sharing"
+        default:
+            return ""
+        }
+    }
+
+    
 }
 
-struct MainMenu_Previews: PreviewProvider {
-    static var previews: some View {
-        MainMenu()
-            .environmentObject(AppModel())
-            .environmentObject(ARViewModel())
-    }
-}

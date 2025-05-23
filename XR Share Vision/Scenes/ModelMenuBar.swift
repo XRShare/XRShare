@@ -121,6 +121,19 @@ struct ModelMenuBar: View {
                     .padding([.top, .bottom])
                     
                     
+                    
+                    Button(action: {
+                        print("Speak selected")
+                        openWindow(id: "controlPanel")
+                    }) {
+                        Image(systemName: "speaker.wave.3")
+                            .foregroundColor(.white)
+                    }
+                    .buttonStyle(.plain)
+                    .frame(width: 80, height: 50)
+                    .padding([.top, .bottom])
+                    
+                    
                     Button(action: {
                         print("trash Selected")
                         modelManager.removeModel(mod)
@@ -135,9 +148,10 @@ struct ModelMenuBar: View {
                     
                     
                     Button(action: {
-                        print("Speak selected")
+                        print("Controls Selected")
+                        openWindow(id: "ModelControlPanel")
                     }) {
-                        Image(systemName: "speaker.wave.3")
+                        Image(systemName: "hand.draw")
                             .foregroundColor(.white)
                     }
                     .buttonStyle(.plain)
