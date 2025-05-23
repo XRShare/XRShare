@@ -95,11 +95,15 @@ struct MainMenu: View {
                             Text(title)
                                 .font(.title2)
                                 .fontWeight(.bold)
-                                .frame(maxWidth: 400, minHeight: 25)
-                                .foregroundColor(.black)
-                                .padding()
+                                .frame(maxWidth: 200, maxHeight: 20)
+                            
+                            
                         }
-                        .background(RoundedRectangle(cornerRadius:30).fill(Color.white.opacity(0.3)))
+                        
+                        Text(description(for: title))
+                            .font(.caption)
+                        
+                        Divider()
                     }
                 }
             }
@@ -128,12 +132,20 @@ struct MainMenu: View {
     private func moveToInSession() {
         appModel.currentPage = .modelSelection
     }
+    
+    func description(for title: String) -> String {
+        switch title {
+        case "Host session":
+            return "Start a session for others to join"
+        case "Join session":
+            return "Join a nearby hosted session"
+        case "Local session":
+            return "Try it out without network sharing"
+        default:
+            return ""
+        }
+    }
+
+    
 }
 
-struct MainMenu_Previews: PreviewProvider {
-    static var previews: some View {
-        MainMenu()
-            .environmentObject(AppModel())
-            .environmentObject(ARViewModel())
-    }
-}

@@ -16,6 +16,18 @@ struct ParentSyncComponent: Component {
     var intendedParentName: String
 }
 
+
+func getRootEntityWithInstanceID(from entity: Entity) -> Entity? {
+    var current: Entity? = entity
+    while let e = current {
+        if let _ = e.components[InstanceIDComponent.self] {
+            return e
+        }
+        current = e.parent
+    }
+    return nil
+}
+
 struct InSession: View {
     @EnvironmentObject var appModel: AppModel 
     @EnvironmentObject var arViewModel: ARViewModel
@@ -196,7 +208,33 @@ struct InSession: View {
             // --- visionOS Gestures ---
                 .gesture(SpatialTapGesture().targetedToAnyEntity().onEnded ({ value in
                     
-                    print("🎯 Tapped entity: \(value.entity.name)")
+                    let tappedEntity = value.entity
+                        print("🎯 Tapped entity: \(tappedEntity.name)")
+                        
+                        // Try to get the UUID from the tapped entity
+                        if let idComponent = tappedEntity.components[InstanceIDComponent.self] {
+                            let tappedUUID = idComponent.id
+                            print("🆔 Tapped UUID: \(tappedUUID)")
+                            
+                            print("Type of tappedUUID: \(type(of: tappedUUID))")
+
+                            if let model = modelManager.placedModels.first {
+                                print("Type of model.instanceUUID: \(type(of: model.instanceUUID))")
+                            }
+                            
+                            
+                        } else {
+                            print("❌ Tapped entity has no InstanceIDComponent")
+                        }
+                    
+                    
+                        
+
+                        // Logging all placed models
+                        for model in modelManager.placedModels {
+                            print("Model: \(model.modelType.rawValue), UUID: \(model.instanceUUID)")
+                        }
+
                     
                     let entity = value.entity
                     let name = entity.name
@@ -437,3 +475,5 @@ struct InSession: View {
         }
     }
 }
+
+

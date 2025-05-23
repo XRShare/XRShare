@@ -431,7 +431,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"XR Share Vision/\"";
-				DEVELOPMENT_TEAM = G4W979YVJD;
+				DEVELOPMENT_TEAM = 6U8MW2V2T5;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "$(TARGET_NAME)/Info.plist";
@@ -443,7 +443,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "XR-Anatomy.XR-Anatomy-Vision-TeamLab";
+				PRODUCT_BUNDLE_IDENTIFIER = "XR-Anatomy.XR-Anatomy-Vision-TeamLab2";
 				PRODUCT_NAME = "XR ShareVision";
 				SDKROOT = xros;
 				SUPPORTED_PLATFORMS = "xros xrsimulator";
@@ -463,7 +463,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"XR Share Vision/\"";
-				DEVELOPMENT_TEAM = G4W979YVJD;
+				DEVELOPMENT_TEAM = 6U8MW2V2T5;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "$(TARGET_NAME)/Info.plist";
@@ -474,7 +474,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "XR-Anatomy.XR-Anatomy-Vision-TeamLab";
+				PRODUCT_BUNDLE_IDENTIFIER = "XR-Anatomy.XR-Anatomy-Vision-TeamLab2";
 				PRODUCT_NAME = "XR ShareVision";
 				SDKROOT = xros;
 				SUPPORTED_PLATFORMS = "xros xrsimulator";

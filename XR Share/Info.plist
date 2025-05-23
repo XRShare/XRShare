@@ -2,10 +2,38 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleIdentifier</key>
+	<string></string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_xr-anatomy._tcp</string>
 		<string>_xr-anatomy._udp</string>
 	</array>
+	<key>&lt;key&gt;CFBundleIcons&lt;/key&gt;
+&lt;dict&gt;
+    &lt;key&gt;CFBundlePrimaryIcon&lt;/key&gt;
+    &lt;dict&gt;
+        &lt;key&gt;CFBundleIconName&lt;/key&gt;
+        &lt;string&gt;AppIcon&lt;/string&gt;
+    &lt;/dict&gt;
+&lt;/dict&gt;
+&lt;key&gt;CFBundleIcons&lt;/key&gt;
+&lt;dict&gt;
+    &lt;key&gt;CFBundlePrimaryIcon&lt;/key&gt;
+    &lt;dict&gt;
+        &lt;key&gt;CFBundleIconName&lt;/key&gt;
+        &lt;string&gt;AppIcon&lt;/string&gt;
+    &lt;/dict&gt;
+&lt;/dict&gt;
+&lt;key&gt;CFBundleIcons&lt;/key&gt;
+&lt;dict&gt;
+    &lt;key&gt;CFBundlePrimaryIcon&lt;/key&gt;
+    &lt;dict&gt;
+        &lt;key&gt;CFBundleIconName&lt;/key&gt;
+        &lt;string&gt;AppIcon&lt;/string&gt;
+    &lt;/dict&gt;
+&lt;/dict&gt;
+</key>
+	<string></string>
 </dict>
 </plist>
