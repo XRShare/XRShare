@@ -39,6 +39,7 @@ final class Model: ObservableObject, @preconcurrency Identifiable {
     // Use ModelType for general identification, but need a unique ID per instance
     var id: ModelType { modelType }
     let instanceUUID = UUID() // Unique identifier for each instance
+    var entity: Entity?
     
     // MARK: - Initialization
     
